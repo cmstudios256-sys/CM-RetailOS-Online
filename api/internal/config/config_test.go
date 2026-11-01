@@ -26,8 +26,6 @@ func TestLoadUsesSecureCookieByDefault(t *testing.T) {
 	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
 	t.Setenv("HTTP_ADDR", "")
 	t.Setenv("COOKIE_SECURE", "")
-	t.Setenv("PUBLIC_LANDING_ONLY", "")
-	t.Setenv("PUBLIC_SHOP_ID", "")
 
 	cfg, err := Load()
 	if err != nil {
@@ -38,53 +36,6 @@ func TestLoadUsesSecureCookieByDefault(t *testing.T) {
 	}
 	if cfg.HTTPAddr != ":8080" {
 		t.Fatalf("HTTPAddr = %q, want :8080", cfg.HTTPAddr)
-	}
-	if cfg.PublicLandingOnly {
-		t.Fatal("PublicLandingOnly should default to false")
-	}
-	if cfg.PublicShopID != "" {
-		t.Fatalf("PublicShopID = %q, want empty", cfg.PublicShopID)
-	}
-}
-
-func TestLoadCanEnablePublicLandingOnlyMode(t *testing.T) {
-	setGoogleEnvironment(t, "", "", "", "")
-	t.Setenv("DATABASE_URL", "postgres://localhost/retailos")
-	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
-	t.Setenv("PUBLIC_LANDING_ONLY", "true")
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if !cfg.PublicLandingOnly {
-		t.Fatal("PublicLandingOnly = false, want true")
-	}
-}
-
-func TestLoadAcceptsPublicShopID(t *testing.T) {
-	setGoogleEnvironment(t, "", "", "", "")
-	t.Setenv("DATABASE_URL", "postgres://localhost/retailos")
-	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
-	t.Setenv("PUBLIC_SHOP_ID", "a8b15767-02c0-4096-a8c0-dcf6cfbfc50f")
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if cfg.PublicShopID != "a8b15767-02c0-4096-a8c0-dcf6cfbfc50f" {
-		t.Fatalf("PublicShopID = %q, want configured shop UUID", cfg.PublicShopID)
-	}
-}
-
-func TestLoadRejectsInvalidPublicShopID(t *testing.T) {
-	setGoogleEnvironment(t, "", "", "", "")
-	t.Setenv("DATABASE_URL", "postgres://localhost/retailos")
-	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
-	t.Setenv("PUBLIC_SHOP_ID", "not-a-uuid")
-
-	if _, err := Load(); err == nil {
-		t.Fatal("Load() accepted an invalid PUBLIC_SHOP_ID")
 	}
 }
 
@@ -182,6 +133,4 @@ func setGoogleEnvironment(t *testing.T, clientID, clientSecret, redirectURL, app
 	t.Setenv("SMTP_USERNAME", "")
 	t.Setenv("SMTP_PASSWORD", "")
 	t.Setenv("SMTP_FROM", "")
-	t.Setenv("PUBLIC_LANDING_ONLY", "")
-	t.Setenv("PUBLIC_SHOP_ID", "")
 }

@@ -1,17 +1,15 @@
 package httpapi
 
 import (
-	"context"
-	"database/sql"
-	"errors"
-	"log"
 	"net/http"
-	"strings"
+	"strconv"
+	"time"
 )
 
 type publicWorkspaceResponse struct {
 	ShopName string `json:"shopName"`
 	Currency string `json:"currency"`
+	Demo     bool   `json:"demo"`
 }
 
 type publicDashboardProduct struct {
@@ -22,79 +20,50 @@ type publicDashboardProduct struct {
 	MinStock float64 `json:"minStock"`
 }
 
-func (s *Server) publicWorkspace(w http.ResponseWriter, r *http.Request) {
-	if !s.requirePublicShop(w) {
-		return
-	}
-
-	var workspace publicWorkspaceResponse
-	err := s.db.QueryRowContext(r.Context(), `
-		SELECT name, currency FROM shops WHERE id = $1`,
-		s.config.PublicShopID,
-	).Scan(&workspace.ShopName, &workspace.Currency)
-	if errors.Is(err, sql.ErrNoRows) {
-		writeError(w, http.StatusServiceUnavailable, "public_workspace_unavailable", "The public dashboard is not configured.")
-		return
-	}
-	if err != nil {
-		log.Printf("load public workspace: %v", err)
-		writeError(w, http.StatusInternalServerError, "request_failed", "The public dashboard could not be loaded.")
-		return
-	}
-	writeJSON(w, http.StatusOK, workspace)
+func (s *Server) publicWorkspace(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, publicWorkspaceResponse{
+		ShopName: "Demo Shop",
+		Currency: "UGX",
+		Demo:     true,
+	})
 }
 
-func (s *Server) publicDashboard(w http.ResponseWriter, r *http.Request) {
-	if !s.requirePublicShop(w) {
-		return
-	}
-	claims := &sessionClaims{ShopID: s.config.PublicShopID}
-	ctx := context.WithValue(r.Context(), sessionClaimsKey{}, claims)
-	s.dashboard(w, r.WithContext(ctx))
-}
-
-func (s *Server) publicProducts(w http.ResponseWriter, r *http.Request) {
-	if !s.requirePublicShop(w) {
-		return
-	}
-
-	rows, err := s.db.QueryContext(r.Context(), `
-		SELECT id, name, unit, quantity, min_stock
-		FROM products
-		WHERE shop_id = $1 AND active = TRUE
-		ORDER BY name ASC
-		LIMIT 500`,
-		s.config.PublicShopID,
-	)
-	if err != nil {
-		log.Printf("list public dashboard products: %v", err)
-		writeError(w, http.StatusInternalServerError, "request_failed", "Public stock alerts could not be loaded.")
-		return
-	}
-	defer rows.Close()
-
-	products := make([]publicDashboardProduct, 0)
-	for rows.Next() {
-		var item publicDashboardProduct
-		if err := rows.Scan(&item.ID, &item.Name, &item.Unit, &item.Quantity, &item.MinStock); err != nil {
-			log.Printf("read public dashboard product: %v", err)
-			writeError(w, http.StatusInternalServerError, "request_failed", "Public stock alerts could not be loaded.")
-			return
+func (s *Server) publicDashboard(w http.ResponseWriter, _ *http.Request) {
+	now := time.Now()
+	chart := make([]dashboardChartPoint, 24)
+	for hour := range chart {
+		chart[hour] = dashboardChartPoint{
+			Label: strconv.Itoa(hour) + ":00",
 		}
-		products = append(products, item)
 	}
-	if err := rows.Err(); err != nil {
-		log.Printf("iterate public dashboard products: %v", err)
-		writeError(w, http.StatusInternalServerError, "request_failed", "Public stock alerts could not be loaded.")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string][]publicDashboardProduct{"products": products})
+	chart[now.Hour()].Sales = 21000
+	chart[now.Hour()].Profit = 8000
+	writeJSON(w, http.StatusOK, map[string]any{
+		"productCount":     3,
+		"lowStockCount":    1,
+		"inventoryValue":   231200,
+		"todaySales":       2,
+		"todayRevenue":     21000,
+		"currency":         "UGX",
+		"revenue":          21000,
+		"profit":           8000,
+		"previousRevenue":  24000,
+		"previousProfit":   8000,
+		"orderCount":       2,
+		"previousOrders":   1,
+		"unitsSold":        3,
+		"chart":            chart,
+		"topProducts":      []dashboardTopProduct{{Name: "Sample Notebook", QuantitySold: 2, Revenue: 9000}, {Name: "Demo Coffee Beans", QuantitySold: 1, Revenue: 12000}},
+		"profitByCategory": []dashboardProfitCategory{{Name: "Demo Groceries", Value: 4000}, {Name: "Demo Stationery", Value: 4000}},
+	})
 }
 
-func (s *Server) requirePublicShop(w http.ResponseWriter) bool {
-	if strings.TrimSpace(s.config.PublicShopID) == "" {
-		writeError(w, http.StatusServiceUnavailable, "public_workspace_unavailable", "The public dashboard is not configured.")
-		return false
-	}
-	return true
+func (s *Server) publicProducts(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string][]publicDashboardProduct{
+		"products": {
+			{ID: 1, Name: "Demo Coffee Beans", Unit: "bag", Quantity: 18, MinStock: 5},
+			{ID: 2, Name: "Sample Notebook", Unit: "piece", Quantity: 32, MinStock: 8},
+			{ID: 3, Name: "Example Snack Pack", Unit: "pack", Quantity: 4, MinStock: 6},
+		},
+	})
 }

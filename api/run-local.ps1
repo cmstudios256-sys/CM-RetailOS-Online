@@ -8,7 +8,7 @@ if (-not (Test-Path -LiteralPath $envFile)) {
 
 $allowedNames = @(
     'DATABASE_URL', 'JWT_SECRET', 'HTTP_ADDR', 'COOKIE_SECURE',
-    'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URL', 'APP_BASE_URL', 'PUBLIC_LANDING_ONLY', 'PUBLIC_SHOP_ID',
+    'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URL', 'APP_BASE_URL',
     'SMTP_HOST', 'SMTP_PORT', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'SMTP_FROM'
 )
 foreach ($line in Get-Content -LiteralPath $envFile) {

@@ -141,3 +141,13 @@ CREATE TABLE IF NOT EXISTS stock_movements (
 
 CREATE INDEX IF NOT EXISTS stock_movements_shop_created_idx
     ON stock_movements (shop_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS guest_imports (
+    shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+    guest_device_id UUID NOT NULL,
+    idempotency_key UUID NOT NULL,
+    payload_hash BYTEA NOT NULL,
+    response JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (shop_id, guest_device_id, idempotency_key)
+);

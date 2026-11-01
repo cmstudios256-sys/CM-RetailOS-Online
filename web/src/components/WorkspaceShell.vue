@@ -29,13 +29,14 @@ type User = {
   googlePictureUrl?: string
 }
 
-const props = defineProps<{ user: User; publicMode?: boolean }>()
+const props = defineProps<{ user: User; guestMode?: boolean; demoMode?: boolean; claimNotice?: string }>()
 const emit = defineEmits<{
+  'connect-google': [page: string]
   'sign-out': []
   'user-updated': [settings: Pick<User, 'shopName' | 'currency'>]
 }>()
 const activePage = ref('dashboard')
-const isPublic = computed(() => props.publicMode === true)
+const isGuest = computed(() => props.guestMode === true)
 const sidebarCollapsed = ref(false)
 const topbarActions = ref<HTMLElement | null>(null)
 const profileOpen = ref(false)
@@ -71,7 +72,6 @@ const prefsTick = ref(0)
 
 function hasNavPermission(itemId: string): boolean {
   void prefsTick.value
-  if (props.publicMode) return true
   const role = props.user.role.toLowerCase()
   if (role === 'owner' || role === 'manager' || role === 'administrator') return true
   const perms = readStaffPermissions(props.user.id, props.user.role)
@@ -114,8 +114,7 @@ async function loadNotifications() {
   notificationLoading.value = true
   notificationError.value = ''
   try {
-    const productsPath = props.publicMode ? '/public/products' : '/products'
-    const result = await apiRequest<{ products: { id: number; name: string; quantity: number; minStock: number; unit: string }[] }>(productsPath)
+    const result = await apiRequest<{ products: { id: number; name: string; quantity: number; minStock: number; unit: string }[] }>('/products')
     const readByProduct = new Map(notifications.value.map(item => [item.productId, item.read]))
     notifications.value = result.products
       .filter(product => product.quantity <= product.minStock)
@@ -188,15 +187,15 @@ watch(activePage, () => {
 onMounted(() => {
   const params = new URLSearchParams(window.location.search)
   const requestedPage = params.get('page')
-  if (!props.publicMode && requestedPage && navigation.value.some(item => item.id === requestedPage)) {
+  if (requestedPage && navigation.value.some(item => item.id === requestedPage)) {
     activePage.value = requestedPage
-    params.delete('page')
+    if (params.get('claim') !== 'guest') params.delete('page')
     params.delete('google_linked')
     const query = params.toString()
     window.history.replaceState({}, document.title, `${window.location.pathname}${query ? `?${query}` : ''}`)
   }
   applyOnlinePrefsToDom()
-  if (!props.publicMode) void syncOnlinePrefsFromServer(props.user.id)
+  void syncOnlinePrefsFromServer(props.user.id)
   if (!navigation.value.some(item => item.id === activePage.value) && navigation.value.length > 0) {
     activePage.value = navigation.value[0].id
   }
@@ -229,10 +228,9 @@ onUnmounted(() => {
             v-for="item in group.items"
             :key="item.id"
             type="button"
-            :disabled="isPublic && item.id !== 'dashboard'"
             :class="['workspace-nav-item', { active: activePage === item.id }]"
             :aria-current="activePage === item.id ? 'page' : undefined"
-            :title="isPublic && item.id !== 'dashboard' ? 'Available after signing in' : item.label"
+            :title="item.label"
             @click="activePage = item.id"
           >
             <component :is="item.icon" :size="19" />
@@ -261,7 +259,7 @@ onUnmounted(() => {
       </nav>
       <div class="workspace-sidebar-footer">
         <span class="footer-version">v3.0.8</span>
-        <span class="workspace-sidebar-status"><i></i> Online</span>
+        <span class="workspace-sidebar-status"><i></i> {{ isGuest ? 'Local' : 'Cloud' }}</span>
       </div>
     </aside>
 
@@ -273,13 +271,17 @@ onUnmounted(() => {
           <div><h1>{{ pageTitle }}</h1></div>
         </div>
         <div ref="topbarActions" class="topbar-actions">
-          <span class="online-indicator"><span></span> Online</span>
+          <span v-if="demoMode" class="demo-badge"><span></span> Demo</span>
+          <span class="connection-chip" :class="{ connected: !isGuest }">
+            <span></span>{{ isGuest ? 'Not connected' : `Connected as ${user.googleEmail || user.email}` }}
+          </span>
+          <button v-if="isGuest" type="button" class="connect-google-button" @click="emit('connect-google', activePage)">Connect Google</button>
           <div class="workspace-clock">
             <CalendarDays :size="15" />
             <span><strong>{{ dateText }}</strong><small>{{ timeText }}</small></span>
           </div>
           <div class="topbar-menu">
-            <button class="topbar-icon topbar-menu-trigger" type="button" aria-label="Notifications" :aria-expanded="notificationsOpen" :disabled="isPublic" @click="toggleNotifications">
+            <button class="topbar-icon topbar-menu-trigger" type="button" aria-label="Notifications" :aria-expanded="notificationsOpen" @click="toggleNotifications">
               <Bell :size="19" />
               <span v-if="unreadNotificationCount" class="notification-count">{{ unreadNotificationCount > 9 ? '9+' : unreadNotificationCount }}</span>
             </button>
@@ -305,32 +307,38 @@ onUnmounted(() => {
             </section>
           </div>
           <div class="topbar-menu">
-            <button class="topbar-user" type="button" :aria-label="isPublic ? 'Public dashboard viewer' : `Open profile menu for ${user.fullName}`" :aria-expanded="profileOpen" :disabled="isPublic" @click="toggleProfile">
+            <button class="topbar-user" type="button" :aria-label="isGuest ? 'Open guest workspace menu' : `Open profile menu for ${user.fullName}`" :aria-expanded="profileOpen" @click="toggleProfile">
               <span class="profile-avatar">
                 <img v-if="user.googlePictureUrl && !avatarImageFailed" :src="user.googlePictureUrl" alt="" referrerpolicy="no-referrer" @error="avatarImageFailed = true" />
                 <template v-else>{{ userInitials }}</template>
               </span>
             </button>
-            <section v-if="profileOpen && !isPublic" class="topbar-popover profile-popover" aria-label="Account menu">
+            <section v-if="profileOpen" class="topbar-popover profile-popover" aria-label="Account menu">
               <div class="popover-profile">
                 <span class="profile-avatar profile-avatar-large">
-                  <img v-if="user.googlePictureUrl && !avatarImageFailed" :src="user.googlePictureUrl" alt="" referrerpolicy="no-referrer" @error="avatarImageFailed = true" />
-                  <template v-else>{{ userInitials }}</template>
+                  <img v-if="!isGuest && user.googlePictureUrl && !avatarImageFailed" :src="user.googlePictureUrl" alt="" referrerpolicy="no-referrer" @error="avatarImageFailed = true" />
+                  <template v-else>{{ isGuest ? 'D' : userInitials }}</template>
                 </span>
-                <div><strong>{{ user.fullName }}</strong><small>{{ user.email.endsWith('@cmretail.local') ? `@${user.email.replace('@cmretail.local', '')}` : user.email }}</small></div>
+                <div><strong>{{ isGuest ? 'Guest workspace' : user.fullName }}</strong><small>{{ isGuest ? 'Data stays on this device' : (user.googleEmail || user.email) }}</small></div>
               </div>
-              <div class="popover-role"><ShieldCheck :size="14" /><span>{{ displayRole }}</span><i></i><small>Online</small></div>
+              <div class="popover-role"><ShieldCheck :size="14" /><span>{{ isGuest ? 'Local guest' : displayRole }}</span><i></i><small>{{ isGuest ? 'Demo data' : 'Connected' }}</small></div>
               <div class="popover-menu">
                 <button v-if="hasNavPermission('settings')" type="button" @click="activePage = 'settings'; profileOpen = false"><SettingsIcon :size="15" />Settings</button>
-                <button type="button" @click="profileOpen = false; emit('sign-out')"><LogOut :size="15" />Sign out</button>
+                <button v-if="isGuest" type="button" @click="profileOpen = false; emit('connect-google', activePage)"><Store :size="15" />Save to cloud</button>
+                <button v-else type="button" @click="profileOpen = false; emit('sign-out')"><LogOut :size="15" />Sign out</button>
               </div>
             </section>
           </div>
         </div>
       </header>
 
+      <div v-if="claimNotice" class="claim-notice" role="status">
+        <span>{{ claimNotice }}</span>
+        <button type="button" @click="emit('connect-google', activePage)">Retry save to cloud</button>
+      </div>
+
       <main class="workspace-content">
-        <DashboardView v-if="activePage === 'dashboard'" :currency="user.currency" :role="user.role" :public-mode="isPublic" @navigate="activePage = $event" />
+        <DashboardView v-if="activePage === 'dashboard'" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
         <PointOfSaleView v-else-if="activePage === 'pos'" :currency="user.currency" :shop-name="user.shopName" :role="user.role" />
         <ProductsView v-else-if="activePage === 'products'" :currency="user.currency" :role="user.role" :user-email="user.email" :google-connected="user.googleConnected" @navigate-settings="activePage = 'settings'" />
         <StockLevelsView v-else-if="activePage === 'stock-levels'" :currency="user.currency" />
@@ -347,7 +355,6 @@ onUnmounted(() => {
           v-for="item in navigation"
           :key="item.id"
           type="button"
-          :disabled="isPublic && item.id !== 'dashboard'"
           :class="{ active: activePage === item.id }"
           :aria-current="activePage === item.id ? 'page' : undefined"
           @click="activePage = item.id"

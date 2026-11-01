@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ApiError, apiRequest, applyOnlinePrefsToDom } from './api'
+import { ApiError, apiRequest, applyOnlinePrefsToDom, setApiMode, syncOnlinePrefsFromServer } from './api'
+import { clearGuestDataAfterClaim, exportGuestBundle } from './guestStore'
 import WorkspaceShell from './components/WorkspaceShell.vue'
 
 type User = {
@@ -17,38 +18,91 @@ type User = {
 }
 
 const user = ref<User | null>(null)
+const guestMode = ref(true)
+const demoMode = ref(false)
 const loading = ref(true)
 const loadError = ref('')
+const claimNotice = ref('')
 
-async function loadPublicWorkspace() {
+function beginGoogleConnect(requestedPage: string): void {
+  const params = new URLSearchParams({ next: requestedPage, claim: 'guest' })
+  window.location.assign(`/api/v1/auth/google?${params.toString()}`)
+}
+
+async function openGuestWorkspace(): Promise<void> {
+  setApiMode('guest')
+  const workspace = await apiRequest<{ shopName: string; currency: string; demo: boolean }>('/public/workspace')
+  guestMode.value = true
+  demoMode.value = workspace.demo
+  user.value = {
+    id: 'guest',
+    shopId: 'guest-device',
+    fullName: 'Shop Owner',
+    email: '',
+    role: 'owner',
+    shopName: workspace.shopName,
+    currency: workspace.currency,
+  }
+}
+
+async function openWorkspace(): Promise<void> {
   loading.value = true
   loadError.value = ''
+  claimNotice.value = ''
   try {
-    const workspace = await apiRequest<{ shopName: string; currency: string }>('/public/workspace')
-    user.value = {
-      id: 'public',
-      shopId: '',
-      fullName: 'Public Viewer',
-      email: '',
-      role: 'public',
-      shopName: workspace.shopName,
-      currency: workspace.currency,
+    setApiMode('cloud')
+    const result = await apiRequest<{ user: User | null }>('/auth/session')
+    if (!result.user) {
+      await openGuestWorkspace()
+      return
+    }
+    guestMode.value = false
+    demoMode.value = false
+    user.value = result.user
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('claim') === 'guest') {
+      try {
+        const bundle = exportGuestBundle()
+        await apiRequest('/account/claim', { method: 'POST', body: bundle })
+        clearGuestDataAfterClaim()
+        await syncOnlinePrefsFromServer(result.user.id)
+        params.delete('claim')
+        const query = params.toString()
+        window.history.replaceState({}, document.title, `${window.location.pathname}${query ? `?${query}` : ''}`)
+      } catch (error) {
+        claimNotice.value = error instanceof Error ? error.message : 'Guest data could not be saved to the cloud yet.'
+      }
     }
   } catch (error) {
-    user.value = null
-    loadError.value = error instanceof ApiError
-      ? error.message
-      : error instanceof Error
-        ? error.message
-        : 'Failed to connect to workspace server.'
+    try {
+      await openGuestWorkspace()
+    } catch (guestError) {
+      user.value = null
+      loadError.value = guestError instanceof Error
+        ? guestError.message
+        : error instanceof ApiError
+          ? error.message
+          : 'Guest data could not be opened in this browser.'
+    }
   } finally {
     loading.value = false
   }
 }
 
+async function signOut(): Promise<void> {
+  try {
+    setApiMode('cloud')
+    await apiRequest<void>('/auth/logout', { method: 'POST' })
+    await openGuestWorkspace()
+  } catch (error) {
+    user.value = null
+    loadError.value = error instanceof Error ? error.message : 'Sign out could not be completed.'
+  }
+}
+
 onMounted(() => {
   applyOnlinePrefsToDom()
-  void loadPublicWorkspace()
+  void openWorkspace()
 })
 </script>
 
@@ -57,7 +111,12 @@ onMounted(() => {
     <WorkspaceShell
       v-if="user"
       :user="user"
-      public-mode
+      :guest-mode="guestMode"
+      :demo-mode="demoMode"
+      :claim-notice="claimNotice"
+      @connect-google="beginGoogleConnect"
+      @sign-out="signOut"
+      @user-updated="user = { ...user, ...$event }"
     />
     <div v-else class="boot-screen">
       <div class="boot-card">
@@ -65,11 +124,11 @@ onMounted(() => {
         <h1 class="boot-brand">CM RETAILOS</h1>
         <template v-if="loading">
           <div class="boot-spinner"></div>
-          <p class="boot-status">Opening dashboard...</p>
+          <p class="boot-status">Opening your workspace...</p>
         </template>
         <template v-else>
           <p class="boot-error">{{ loadError }}</p>
-          <button type="button" class="boot-retry-btn" @click="loadPublicWorkspace">Retry connection</button>
+          <button type="button" class="boot-retry-btn" @click="openWorkspace">Retry</button>
         </template>
       </div>
     </div>

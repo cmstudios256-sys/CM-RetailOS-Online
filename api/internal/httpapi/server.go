@@ -35,8 +35,6 @@ type Config struct {
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRedirectURL  string
-	PublicLandingOnly  bool
-	PublicShopID       string
 	AppBaseURL         string
 	SMTPHost           string
 	SMTPPort           string
@@ -83,9 +81,11 @@ func New(db *sql.DB, config Config) *Server {
 	s.mux.HandleFunc("POST /api/v1/auth/email-verification/confirm", s.confirmEmailVerification)
 	s.mux.HandleFunc("POST /api/v1/auth/email-verification/resend", s.resendEmailVerification)
 	s.mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
+	s.mux.HandleFunc("GET /api/v1/auth/session", s.session)
 	s.mux.HandleFunc("GET /api/v1/auth/providers", s.authProviders)
 	s.mux.HandleFunc("GET /api/v1/auth/google", s.googleLogin)
 	s.mux.HandleFunc("GET /api/v1/auth/google/callback", s.googleCallback)
+	s.mux.Handle("POST /api/v1/account/claim", s.requireSession(http.HandlerFunc(s.claimGuestData)))
 	s.mux.HandleFunc("POST /api/v1/auth/password-reset/request", s.requestPasswordReset)
 	s.mux.HandleFunc("POST /api/v1/auth/password-reset/confirm", s.confirmPasswordReset)
 	s.mux.Handle("GET /api/v1/auth/me", s.requireSession(http.HandlerFunc(s.me)))
@@ -115,14 +115,7 @@ func New(db *sql.DB, config Config) *Server {
 }
 
 func (s *Server) Handler() http.Handler {
-	return securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.config.PublicLandingOnly && !(r.Method == http.MethodGet && r.URL.Path == "/api/v1/health") {
-			writeError(w, http.StatusServiceUnavailable, "public_landing_only",
-				"Account and workspace access are temporarily paused while CM RetailOS Online is being redesigned. Existing business data is retained.")
-			return
-		}
-		s.mux.ServeHTTP(w, r)
-	}))
+	return securityHeaders(s.mux)
 }
 
 func (s *Server) Migrate(ctx context.Context) error {
@@ -233,6 +226,14 @@ func (s *Server) logout(w http.ResponseWriter, _ *http.Request) {
 		Secure: s.config.CookieSecure, SameSite: http.SameSiteLaxMode, MaxAge: -1,
 	})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) session(w http.ResponseWriter, r *http.Request) {
+	if _, err := r.Cookie(sessionCookieName); errors.Is(err, http.ErrNoCookie) {
+		writeJSON(w, http.StatusOK, map[string]any{"user": nil})
+		return
+	}
+	s.requireSession(http.HandlerFunc(s.me)).ServeHTTP(w, r)
 }
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request) {

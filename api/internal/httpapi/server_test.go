@@ -49,25 +49,15 @@ func TestSecurityHeadersAreSet(t *testing.T) {
 	}
 }
 
-func TestPublicLandingOnlyBlocksAuthAndWorkspaceEndpoints(t *testing.T) {
-	server := New(nil, Config{PublicLandingOnly: true})
-	for _, testCase := range []struct {
-		method string
-		path   string
-		body   string
-	}{
-		{method: http.MethodPost, path: "/api/v1/auth/register", body: `{}`},
-		{method: http.MethodPost, path: "/api/v1/auth/login", body: `{}`},
-		{method: http.MethodGet, path: "/api/v1/auth/providers"},
-		{method: http.MethodGet, path: "/api/v1/dashboard"},
-	} {
-		request := httptest.NewRequest(testCase.method, testCase.path, strings.NewReader(testCase.body))
-		response := httptest.NewRecorder()
-		server.Handler().ServeHTTP(response, request)
-		if response.Code != http.StatusServiceUnavailable || !strings.Contains(response.Body.String(), "public_landing_only") {
-			t.Errorf("%s %s = %d %s, want public landing only response",
-				testCase.method, testCase.path, response.Code, response.Body.String())
-		}
+func TestAuthSessionReturnsGuestWhenCookieIsAbsent(t *testing.T) {
+	server := New(nil, Config{})
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/session", nil)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"user":null}` {
+		t.Fatalf("status = %d, body = %s; want guest session response", response.Code, response.Body.String())
 	}
 }
 

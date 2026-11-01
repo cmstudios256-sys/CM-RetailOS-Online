@@ -1,13 +1,33 @@
+import { guestApiRequest } from './guestStore'
+
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) {
     super(message)
   }
 }
 
+let apiMode: 'cloud' | 'guest' = 'cloud'
+
+export function setApiMode(mode: 'cloud' | 'guest'): void {
+  apiMode = mode
+}
+
 export async function apiRequest<T>(
   path: string,
   options: { method?: string; body?: unknown } = {},
 ): Promise<T> {
+  if (apiMode === 'guest') {
+    try {
+      return await guestApiRequest<T>(path, options)
+    } catch (error) {
+      throw error instanceof ApiError ? error : new ApiError(
+        error instanceof Error ? error.message : 'The local guest request could not be completed.',
+        400,
+        'guest_request_failed',
+      )
+    }
+  }
+
   let response: Response
   try {
     response = await fetch(`/api/v1${path}`, {
@@ -51,6 +71,7 @@ export type Product = {
   quantity: number
   minStock: number
   image?: string
+  active?: boolean
 }
 
 export type ProductInput = Omit<Product, 'id'>

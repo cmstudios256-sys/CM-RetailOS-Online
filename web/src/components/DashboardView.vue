@@ -46,8 +46,7 @@ type DashboardResponse = {
   topProducts: TopProduct[]
 }
 
-const props = defineProps<{ currency: string; role?: string; publicMode?: boolean }>()
-const isPublic = computed(() => props.publicMode === true)
+const props = defineProps<{ currency: string; role?: string }>()
 
 const periods: Period[] = ['Daily', 'Weekly', 'Monthly']
 const selectedPeriod = ref<Period>('Daily')
@@ -274,10 +273,9 @@ async function load() {
     const query = new URLSearchParams({ period: selectedPeriod.value })
     if (reportDate.value) query.set('reportDate', reportDate.value)
     if (topSellingDate.value) query.set('date', topSellingDate.value)
-    const apiPrefix = props.publicMode ? '/public' : ''
     const [dashboardData, productResponse] = await Promise.all([
-      apiRequest<DashboardResponse>(`${apiPrefix}/dashboard?${query.toString()}`),
-      apiRequest<{ products: DashboardProduct[] }>(`${apiPrefix}/products`),
+      apiRequest<DashboardResponse>(`/dashboard?${query.toString()}`),
+      apiRequest<{ products: DashboardProduct[] }>('/products'),
     ])
     dashboard.value = dashboardData
     products.value = productResponse.products
@@ -436,7 +434,7 @@ onMounted(load)
                   <span>{{ formatQuantity(item.quantity) }} units left</span>
                 </div>
               </div>
-              <div v-if="!isPublic && role !== 'cashier'" class="stock-alert-actions">
+              <div v-if="role !== 'cashier'" class="stock-alert-actions">
                 <button type="button" class="adjust-btn" @click="openRestockModal(item.product)">Adjust</button>
               </div>
             </div>
@@ -446,7 +444,7 @@ onMounted(load)
     </div>
 
     <!-- Restock Modal -->
-    <div v-if="!isPublic && isRestockModalOpen && productToRestock" class="modal-backdrop" @click.self="closeRestockModal">
+    <div v-if="isRestockModalOpen && productToRestock" class="modal-backdrop" @click.self="closeRestockModal">
       <div class="modal-content">
         <div class="modal-header">
           <h3>Restock Product</h3>

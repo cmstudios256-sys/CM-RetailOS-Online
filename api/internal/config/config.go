@@ -5,12 +5,9 @@ import (
 	"net/mail"
 	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 )
-
-var publicShopIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 type Config struct {
 	DatabaseURL        string
@@ -20,8 +17,6 @@ type Config struct {
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRedirectURL  string
-	PublicLandingOnly  bool
-	PublicShopID       string
 	AppBaseURL         string
 	SMTPHost           string
 	SMTPPort           string
@@ -39,8 +34,6 @@ func Load() (Config, error) {
 		GoogleClientID:     strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID")),
 		GoogleClientSecret: strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_SECRET")),
 		GoogleRedirectURL:  strings.TrimSpace(os.Getenv("GOOGLE_REDIRECT_URL")),
-		PublicLandingOnly:  false,
-		PublicShopID:       strings.TrimSpace(os.Getenv("PUBLIC_SHOP_ID")),
 		AppBaseURL:         strings.TrimSpace(os.Getenv("APP_BASE_URL")),
 		SMTPHost:           strings.TrimSpace(os.Getenv("SMTP_HOST")),
 		SMTPPort:           strings.TrimSpace(os.Getenv("SMTP_PORT")),
@@ -48,21 +41,11 @@ func Load() (Config, error) {
 		SMTPPassword:       os.Getenv("SMTP_PASSWORD"),
 		SMTPFrom:           strings.TrimSpace(os.Getenv("SMTP_FROM")),
 	}
-	if value := strings.TrimSpace(os.Getenv("PUBLIC_LANDING_ONLY")); value != "" {
-		publicLandingOnly, err := strconv.ParseBool(value)
-		if err != nil {
-			return Config{}, fmt.Errorf("PUBLIC_LANDING_ONLY must be true or false")
-		}
-		cfg.PublicLandingOnly = publicLandingOnly
-	}
 	if cfg.HTTPAddr == "" {
 		cfg.HTTPAddr = ":8080"
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
-	}
-	if cfg.PublicShopID != "" && !publicShopIDPattern.MatchString(cfg.PublicShopID) {
-		return Config{}, fmt.Errorf("PUBLIC_SHOP_ID must be a UUID")
 	}
 	if len(cfg.JWTSecret) < 32 || strings.Contains(string(cfg.JWTSecret), "replace-this") {
 		return Config{}, fmt.Errorf("JWT_SECRET must be a non-placeholder value of at least 32 bytes")

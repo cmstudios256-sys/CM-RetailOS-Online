@@ -22,7 +22,6 @@ import {
   apiRequest,
   formatMoney,
   formatQuantity,
-  isGoogleAccountLinked,
   type Product,
   type ProductInput,
 } from '../api'
@@ -30,25 +29,11 @@ import {
 const props = defineProps<{
   currency: string
   role: string
-  userEmail?: string
-  googleConnected?: boolean
 }>()
 
 const emit = defineEmits<{
   'navigate-settings': []
 }>()
-
-const isGoogleLinked = computed(() => isGoogleAccountLinked({
-  email: props.userEmail,
-  googleConnected: props.googleConnected,
-}))
-
-function connectGoogleOAuth() {
-  const authOrigin = window.location.hostname === '127.0.0.1' && window.location.port === '5180'
-    ? 'http://localhost:5180'
-    : window.location.origin
-  window.location.assign(`${authOrigin}/api/v1/auth/google?next=products`)
-}
 
 const products = ref<Product[]>([])
 const categoryNames = ref<string[]>([])
@@ -268,10 +253,6 @@ function closeDropdown(event: MouseEvent) {
 }
 
 async function loadProducts() {
-  if (!isGoogleLinked.value) {
-    loading.value = false
-    return
-  }
   loading.value = true
   error.value = ''
   try {
@@ -534,11 +515,7 @@ async function confirmDeleteProduct() {
 }
 
 onMounted(() => {
-  if (isGoogleLinked.value) {
-    void loadProducts()
-  } else {
-    loading.value = false
-  }
+  void loadProducts()
   window.addEventListener('click', closeDropdown)
 })
 onUnmounted(() => {
@@ -552,7 +529,7 @@ onUnmounted(() => {
     <div v-if="notice" class="inline-success" role="status">{{ notice }}</div>
 
     <!-- Google Account Connection Gate (when not connected) -->
-    <div v-if="!isGoogleLinked" class="google-required-gate">
+    <div v-if="false" class="google-required-gate">
       <div class="gate-hero-card">
         <div class="gate-header">
           <div class="gate-icon-badge">
@@ -594,7 +571,7 @@ onUnmounted(() => {
             <button
               type="button"
               class="btn gate-google-btn"
-              @click="connectGoogleOAuth"
+              @click="$emit('navigate-settings')"
             >
               <svg viewBox="0 0 24 24" width="20" height="20" style="margin-right: 12px;">
                 <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
@@ -618,7 +595,6 @@ onUnmounted(() => {
     </div>
 
     <!-- Normal Products View when Google is Connected -->
-    <template v-else>
       <div class="card">
         <div class="card-header">
         <div class="summary-badges">
@@ -1035,7 +1011,6 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-    </template>
   </section>
 </template>
 

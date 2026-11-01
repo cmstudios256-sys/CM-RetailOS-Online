@@ -31,12 +31,13 @@ const (
 )
 
 type googleStateClaims struct {
-	Nonce    string `json:"nonce"`
-	ShopName string `json:"shop_name,omitempty"`
-	Verifier string `json:"verifier,omitempty"`
-	UserID   string `json:"user_id,omitempty"`
-	ShopID   string `json:"shop_id,omitempty"`
-	NextPage string `json:"next_page,omitempty"`
+	Nonce      string `json:"nonce"`
+	ShopName   string `json:"shop_name,omitempty"`
+	Verifier   string `json:"verifier,omitempty"`
+	UserID     string `json:"user_id,omitempty"`
+	ShopID     string `json:"shop_id,omitempty"`
+	NextPage   string `json:"next_page,omitempty"`
+	ClaimGuest bool   `json:"claim_guest,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -86,10 +87,7 @@ func (s *Server) googleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_shop_name", "Shop name must be 120 characters or fewer.")
 		return
 	}
-	nextPage := ""
-	if r.URL.Query().Get("next") == "products" {
-		nextPage = "products"
-	}
+	nextPage := validWorkspacePage(r.URL.Query().Get("next"))
 
 	nonce, err := randomOAuthValue(32)
 	if err != nil {
@@ -111,12 +109,13 @@ func (s *Server) googleLogin(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now()
 	stateToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, googleStateClaims{
-		Nonce:    nonce,
-		ShopName: shopName,
-		Verifier: verifier,
-		UserID:   existingUserID,
-		ShopID:   existingShopID,
-		NextPage: nextPage,
+		Nonce:      nonce,
+		ShopName:   shopName,
+		Verifier:   verifier,
+		UserID:     existingUserID,
+		ShopID:     existingShopID,
+		NextPage:   nextPage,
+		ClaimGuest: r.URL.Query().Get("claim") == "guest",
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    googleStateIssuer,
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -262,7 +261,7 @@ func (s *Server) googleCallback(w http.ResponseWriter, r *http.Request) {
 			s.redirectGoogleError(w, r, "google_sign_in_failed")
 			return
 		}
-		destination, err := s.googleCallbackDestination(claims.NextPage)
+		destination, err := s.googleCallbackDestination(claims.NextPage, claims.ClaimGuest)
 		if err != nil {
 			log.Printf("build Google link redirect: %v", err)
 			s.redirectGoogleError(w, r, "google_sign_in_failed")
@@ -277,10 +276,6 @@ func (s *Server) googleCallback(w http.ResponseWriter, r *http.Request) {
 
 	user, err := s.findOrCreateGoogleUser(ctx, idToken.Subject, profile, claims.ShopName)
 	if err != nil {
-		if errors.Is(err, errGoogleShopNameRequired) {
-			s.redirectGoogleError(w, r, "google_shop_name_required")
-			return
-		}
 		if errors.Is(err, errGoogleAccountConflict) {
 			s.redirectGoogleError(w, r, "google_account_conflict")
 			return
@@ -298,7 +293,7 @@ func (s *Server) googleCallback(w http.ResponseWriter, r *http.Request) {
 		s.redirectGoogleError(w, r, "google_sign_in_failed")
 		return
 	}
-	destination, err := s.googleCallbackDestination(claims.NextPage)
+	destination, err := s.googleCallbackDestination(claims.NextPage, claims.ClaimGuest)
 	if err != nil {
 		log.Printf("build Google sign-in redirect: %v", err)
 		s.redirectGoogleError(w, r, "google_sign_in_failed")
@@ -307,17 +302,31 @@ func (s *Server) googleCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, destination.String(), http.StatusSeeOther)
 }
 
-func (s *Server) googleCallbackDestination(nextPage string) (*url.URL, error) {
+func (s *Server) googleCallbackDestination(nextPage string, claimGuest bool) (*url.URL, error) {
 	destination, err := url.Parse(s.config.AppBaseURL)
 	if err != nil || destination.Scheme == "" || destination.Host == "" {
 		return nil, fmt.Errorf("invalid app base URL for Google callback redirect")
 	}
-	if nextPage == "products" {
+	if nextPage = validWorkspacePage(nextPage); nextPage != "" && nextPage != "dashboard" {
 		query := destination.Query()
-		query.Set("page", "products")
+		query.Set("page", nextPage)
+		destination.RawQuery = query.Encode()
+	}
+	if claimGuest {
+		query := destination.Query()
+		query.Set("claim", "guest")
 		destination.RawQuery = query.Encode()
 	}
 	return destination, nil
+}
+
+func validWorkspacePage(page string) string {
+	switch page {
+	case "dashboard", "pos", "sales", "receipts", "profit-analytics", "business-intelligence", "products", "stock-levels", "audit-logs", "settings":
+		return page
+	default:
+		return ""
+	}
 }
 
 func (s *Server) googleIDTokenVerifier(ctx context.Context) (*oidc.IDTokenVerifier, error) {
@@ -334,9 +343,8 @@ func (s *Server) googleIDTokenVerifier(ctx context.Context) (*oidc.IDTokenVerifi
 }
 
 var (
-	errGoogleShopNameRequired = errors.New("Google signup requires a shop name")
-	errGoogleAccountConflict  = errors.New("Google identity conflicts with an existing account")
-	errGoogleAccountDisabled  = errors.New("Google account is disabled")
+	errGoogleAccountConflict = errors.New("Google identity conflicts with an existing account")
+	errGoogleAccountDisabled = errors.New("Google account is disabled")
 )
 
 func (s *Server) linkGoogleToExistingUser(ctx context.Context, userID, subject, pictureURL string) (identity, error) {
@@ -455,24 +463,15 @@ func (s *Server) findOrCreateGoogleUser(ctx context.Context, subject string, pro
 	}
 
 	shopName = strings.TrimSpace(shopName)
-	fullName := strings.TrimSpace(profile.Name)
-	if fullName == "" {
-		fullName = strings.SplitN(profile.Email, "@", 2)[0]
-	}
-	if runes := []rune(fullName); len(runes) > 100 {
-		fullName = string(runes[:100])
-	}
-	if !validLength(fullName, 1, 100) {
-		fullName = "Retail Business"
-	}
+	fullName := "Shop Owner"
 	if shopName == "" {
-		shopName = fullName + "'s Shop"
+		shopName = "My Shop"
 	}
 	if runes := []rune(shopName); len(runes) > 120 {
 		shopName = string(runes[:120])
 	}
 	if !validLength(shopName, 1, 120) || strings.ContainsRune(shopName, '\x00') {
-		return identity{}, errGoogleShopNameRequired
+		return identity{}, errors.New("invalid shop name")
 	}
 	var shopID string
 	if err := tx.QueryRowContext(ctx, `INSERT INTO shops (name) VALUES ($1) RETURNING id::text`, shopName).Scan(&shopID); err != nil {

@@ -43,8 +43,6 @@ func main() {
 		GoogleClientID:     cfg.GoogleClientID,
 		GoogleClientSecret: cfg.GoogleClientSecret,
 		GoogleRedirectURL:  cfg.GoogleRedirectURL,
-		PublicLandingOnly:  cfg.PublicLandingOnly,
-		PublicShopID:       cfg.PublicShopID,
 		AppBaseURL:         cfg.AppBaseURL,
 		SMTPHost:           cfg.SMTPHost,
 		SMTPPort:           cfg.SMTPPort,

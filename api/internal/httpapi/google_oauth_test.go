@@ -17,7 +17,7 @@ import (
 func TestGoogleLoginUsesSignedStateNonceAndPKCE(t *testing.T) {
 	config := googleTestConfig()
 	server := New(nil, config)
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google?shopName=Kisakye%20Store&next=products", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google?shopName=Demo%20Shop&next=products&claim=guest", nil)
 	response := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(response, request)
@@ -62,7 +62,7 @@ func TestGoogleLoginUsesSignedStateNonceAndPKCE(t *testing.T) {
 	if err != nil || !token.Valid {
 		t.Fatalf("OAuth state is not signed and valid: %v", err)
 	}
-	if claims.ShopName != "Kisakye Store" || claims.NextPage != "products" || claims.Nonce != values[googleNonceCookie] ||
+	if claims.ShopName != "Demo Shop" || claims.NextPage != "products" || !claims.ClaimGuest || claims.Nonce != values[googleNonceCookie] ||
 		values[googleStateCookie] != query.Get("state") || values[googlePKCECookie] == "" {
 		t.Fatalf("OAuth state does not match signed shop name and browser cookies: %+v", claims)
 	}
@@ -83,17 +83,20 @@ func TestGoogleLoginRejectsInvalidShopName(t *testing.T) {
 	}
 }
 
-func TestGoogleCallbackDestinationReturnsNewShopToProducts(t *testing.T) {
+func TestGoogleCallbackDestinationRestoresPageAndRequestsGuestClaim(t *testing.T) {
 	server := New(nil, googleTestConfig())
-	destination, err := server.googleCallbackDestination("products")
+	destination, err := server.googleCallbackDestination("products", true)
 	if err != nil {
 		t.Fatalf("build Google callback destination: %v", err)
 	}
 	if destination.Query().Get("page") != "products" {
 		t.Fatalf("callback destination = %s, want Products page", destination)
 	}
+	if destination.Query().Get("claim") != "guest" {
+		t.Fatalf("callback destination = %s, want guest claim flag", destination)
+	}
 
-	defaultDestination, err := server.googleCallbackDestination("")
+	defaultDestination, err := server.googleCallbackDestination("", false)
 	if err != nil {
 		t.Fatalf("build default Google callback destination: %v", err)
 	}
@@ -135,11 +138,11 @@ func TestFindOrCreateGoogleUserDefaultsShopNameWhenEmptyForNewAccount(t *testing
 	mock.ExpectQuery(`WHERE lower\(u\.email\) = lower\(\$1\)`).WithArgs("owner@example.com").
 		WillReturnError(sql.ErrNoRows)
 	mock.ExpectQuery(`INSERT INTO shops \(name\) VALUES \(\$1\) RETURNING id::text`).
-		WithArgs("Owner's Shop").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(shopID))
+		WithArgs("My Shop").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(shopID))
 	mock.ExpectQuery(`INSERT INTO users \(shop_id, full_name, email, google_subject, google_picture_url, role\)`).
-		WithArgs(shopID, "Owner", "owner@example.com", "google-subject", "").
+		WithArgs(shopID, "Shop Owner", "owner@example.com", "google-subject", "").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "shop_id", "full_name", "email", "role"}).
-			AddRow("user-id", shopID, "Owner", "owner@example.com", "owner"))
+			AddRow("user-id", shopID, "Shop Owner", "owner@example.com", "owner"))
 	mock.ExpectCommit()
 
 	server := New(db, Config{})
@@ -149,8 +152,8 @@ func TestFindOrCreateGoogleUserDefaultsShopNameWhenEmptyForNewAccount(t *testing
 	if err != nil {
 		t.Fatalf("create Google owner without shop name: %v", err)
 	}
-	if user.ShopName != "Owner's Shop" {
-		t.Fatalf("shopName = %q, want %q", user.ShopName, "Owner's Shop")
+	if user.ShopName != "My Shop" {
+		t.Fatalf("shopName = %q, want %q", user.ShopName, "My Shop")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("SQL expectations: %v", err)
@@ -174,9 +177,9 @@ func TestFindOrCreateGoogleUserCreatesPasswordlessOwner(t *testing.T) {
 	mock.ExpectQuery(`INSERT INTO shops \(name\) VALUES \(\$1\) RETURNING id::text`).
 		WithArgs("New Shop").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(shopID))
 	mock.ExpectQuery(`INSERT INTO users \(shop_id, full_name, email, google_subject, google_picture_url, role\)`).
-		WithArgs(shopID, "Owner", "owner@example.com", "google-subject", pictureURL).
+		WithArgs(shopID, "Shop Owner", "owner@example.com", "google-subject", pictureURL).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "shop_id", "full_name", "email", "role"}).
-			AddRow("user-id", shopID, "Owner", "owner@example.com", "owner"))
+			AddRow("user-id", shopID, "Shop Owner", "owner@example.com", "owner"))
 	mock.ExpectCommit()
 
 	server := New(db, Config{})
@@ -187,7 +190,7 @@ func TestFindOrCreateGoogleUserCreatesPasswordlessOwner(t *testing.T) {
 		t.Fatalf("create Google owner: %v", err)
 	}
 	if user.UserID != "user-id" || user.ShopID != shopID || user.ShopName != "New Shop" ||
-		user.FullName != "Owner" || user.Email != "owner@example.com" || user.Role != "owner" ||
+		user.FullName != "Shop Owner" || user.Email != "owner@example.com" || user.Role != "owner" ||
 		user.Currency != "UGX" || user.GooglePictureURL != pictureURL {
 		t.Fatalf("unexpected Google owner: %+v", user)
 	}
