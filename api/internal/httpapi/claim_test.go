@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 )
@@ -46,6 +47,28 @@ func TestGuestClaimRejectsUnsupportedSchemaVersion(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("session validation expectations: %v", err)
+	}
+}
+
+func TestValidateGuestClaimAcceptsNegativeStockMovement(t *testing.T) {
+	input := guestClaimRequest{
+		SchemaVersion:  1,
+		GuestDeviceID:  "b4cfe4c2-139b-4a2d-b0a2-742c717eb109",
+		IdempotencyKey: "a7fd7b2c-2143-46ad-b3a1-ae35989a2d45",
+		Products: []guestClaimProduct{{
+			ID: 1, Name: "Sample Item", SellingPrice: 10, Quantity: 1,
+		}},
+		StockMovements: []guestClaimMovement{{
+			ID: "guest-stock-sale", ProductID: 1, QuantityDelta: -1,
+			Reason: "Sale", CreatedAt: time.Now().UTC(),
+		}},
+		Settings: guestClaimSettings{
+			ShopName: "My Shop", Currency: "UGX", Preferences: map[string]any{},
+		},
+	}
+
+	if err := validateGuestClaim(input); err != nil {
+		t.Fatalf("validateGuestClaim rejected a valid negative stock movement: %v", err)
 	}
 }
 

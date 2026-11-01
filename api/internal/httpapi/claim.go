@@ -257,7 +257,7 @@ func validateGuestClaim(input guestClaimRequest) error {
 	}
 	for _, movement := range input.StockMovements {
 		if !validLength(movement.ID, 1, 128) || !productIDs[movement.ProductID] ||
-			!isValidQuantity(movement.QuantityDelta) || movement.QuantityDelta == 0 ||
+			!isValidQuantityDelta(movement.QuantityDelta) || movement.QuantityDelta == 0 ||
 			!validLength(movement.Reason, 1, 200) || movement.CreatedAt.IsZero() ||
 			movement.SaleID != "" && !saleIDs[movement.SaleID] {
 			return errors.New("A guest stock movement has invalid fields or references.")
