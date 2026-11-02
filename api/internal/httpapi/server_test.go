@@ -306,6 +306,24 @@ func TestRetailRoutesRequireSession(t *testing.T) {
 	}
 }
 
+func TestAuthRateLimitReturns429(t *testing.T) {
+	server := New(nil, Config{JWTSecret: []byte("01234567890123456789012345678901")})
+	for i := 0; i < 31; i++ {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google", nil)
+		request.RemoteAddr = "198.51.100.42:1234"
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, request)
+		if i == 30 {
+			if response.Code != http.StatusTooManyRequests {
+				t.Fatalf("request 31 status = %d, want %d; body: %s", response.Code, http.StatusTooManyRequests, response.Body.String())
+			}
+			if response.Header().Get("Retry-After") == "" {
+				t.Fatal("rate-limited response must include Retry-After")
+			}
+		}
+	}
+}
+
 func TestGoogleSignInIsDisabledUntilConfigured(t *testing.T) {
 	server := New(nil, Config{JWTSecret: []byte("01234567890123456789012345678901")})
 

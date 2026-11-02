@@ -49,6 +49,7 @@ func main() {
 		SMTPUsername:       cfg.SMTPUsername,
 		SMTPPassword:       cfg.SMTPPassword,
 		SMTPFrom:           cfg.SMTPFrom,
+		FrontendDir:        cfg.FrontendDir,
 	})
 	if err := api.Migrate(startupCtx); err != nil {
 		log.Fatalf("initialize PostgreSQL schema: %v", err)

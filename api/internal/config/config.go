@@ -13,6 +13,7 @@ type Config struct {
 	DatabaseURL        string
 	JWTSecret          []byte
 	HTTPAddr           string
+	AppEnv             string
 	CookieSecure       bool
 	GoogleClientID     string
 	GoogleClientSecret string
@@ -23,6 +24,7 @@ type Config struct {
 	SMTPUsername       string
 	SMTPPassword       string
 	SMTPFrom           string
+	FrontendDir        string
 }
 
 func Load() (Config, error) {
@@ -30,6 +32,7 @@ func Load() (Config, error) {
 		DatabaseURL:        strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		JWTSecret:          []byte(os.Getenv("JWT_SECRET")),
 		HTTPAddr:           strings.TrimSpace(os.Getenv("HTTP_ADDR")),
+		AppEnv:             strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV"))),
 		CookieSecure:       os.Getenv("COOKIE_SECURE") != "false",
 		GoogleClientID:     strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID")),
 		GoogleClientSecret: strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_SECRET")),
@@ -40,6 +43,13 @@ func Load() (Config, error) {
 		SMTPUsername:       strings.TrimSpace(os.Getenv("SMTP_USERNAME")),
 		SMTPPassword:       os.Getenv("SMTP_PASSWORD"),
 		SMTPFrom:           strings.TrimSpace(os.Getenv("SMTP_FROM")),
+		FrontendDir:        strings.TrimSpace(os.Getenv("FRONTEND_DIR")),
+	}
+	if cfg.AppEnv == "" {
+		cfg.AppEnv = "development"
+	}
+	if cfg.AppEnv != "development" && cfg.AppEnv != "production" {
+		return Config{}, fmt.Errorf("APP_ENV must be development or production")
 	}
 	if cfg.HTTPAddr == "" {
 		cfg.HTTPAddr = ":8080"
@@ -49,6 +59,14 @@ func Load() (Config, error) {
 	}
 	if len(cfg.JWTSecret) < 32 || strings.Contains(string(cfg.JWTSecret), "replace-this") {
 		return Config{}, fmt.Errorf("JWT_SECRET must be a non-placeholder value of at least 32 bytes")
+	}
+	if cfg.AppEnv == "production" {
+		if !cfg.CookieSecure {
+			return Config{}, fmt.Errorf("COOKIE_SECURE must be true in production")
+		}
+		if cfg.GoogleClientID == "" || cfg.GoogleClientSecret == "" || cfg.GoogleRedirectURL == "" || cfg.AppBaseURL == "" {
+			return Config{}, fmt.Errorf("GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URL, and APP_BASE_URL are required in production")
+		}
 	}
 	if (cfg.GoogleClientID == "") != (cfg.GoogleClientSecret == "") {
 		return Config{}, fmt.Errorf("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must both be configured")

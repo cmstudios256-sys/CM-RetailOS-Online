@@ -2054,14 +2054,14 @@ onMounted(() => {
           <div class="form-card" style="padding: 32px 24px; display: flex; flex-direction: column; align-items: center; text-align: center;">
             <p style="color: var(--text-muted); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 16px;">Built by</p>
             <img
-              src="/developer-portrait.jpg"
-              alt="Christopher Muheki"
-              style="width: 120px; height: 120px; object-fit: cover; object-position: center 15%; border-radius: 50%; border: 4px solid var(--border-subtle); margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"
+              src="/cmretailos-brand-logo.png"
+              alt="CM RetailOS"
+              style="width: 120px; height: 120px; object-fit: contain; border-radius: 24px; border: 4px solid var(--border-subtle); margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"
             />
-            <h4 style="font-size: 1.2rem; color: var(--text-primary); margin-bottom: 4px;">Christopher Muheki</h4>
-            <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0 0 12px 0;">Self-Taught Software Engineer and Founder</p>
+            <h4 style="font-size: 1.2rem; color: var(--text-primary); margin-bottom: 4px;">CM RetailOS</h4>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0 0 12px 0;">Free and open-source retail software</p>
             <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin: 0;">
-              Christopher Muheki is a self-taught software engineer, designer and technology-focused creative professional. His work combines software engineering, system architecture, UI/UX design, graphics, photography, cinematography, audio engineering and digital technology to create practical, high-performance products and solutions.
+              Built for simple, reliable in-store operations, cloud-connected retail teams, and guest-first offline use.
             </p>
           </div>
 

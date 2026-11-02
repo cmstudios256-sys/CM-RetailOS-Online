@@ -20,6 +20,28 @@ func TestLoadRejectsPlaceholderSecret(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInsecureCookieInProduction(t *testing.T) {
+	setGoogleEnvironment(t, "client-id", "client-secret", "https://example.com/api/v1/auth/google/callback", "https://example.com")
+	t.Setenv("DATABASE_URL", "postgres://localhost/retailos")
+	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("COOKIE_SECURE", "false")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() accepted insecure cookies in production")
+	}
+}
+
+func TestLoadRequiresGoogleInProduction(t *testing.T) {
+	setGoogleEnvironment(t, "", "", "", "")
+	t.Setenv("DATABASE_URL", "postgres://localhost/retailos")
+	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("COOKIE_SECURE", "true")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() accepted production mode without Google OAuth configuration")
+	}
+}
+
 func TestLoadUsesSecureCookieByDefault(t *testing.T) {
 	setGoogleEnvironment(t, "", "", "", "")
 	t.Setenv("DATABASE_URL", "postgres://localhost/retailos")

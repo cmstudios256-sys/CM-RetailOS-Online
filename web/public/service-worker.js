@@ -7,13 +7,21 @@ const APP_SHELL = [
   '/icons/cm-retailos-512.png',
 ]
 
+const isCacheSafeResponse = response => {
+  if (!response || !response.ok) return false
+  const cacheControl = (response.headers.get('cache-control') || '').toLowerCase()
+  return !cacheControl.includes('no-store') &&
+    !cacheControl.includes('private') &&
+    !cacheControl.includes('no-cache')
+}
+
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME)
     const response = await fetch('/', { cache: 'reload' })
     if (!response.ok) throw new Error(`App shell request failed with ${response.status}`)
     const html = await response.clone().text()
-    await cache.put('/', response)
+    if (isCacheSafeResponse(response)) await cache.put('/', response)
     const assets = [...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css)(?:\?[^"]*)?)"/g)]
       .map(match => new URL(match[1], self.location.origin))
       .filter(url => url.origin === self.location.origin)
@@ -40,6 +48,7 @@ self.addEventListener('fetch', event => {
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request).then(async response => {
       if (response.ok) {
+        if (!isCacheSafeResponse(response)) return response
         const cache = await caches.open(CACHE_NAME)
         await cache.put('/', response.clone())
       }
@@ -52,7 +61,7 @@ self.addEventListener('fetch', event => {
   event.respondWith(caches.match(request).then(cached => {
     if (cached) return cached
     return fetch(request).then(async response => {
-      if (response.ok) {
+      if (isCacheSafeResponse(response)) {
         const cache = await caches.open(CACHE_NAME)
         await cache.put(request, response.clone())
       }

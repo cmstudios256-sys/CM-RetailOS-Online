@@ -1,128 +1,86 @@
-# CM RetailOS Online
+# CM RetailOS
 
-CM RetailOS Online is a free, open-source retail workspace. The Vue browser client can be used without creating an account; Google is the only sign-in flow presented by the app.
+CM RetailOS is a guest-first retail workspace for point of sale, inventory, sales, receipts, analytics, staff roles, and business settings. Connect a Google account to claim guest data into a private cloud shop.
 
-## Guest and demo mode
+## Features
 
-- First visits open a seeded **Demo Shop** with obviously fictional products, sales, and amounts. Public API demo routes return static fixtures and never query a shop or tenant table.
-- The complete workspace remains usable while disconnected. Guest products, categories, sales, stock movements, and settings are stored in browser `localStorage` under a stable random guest-device UUID.
-- The header shows a **Demo** badge and **Not connected** status while using the seeded demo. The **Connect Google** button and **Save to cloud** menu action start the same OAuth flow.
-- On touch devices, POS can scan barcodes with the rear camera; USB barcode scanners continue to work through the desktop keyboard-wedge input. Completed receipts and Sales History can share a text receipt to WhatsApp or the phone's share sheet. A recipient number is used only to open WhatsApp and is never saved.
-- The installable PWA caches its app shell for offline use. Guest transactions stay in local browser storage while offline and can be claimed to the cloud after reconnecting and signing in with Google.
-- On the OAuth return, the app restores the active page, silently checks the session cookie, and posts the guest bundle to the authenticated claim endpoint. First-time cloud setup requires the owner's full name, a business name, phone number, and physical address; the phone is enabled on receipts. After a successful claim, the local transactional bundle is cleared so a later sign-out does not show stale cloud data.
-- Business profile changes in Settings are saved through the authenticated API to the configured PostgreSQL/Supabase database, including the owner's account name and the shop's receipt details.
-- Sign out clears the session cookie only. Cloud records are not deleted; the browser returns to its local guest workspace.
-- The browser does not show email/password sign-in or signup forms. Legacy email/password API routes remain in the backend but are not used by the browser app.
+- POS, products, stock adjustments, sales history, and receipts
+- Owner, manager, and cashier roles with server-side authorization
+- Offline guest mode with `localStorage`
+- Google OAuth provisioning and guest-data claiming
+- Camera barcode scanning, WhatsApp sharing, and installable PWA
+- PostgreSQL/Supabase storage, versioned migrations, and HTTPS-ready cookies
 
-## Project layout and local development
+## Screenshots
 
-- `web/` - Vue 3 + TypeScript client.
-- `api/` - Go HTTP API and PostgreSQL schema.
-- `api/internal/httpapi/schema.sql` - idempotent database schema applied at API startup.
+Screenshot placeholders:
 
-Requirements for cloud features: Go 1.25+, Node.js 20+, npm, PostgreSQL 15+, and a Google OAuth web client.
+- Dashboard: `docs/screenshots/dashboard.png`
+- POS: `docs/screenshots/pos.png`
+- Mobile: `docs/screenshots/mobile.png`
 
-1. For guest-only browsing, run `npm install` and `npm run dev` in `web/`. The demo and guest writes work even when the API is unavailable.
-2. For cloud features, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\api\configure-local.ps1` from the project root to configure a local PostgreSQL connection.
-3. Configure Google OAuth with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\api\configure-google.ps1`. For local development, the callback is `http://localhost:8080/api/v1/auth/google/callback` and the app origin is `http://localhost:5180`.
-4. Start the API with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\api\run-local.ps1`, then start the web client with `npm run dev` in `web/`.
+## Quickstart
 
-The Vite server proxies `/api` requests to `http://127.0.0.1:8080`. OAuth app and callback URLs must use the same hostname so the first-party session cookie is returned to the browser. Do not commit `.env.local`; production secrets belong in the API host's secret manager. Production requires HTTPS, secure cookies, database backups, rate limiting, and monitoring.
+Requirements: Go 1.25+, Node.js 20+, npm, and Docker.
 
-## Guest claim contract
-
-`POST /api/v1/account/claim` requires a valid owner session cookie. The browser sends the following JSON bundle (the request is limited to 1 MiB):
-
-```json
-{
-  "schemaVersion": 1,
-  "guestDeviceId": "UUID",
-  "idempotencyKey": "UUID",
-  "products": [
-    {
-      "id": 1,
-      "sku": "ITEM-1",
-      "name": "Sample Item",
-      "category": "Sample Category",
-      "barcode": "",
-      "unit": "piece",
-      "sellingPrice": 10,
-      "costPrice": 5,
-      "quantity": 3,
-      "minStock": 1,
-      "image": ""
-    }
-  ],
-  "categories": ["Sample Category"],
-  "sales": [
-    {
-      "id": "guest-sale-id",
-      "cashierName": "Shop Owner",
-      "customerName": "",
-      "subtotal": 10,
-      "discount": 0,
-      "total": 10,
-      "paymentMethod": "cash",
-      "completedAt": "2026-01-01T10:00:00Z",
-      "items": [
-        {
-          "productId": 1,
-          "productName": "Sample Item",
-          "quantity": 1,
-          "unitPrice": 10,
-          "unitCost": 5,
-          "lineTotal": 10
-        }
-      ]
-    }
-  ],
-  "stockMovements": [
-    {
-      "id": "guest-movement-id",
-      "productId": 1,
-      "quantityDelta": -1,
-      "reason": "Sale",
-      "saleId": "guest-sale-id",
-      "createdAt": "2026-01-01T10:00:00Z"
-    }
-  ],
-  "settings": {
-    "shopName": "My Shop",
-    "currency": "UGX",
-    "address": "",
-    "phone": "",
-    "receiptHeader": "",
-    "receiptFooter": "Thank you for shopping with us!",
-    "receiptShowPhone": false,
-    "preferences": {}
-  }
-}
+```sh
+cp .env.example .env
+docker compose up --build
 ```
 
-A new import returns `201 Created`; an exact retry with the same device UUID, idempotency UUID, and payload returns `200 OK`. Both return:
+Open `http://localhost:8080`. The demo guest workspace is available without real credentials or personal data.
 
-```json
-{
-  "imported": {
-    "products": 1,
-    "categories": 1,
-    "sales": 1,
-    "stockMovements": 1
-  },
-  "productIds": { "1": 123 },
-  "saleIds": { "guest-sale-id": "cloud-sale-uuid" }
-}
+For local development:
+
+```sh
+cd api && go run ./cmd/server
+cd web && npm install && npm run dev
 ```
 
-Each claim is one database transaction. A stored SHA-256 payload hash prevents reuse of an idempotency key with changed data; such a request returns `409 Conflict`. New cloud IDs are returned for local product and sale IDs. Duplicate category names are ignored. Duplicate product SKU/barcode conflicts fail and roll back the entire claim. Products are imported with their current quantities; stock movements are imported as history and do not adjust quantity again. The owner who completed OAuth is recorded as cashier/user for migrated records. Team-member accounts and printer jobs are not part of this claim bundle.
+The API listens on `127.0.0.1:8080` and Vite serves the frontend on port 5180 by default.
 
-## Verify the full local flow
+## Google sign-in
 
-1. Start PostgreSQL, the API, and Vite using the steps above. Open the app; it should show **Demo Shop**, **Demo**, and **Not connected** without an auth page.
-2. Add a product, adjust its stock, create a category, and complete a sale. Reload the page and confirm the local records remain.
-3. Select **Connect Google** or **Save to cloud** and complete Google consent. The browser returns to the page you were using; after the guest claim succeeds, complete the required owner's full name, business name, phone number, and physical address setup to continue.
-4. Inspect the shop using the authenticated API/database and confirm the products, category, sale, movement history, and settings were imported. Sign out; the cookie is cleared, cloud data remains, and the browser opens local guest mode.
+Use a Google OAuth Web client. For local development, register:
 
-## Data isolation
+- Redirect URI: `http://localhost:8080/api/v1/auth/google/callback`
+- Application origin: `http://localhost:5180`
 
-The app's public demo routes serve only static fake fixtures. User shop APIs require the signed, HTTP-only session cookie and scope queries by its `shop_id`. The browser never connects directly to PostgreSQL or Supabase. Google OAuth identifies the user; the API creates/links the account and shop and stores tenant data in the configured PostgreSQL database. The shared database is not a separate database per Google account.
+For production, set:
+
+- Redirect URI: `https://[DOMAIN]/api/v1/auth/google/callback` when same-origin hosting is used
+- Authorized JavaScript origins: `https://[DOMAIN]`
+
+Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`, and `APP_BASE_URL`. Production mode also requires `COOKIE_SECURE=true`.
+
+## Email via Brevo SMTP
+
+Optional password-reset email uses Brevo SMTP. Configure `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_FROM` together.
+
+## Environment
+
+Copy `.env.example` and fill only the variables required for the selected environment. The example contains dummy values; no production secrets are committed.
+
+## Docker self-hosting
+
+```sh
+cp .env.example .env
+docker compose up -d --build
+```
+
+The included PostgreSQL volume is persistent. Replace local placeholder secrets before exposing the service publicly and use HTTPS plus `COOKIE_SECURE=true` in production.
+
+## Verification
+
+```sh
+cd api && go test ./...
+cd web && npm ci && npm run build
+```
+
+## Operations
+
+See [RUNBOOK.md](RUNBOOK.md) for backups, secret rotation, monitoring, and incident response.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

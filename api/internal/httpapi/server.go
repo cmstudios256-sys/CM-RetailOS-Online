@@ -9,7 +9,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -24,10 +27,11 @@ const (
 	sessionCookieName = "cm_retailos_session"
 	sessionDuration   = 12 * time.Hour
 	maxRequestBytes   = 1 << 20
+	initialMigrationVersion = 1
 )
 
-//go:embed schema.sql
-var schema string
+//go:embed migrations/001_initial.sql
+var initialMigration string
 
 type Config struct {
 	JWTSecret          []byte
@@ -41,6 +45,7 @@ type Config struct {
 	SMTPUsername       string
 	SMTPPassword       string
 	SMTPFrom           string
+	FrontendDir        string
 }
 
 type Server struct {
@@ -49,6 +54,14 @@ type Server struct {
 	mux              *http.ServeMux
 	googleProviderMu sync.Mutex
 	googleProvider   *oidc.Provider
+	rateLimitsMu sync.Mutex
+	rateLimits map[string]*authRateLimit
+	frontend http.Handler
+}
+
+type authRateLimit struct {
+	windowStart time.Time
+	count       int
 }
 
 type sessionClaims struct {
@@ -71,7 +84,10 @@ type identity struct {
 }
 
 func New(db *sql.DB, config Config) *Server {
-	s := &Server{db: db, config: config, mux: http.NewServeMux()}
+	s := &Server{db: db, config: config, mux: http.NewServeMux(), rateLimits: make(map[string]*authRateLimit)}
+	if strings.TrimSpace(config.FrontendDir) != "" {
+		s.frontend = http.FileServer(http.Dir(config.FrontendDir))
+	}
 	s.mux.HandleFunc("GET /api/v1/health", s.health)
 	s.mux.HandleFunc("GET /api/v1/public/workspace", s.publicWorkspace)
 	s.mux.HandleFunc("GET /api/v1/public/dashboard", s.publicDashboard)
@@ -116,7 +132,101 @@ func New(db *sql.DB, config Config) *Server {
 }
 
 func (s *Server) Handler() http.Handler {
-	return securityHeaders(s.mux)
+	var handler http.Handler = s
+	return securityHeaders(s.authRateLimiter(handler))
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	recorder := &responseCapture{ResponseWriter: w, status: http.StatusOK}
+	s.mux.ServeHTTP(recorder, r)
+	if recorder.status != http.StatusNotFound || r.Method != http.MethodGet || strings.HasPrefix(r.URL.Path, "/api/") || s.frontend == nil {
+		recorder.writeCaptured(w)
+		return
+	}
+	// Serve real files normally and fall back to the SPA entry point.
+	fileName := filepath.Join(s.config.FrontendDir, filepath.FromSlash(strings.TrimPrefix(r.URL.Path, "/")))
+	if info, err := os.Stat(fileName); err == nil && !info.IsDir() {
+		s.frontend.ServeHTTP(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(s.config.FrontendDir, "index.html"))
+}
+
+type responseCapture struct {
+	http.ResponseWriter
+	status int
+	body strings.Builder
+}
+
+func (w *responseCapture) WriteHeader(status int) {
+	if w.status == http.StatusOK {
+		w.status = status
+	}
+}
+
+func (w *responseCapture) Write(data []byte) (int, error) {
+	return w.body.Write(data)
+}
+
+func (w *responseCapture) writeCaptured(dst http.ResponseWriter) {
+	dst.WriteHeader(w.status)
+	_, _ = dst.Write([]byte(w.body.String()))
+}
+
+func (s *Server) authRateLimiter(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		limit := 0
+		if strings.HasPrefix(r.URL.Path, "/api/v1/auth/") || r.URL.Path == "/api/v1/account/claim" {
+			switch {
+			case strings.HasPrefix(r.URL.Path, "/api/v1/auth/password-reset/"):
+				limit = 10
+			case r.URL.Path == "/api/v1/auth/session":
+				limit = 120
+			default:
+				limit = 30
+			}
+		}
+		if limit == 0 {
+			next.ServeHTTP(w, r)
+			return
+		}
+		ip := r.Header.Get("X-Forwarded-For")
+		if ip != "" {
+			ip = strings.TrimSpace(strings.Split(ip, ",")[0])
+		} else {
+			ip = r.RemoteAddr
+			if host, _, err := net.SplitHostPort(ip); err == nil {
+				ip = host
+			}
+		}
+		key := ip + "|" + r.URL.Path
+		now := time.Now()
+		s.rateLimitsMu.Lock()
+		entry := s.rateLimits[key]
+		if entry == nil || now.Sub(entry.windowStart) >= time.Minute {
+			entry = &authRateLimit{windowStart: now}
+			s.rateLimits[key] = entry
+		}
+		entry.count++
+		rejected := entry.count > limit
+		remaining := limit - entry.count
+		if remaining < 0 {
+			remaining = 0
+		}
+		retryAfter := int(time.Until(entry.windowStart.Add(time.Minute)).Seconds())
+		if retryAfter < 1 {
+			retryAfter = 1
+		}
+		s.rateLimitsMu.Unlock()
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
+		w.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", limit))
+		w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+		if rejected {
+			writeError(w, http.StatusTooManyRequests, "rate_limit_exceeded", "Too many authentication attempts. Try again later.")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) Migrate(ctx context.Context) error {
@@ -125,13 +235,29 @@ func (s *Server) Migrate(ctx context.Context) error {
 		return fmt.Errorf("begin database schema migration: %w", err)
 	}
 	defer tx.Rollback()
-	for _, statement := range strings.Split(schema, ";") {
+	if _, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version INTEGER PRIMARY KEY,
+			applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+		)`); err != nil {
+		return fmt.Errorf("create migration ledger: %w", err)
+	}
+	var applied bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, initialMigrationVersion).Scan(&applied); err != nil {
+		return fmt.Errorf("check initial migration: %w", err)
+	}
+	if !applied {
+		for _, statement := range strings.Split(initialMigration, ";") {
 		statement = strings.TrimSpace(statement)
 		if statement == "" {
 			continue
 		}
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("apply database schema statement: %w", err)
+		}
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, initialMigrationVersion); err != nil {
+			return fmt.Errorf("record initial migration: %w", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
