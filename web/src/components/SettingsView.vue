@@ -33,7 +33,10 @@ import {
 } from '@lucide/vue'
 import { apiRequest, formatTime, syncOnlinePrefsFromServer } from '../api'
 import { openPrintDocument, escapeHtml } from '../utils/reporting'
+import { usePhoneBreakpoint } from '../utils/breakpoints'
 import CustomSelect from './CustomSelect.vue'
+
+const { isPhone } = usePhoneBreakpoint()
 
 const props = defineProps<{
   shopName: string
@@ -1798,7 +1801,7 @@ onMounted(() => {
               <h3>Display</h3>
             </div>
             <div class="card-body toggle-list">
-              <div class="toggle-group">
+              <div v-if="!isPhone" class="toggle-group">
                 <div class="toggle-info">
                   <span class="toggle-label">Enlarge Product Image on Hover</span>
                   <span class="toggle-desc">Show a larger image when hovering over a product in the POS grid.</span>

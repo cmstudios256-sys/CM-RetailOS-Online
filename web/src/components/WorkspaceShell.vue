@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useDesktopBreakpoint } from '../utils/breakpoints'
+import { useDesktopBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import {
   BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, FileClock, History, LayoutDashboard,
   LockKeyhole, LogOut, Menu, Package, PackageCheck, ReceiptText, Settings as SettingsIcon, ShieldCheck, ShoppingCart,
@@ -38,6 +38,7 @@ const emit = defineEmits<{
 }>()
 const activePage = ref('dashboard')
 const { isDesktop } = useDesktopBreakpoint()
+const { isPhone } = usePhoneBreakpoint()
 const isGuest = computed(() => props.guestMode === true)
 const sidebarCollapsed = ref(false)
 const mobileMoreOpen = ref(false)
@@ -92,7 +93,8 @@ const visibleNavigationGroups = computed(() => navigationGroups
     ...group,
     items: group.items.filter(item =>
       hasNavPermission(item.id) &&
-      (isDesktop.value || !['profit-analytics', 'business-intelligence', 'audit-logs'].includes(item.id)),
+      (isDesktop.value || !['profit-analytics', 'business-intelligence', 'audit-logs'].includes(item.id)) &&
+      (!isPhone.value || item.id !== 'stock-levels'),
     ),
   }))
   .filter(group => group.items.length > 0))
@@ -112,6 +114,9 @@ const desktopOnlyPages: Record<string, string> = {
 const desktopLockedPageName = computed(() => desktopOnlyPages[activePage.value] ?? '')
 const isDesktopLockedPage = computed(() =>
   !isDesktop.value && Object.prototype.hasOwnProperty.call(desktopOnlyPages, activePage.value),
+)
+const isPhoneLockedStockLevels = computed(() =>
+  isPhone.value && activePage.value === 'stock-levels',
 )
 const pageTitle = computed(() => props.user.shopName || 'My Business')
 const now = ref(new Date())
@@ -170,7 +175,7 @@ function toggleProfile() {
 }
 
 function openStockAlert(productId: number) {
-  activePage.value = 'stock-levels'
+  activePage.value = isPhone.value ? 'products' : 'stock-levels'
   notificationsOpen.value = false
   const alert = notifications.value.find(item => item.productId === productId)
   if (alert) alert.read = true
@@ -205,6 +210,7 @@ function handlePrefsUpdated() {
   applyOnlinePrefsToDom()
   if (!navigation.value.some(item => item.id === activePage.value)
     && !Object.prototype.hasOwnProperty.call(desktopOnlyPages, activePage.value)
+    && !isPhoneLockedStockLevels.value
     && navigation.value.length > 0) {
     activePage.value = navigation.value[0].id
   }
@@ -220,7 +226,8 @@ onMounted(() => {
   const requestedPage = params.get('page')
   if (requestedPage && (
     navigation.value.some(item => item.id === requestedPage) ||
-    Object.prototype.hasOwnProperty.call(desktopOnlyPages, requestedPage)
+    Object.prototype.hasOwnProperty.call(desktopOnlyPages, requestedPage) ||
+    (isPhone.value && requestedPage === 'stock-levels')
   )) {
     activePage.value = requestedPage
     if (params.get('claim') !== 'guest') params.delete('page')
@@ -232,6 +239,7 @@ onMounted(() => {
   void syncOnlinePrefsFromServer(props.user.id)
   if (!navigation.value.some(item => item.id === activePage.value)
     && !Object.prototype.hasOwnProperty.call(desktopOnlyPages, activePage.value)
+    && !isPhoneLockedStockLevels.value
     && navigation.value.length > 0) {
     activePage.value = navigation.value[0].id
   }
@@ -374,7 +382,12 @@ onUnmounted(() => {
       </div>
 
       <main class="workspace-content">
-        <section v-if="isDesktopLockedPage" class="desktop-only-state" role="status" aria-live="polite">
+        <section v-if="isPhoneLockedStockLevels" class="desktop-only-state" role="status" aria-live="polite">
+          <div class="desktop-only-icon"><Boxes :size="30" /></div>
+          <h2>Stock Levels</h2>
+          <p>Stock Levels is available from the Products page on mobile — use product stock controls instead.</p>
+        </section>
+        <section v-else-if="isDesktopLockedPage" class="desktop-only-state" role="status" aria-live="polite">
           <div class="desktop-only-icon"><Monitor :size="30" /></div>
           <h2>{{ desktopLockedPageName }}</h2>
           <p>{{ desktopLockedPageName }} is available on desktop — open CM RetailOS on a computer.</p>
