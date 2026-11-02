@@ -38,7 +38,7 @@ const props = defineProps<{
 const isMobile = ref(false)
 
 const checkMobile = () => {
-  isMobile.value = window.matchMedia('(max-width: 640px)').matches
+  isMobile.value = window.matchMedia('(max-width: 639px)').matches
 }
 
 onMounted(() => {

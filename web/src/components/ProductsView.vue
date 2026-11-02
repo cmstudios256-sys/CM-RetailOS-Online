@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { usePhoneBreakpoint } from '../utils/breakpoints'
 import {
   AlertTriangle,
   ArrowRight,
@@ -49,8 +50,9 @@ const categoryBusy = ref(false)
 const error = ref('')
 const notice = ref('')
 const isDropdownOpen = ref(false)
+const { isPhone } = usePhoneBreakpoint()
 const viewMode = ref<'grid' | 'list'>(
-  typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches ? 'grid' : 'list',
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches ? 'grid' : 'list',
 )
 const viewModeManuallySelected = ref(false)
 
@@ -85,13 +87,16 @@ function handleBarcodeScanned() {
 }
 
 function setViewMode(mode: 'grid' | 'list') {
+  if (isPhone.value) return
   viewModeManuallySelected.value = true
   viewMode.value = mode
 }
 
 function updateDefaultViewMode() {
-  if (!viewModeManuallySelected.value) {
-    viewMode.value = window.matchMedia('(max-width: 640px)').matches ? 'grid' : 'list'
+  if (isPhone.value) {
+    viewMode.value = 'grid'
+  } else if (!viewModeManuallySelected.value) {
+    viewMode.value = 'list'
   }
 }
 
@@ -2256,7 +2261,10 @@ tbody tr:hover {
   transform: scale(1.1);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
+  .products-view-switcher {
+    display: none;
+  }
   .products-grid {
     grid-template-columns: minmax(0, 1fr);
   }

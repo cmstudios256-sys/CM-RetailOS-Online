@@ -18,6 +18,7 @@ import { apiRequest, formatAxisValue, formatDate, formatMoney, formatTime } from
 import { downloadCsv, escapeHtml, openPrintDocument } from '../utils/reporting'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
 import { Line, Doughnut } from 'vue-chartjs'
+import { usePhoneBreakpoint } from '../utils/breakpoints'
 import {
   Chart as ChartJS,
   Title,
@@ -50,6 +51,8 @@ type ChartPoint = {
   sales: number
   profit: number
 }
+
+const { isPhone } = usePhoneBreakpoint()
 
 type ProfitCategory = {
   name: string
@@ -539,7 +542,8 @@ onUnmounted(() => {
     </div>
 
     <!-- Charts Grid -->
-    <div class="charts-grid">
+    <p v-if="isPhone" class="chart-phone-hint">Charts available on tablet &amp; desktop</p>
+    <div v-else class="charts-grid">
       <div class="chart-card">
         <h3 class="card-title">Profit Trend</h3>
         <div class="chart-container" style="position: relative; height: 100%; min-height: 240px;">
@@ -800,6 +804,17 @@ onUnmounted(() => {
 .item-desc {
   font-size: 0.7rem;
   color: var(--text-muted);
+}
+
+.chart-phone-hint {
+  margin: 0;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: center;
 }
 
 .charts-grid {

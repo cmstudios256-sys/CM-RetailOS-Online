@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   AlertCircle,
   Camera,
@@ -23,6 +23,7 @@ import type { IScannerControls } from '@zxing/browser'
 import { apiRequest, formatDate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Product, type Sale } from '../api'
 import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
+import { usePhoneBreakpoint } from '../utils/breakpoints'
 import { escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 
 type CartItem = {
@@ -50,17 +51,30 @@ const cameraOpen = ref(false)
 const cameraError = ref('')
 const cameraVideo = ref<HTMLVideoElement | null>(null)
 const shareSale = ref<Sale | null>(null)
+const { isPhone } = usePhoneBreakpoint()
 let cameraControls: IScannerControls | null = null
 let cameraSession = 0
 const search = ref('')
-const savedViewMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_pos_view_mode') : null) as 'list' | 'grid' | null
-const viewMode = ref<'list' | 'grid'>(savedViewMode === 'list' ? 'list' : 'grid')
+let savedViewMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_pos_view_mode') : null) as 'list' | 'grid' | null
+const viewMode = ref<'list' | 'grid'>(
+  window.matchMedia('(max-width: 639px)').matches ? 'grid' : savedViewMode === 'list' ? 'list' : 'grid',
+)
 function setViewMode(mode: 'list' | 'grid') {
+  if (isPhone.value) return
   viewMode.value = mode
+  savedViewMode = mode
   try {
     localStorage.setItem('cm_pos_view_mode', mode)
   } catch {}
 }
+
+watch(isPhone, phone => {
+  if (phone) {
+    viewMode.value = 'grid'
+  } else {
+    viewMode.value = savedViewMode === 'list' ? 'list' : 'grid'
+  }
+})
 
 const productImagePreview = ref<{ src: string; alt: string; left: number; top: number } | null>(null)
 
@@ -2202,6 +2216,12 @@ onUnmounted(() => {
 
   .cart-panel {
     min-width: 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .view-switcher {
+    display: none;
   }
 }
 </style>

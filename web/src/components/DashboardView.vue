@@ -10,6 +10,7 @@ import {
 } from '@lucide/vue'
 import { apiRequest, formatAxisValue, formatQuantity, type Product } from '../api'
 import DashboardSalesChart from './DashboardSalesChart.vue'
+import { usePhoneBreakpoint } from '../utils/breakpoints'
 
 type Period = 'Daily' | 'Weekly' | 'Monthly'
 
@@ -18,6 +19,8 @@ type ChartPoint = {
   sales: number
   profit: number
 }
+
+const { isPhone } = usePhoneBreakpoint()
 
 type TopProduct = {
   name: string
@@ -349,7 +352,8 @@ onMounted(load)
 
         <div class="sales-chart-container">
           <div class="sales-chart-plot">
-            <DashboardSalesChart :chart-data="salesChartData" :currency-symbol="activeCurrency" />
+            <DashboardSalesChart v-if="!isPhone" :chart-data="salesChartData" :currency-symbol="activeCurrency" />
+            <p v-else class="chart-phone-hint">Charts available on tablet &amp; desktop</p>
           </div>
 
           <div class="chart-stats">
@@ -694,6 +698,16 @@ onMounted(load)
 }
 
 /* Sales Overview Chart */
+.chart-phone-hint {
+  margin: 0;
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
 .sales-chart-container {
   flex: 1;
   min-height: 260px;

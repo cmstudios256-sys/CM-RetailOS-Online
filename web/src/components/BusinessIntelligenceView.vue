@@ -15,6 +15,7 @@ import { apiRequest, formatAxisValue, formatDate, formatMoney, formatTime } from
 import { downloadCsv, escapeHtml, openPrintDocument } from '../utils/reporting'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
 import { Bar } from 'vue-chartjs'
+import { usePhoneBreakpoint } from '../utils/breakpoints'
 import {
   Chart as ChartJS,
   Title,
@@ -33,6 +34,8 @@ type ProfitableProduct = {
   name: string
   profit: number
 }
+
+const { isPhone } = usePhoneBreakpoint()
 
 type BasketPair = {
   pair: [string, string]
@@ -391,7 +394,8 @@ onUnmounted(() => {
         </div>
 
         <div class="chart-container" style="position: relative; height: 100%; min-height: 240px;">
-          <Bar :data="salesByHourData" :options="salesCountChartOptions" />
+          <Bar v-if="!isPhone" :data="salesByHourData" :options="salesCountChartOptions" />
+          <p v-else class="chart-phone-hint">Charts available on tablet &amp; desktop</p>
         </div>
       </div>
 
@@ -405,7 +409,8 @@ onUnmounted(() => {
         </div>
 
         <div class="chart-container" style="position: relative; height: 100%; min-height: 240px;">
-          <div v-if="!profitableProducts.length" class="empty-chart-state">
+          <p v-if="isPhone" class="chart-phone-hint">Charts available on tablet &amp; desktop</p>
+          <div v-else-if="!profitableProducts.length" class="empty-chart-state">
             No profitable product sales recorded for this period.
           </div>
           <Bar v-else :data="mostProfitableProductsData" :options="profitBarChartOptions" />
@@ -684,6 +689,17 @@ onUnmounted(() => {
 }
 
 /* Vertical Bar Chart */
+.chart-phone-hint {
+  margin: 0;
+  width: 100%;
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
 .chart-container {
   flex: 1;
   min-height: 160px;
