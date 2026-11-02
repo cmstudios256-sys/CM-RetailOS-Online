@@ -1,0 +1,25 @@
+{
+  "name": "CM RetailOS",
+  "short_name": "CM RetailOS",
+  "description": "A guest-first retail workspace for your business.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#020617",
+  "theme_color": "#0b1220",
+  "icons": [
+    {
+      "src": "/icons/cm-retailos-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/cm-retailos-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

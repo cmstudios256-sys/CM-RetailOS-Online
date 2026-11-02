@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import {
   AlertCircle,
+  Camera,
   Barcode,
   CheckCircle2,
   Delete,
@@ -13,11 +14,15 @@ import {
   Plus,
   Printer,
   Search,
+  Share2,
   ShoppingCart,
   Trash2,
   X,
 } from '@lucide/vue'
+import type { IScannerControls } from '@zxing/browser'
 import { apiRequest, formatDate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Product, type Sale } from '../api'
+import MobileReceiptShare from './MobileReceiptShare.vue'
+import { isTouchDevice } from '../utils/device'
 import { escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 
 type CartItem = {
@@ -39,6 +44,14 @@ const props = defineProps<{ currency: string; shopName: string; role: string }>(
 const products = ref<Product[]>([])
 const cart = ref<CartItem[]>([])
 const mobileCartOpen = ref(false)
+const mobileTouch = ref(false)
+const cameraSupported = ref(false)
+const cameraOpen = ref(false)
+const cameraError = ref('')
+const cameraVideo = ref<HTMLVideoElement | null>(null)
+const shareSale = ref<Sale | null>(null)
+let cameraControls: IScannerControls | null = null
+let cameraSession = 0
 const search = ref('')
 const savedViewMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_pos_view_mode') : null) as 'list' | 'grid' | null
 const viewMode = ref<'list' | 'grid'>(savedViewMode === 'list' ? 'list' : 'grid')
@@ -266,23 +279,88 @@ function getStockStatusText(product: Product) {
   return `In Stock (${qty})`
 }
 
-function addToCart(product: Product) {
+function addToCart(product: Product): boolean {
   completedSale.value = null
   error.value = ''
   if (product.quantity <= 0) {
     triggerErrorToast(`Cannot add "${product.name}": Out of Stock!`)
-    return
+    return false
   }
   const existing = cart.value.find(item => item.product.id === product.id)
   if (existing) {
     if (existing.quantity + 1 > product.quantity) {
       triggerErrorToast(`Only ${formatQuantity(product.quantity)} ${product.unit} of "${product.name}" available in stock.`)
-      return
+      return false
     }
     existing.quantity = Math.round((existing.quantity + 1) * 1000) / 1000
-    return
+    return true
   }
   cart.value.push({ product, quantity: Math.min(1, product.quantity) })
+  return true
+}
+
+function addScannedProduct(code: string) {
+  const lowered = code.toLowerCase()
+  const match = products.value.find(product =>
+    (product.barcode && product.barcode.toLowerCase() === lowered)
+    || product.sku.toLowerCase() === lowered,
+  )
+  if (!match) {
+    triggerErrorToast(`Barcode not found: "${code}"`)
+    return
+  }
+  playScannerBeep()
+  if (addToCart(match)) triggerSuccessToast(`${match.name} added to cart.`)
+}
+
+async function openBarcodeCamera() {
+  if (!cameraSupported.value || cameraOpen.value) return
+  cameraError.value = ''
+  cameraOpen.value = true
+  const session = ++cameraSession
+
+  try {
+    await nextTick()
+    if (!cameraVideo.value) throw new Error('The camera preview could not be opened.')
+    const { BrowserMultiFormatReader } = await import('@zxing/browser')
+    const reader = new BrowserMultiFormatReader()
+    const controls = await reader.decodeFromConstraints(
+      { audio: false, video: { facingMode: { ideal: 'environment' } } },
+      cameraVideo.value,
+      result => {
+        if (!result || session !== cameraSession || !cameraOpen.value) return
+        const code = result.getText().trim()
+        closeBarcodeCamera()
+        addScannedProduct(code)
+      },
+    )
+    if (session !== cameraSession || !cameraOpen.value) controls.stop()
+    else cameraControls = controls
+  } catch (reason) {
+    if (session !== cameraSession || !cameraOpen.value) return
+    const stream = cameraVideo.value?.srcObject
+    if (stream instanceof MediaStream) stream.getTracks().forEach(track => track.stop())
+    if (cameraVideo.value) cameraVideo.value.srcObject = null
+    cameraError.value = reason instanceof Error
+      ? reason.name === 'NotAllowedError'
+        ? 'Camera permission was denied. Allow camera access in your browser settings and try again.'
+        : reason.message
+      : 'Camera access failed. Check permission and try again.'
+  }
+}
+
+function closeBarcodeCamera() {
+  cameraSession++
+  cameraOpen.value = false
+  cameraControls?.stop()
+  cameraControls = null
+  const stream = cameraVideo.value?.srcObject
+  if (stream instanceof MediaStream) stream.getTracks().forEach(track => track.stop())
+  if (cameraVideo.value) cameraVideo.value.srcObject = null
+}
+
+function openReceiptShare(sale: Sale) {
+  if (mobileTouch.value) shareSale.value = sale
 }
 
 function handleSearchInputEnter() {
@@ -309,6 +387,10 @@ function handleSearchInputEnter() {
 }
 
 function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && cameraOpen.value) {
+    closeBarcodeCamera()
+    return
+  }
   if (event.key === 'Escape' && mobileCartOpen.value) {
     mobileCartOpen.value = false
     return
@@ -480,12 +562,15 @@ async function checkout() {
 }
 
 onMounted(() => {
+  mobileTouch.value = isTouchDevice()
+  cameraSupported.value = mobileTouch.value && window.isSecureContext && !!navigator.mediaDevices?.getUserMedia
   loadProducts()
   window.addEventListener('keydown', handleGlobalKeydown)
   window.addEventListener('online-prefs-updated', handlePrefsUpdated)
 })
 
 onUnmounted(() => {
+  closeBarcodeCamera()
   window.removeEventListener('keydown', handleGlobalKeydown)
   window.removeEventListener('online-prefs-updated', handlePrefsUpdated)
   if (toastTimer) clearTimeout(toastTimer)
@@ -555,6 +640,15 @@ onUnmounted(() => {
               <span class="scanner-dot"></span>
             </div>
           </div>
+          <button
+            v-if="cameraSupported"
+            type="button"
+            class="mobile-scan-button"
+            @click="openBarcodeCamera"
+          >
+            <Camera :size="17" />
+            Scan
+          </button>
         </div>
       </div>
 
@@ -707,6 +801,14 @@ onUnmounted(() => {
         </div>
         <button type="button" class="banner-print-btn" @click="printCompletedReceipt(completedSale)">
           <Printer :size="15" /> Print Receipt
+        </button>
+        <button
+          v-if="mobileTouch"
+          type="button"
+          class="mobile-receipt-share"
+          @click="openReceiptShare(completedSale)"
+        >
+          <Share2 :size="16" /> Share to WhatsApp
         </button>
       </div>
 
@@ -873,6 +975,36 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+    <Teleport to="body">
+      <div v-if="cameraOpen" class="barcode-camera-backdrop" @click.self="closeBarcodeCamera">
+        <section
+          class="barcode-camera-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="barcode-camera-title"
+        >
+          <header class="barcode-camera-heading">
+            <div>
+              <h2 id="barcode-camera-title">Scan product barcode</h2>
+              <p>Hold the barcode inside the frame.</p>
+            </div>
+            <button type="button" class="barcode-camera-close" aria-label="Close barcode scanner" @click="closeBarcodeCamera">
+              <X :size="19" />
+            </button>
+          </header>
+          <video ref="cameraVideo" class="barcode-camera-preview" autoplay muted playsinline></video>
+          <p v-if="cameraError" class="barcode-camera-error" role="alert">{{ cameraError }}</p>
+          <p v-else class="barcode-camera-status" role="status">Scanning with your rear camera…</p>
+          <button type="button" class="barcode-camera-cancel" @click="closeBarcodeCamera">Cancel scan</button>
+        </section>
+      </div>
+      <MobileReceiptShare
+        :sale="shareSale"
+        :shop-name="shopSettings?.shopName || shopName"
+        :currency="currency"
+        @close="shareSale = null"
+      />
+    </Teleport>
     <Teleport to="body">
       <div
         v-if="productImagePreview"
@@ -1058,6 +1190,106 @@ onUnmounted(() => {
   background-color: #22c55e;
   border-radius: 50%;
   box-shadow: 0 0 6px #22c55e;
+}
+
+.mobile-scan-button,
+.mobile-receipt-share {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid rgba(14, 165, 233, .35);
+  border-radius: 9px;
+  color: #bae6fd;
+  background: rgba(14, 165, 233, .12);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.mobile-receipt-share {
+  border-color: rgba(34, 197, 94, .35);
+  color: #dcfce7;
+  background: rgba(22, 163, 74, .18);
+}
+
+.barcode-camera-backdrop {
+  position: fixed;
+  z-index: 110;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgba(2, 6, 23, .86);
+}
+
+.barcode-camera-dialog {
+  width: min(100%, 520px);
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 16px;
+  background: #101a2a;
+  color: #e5edf7;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .45);
+}
+
+.barcode-camera-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.barcode-camera-heading h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.barcode-camera-heading p,
+.barcode-camera-status,
+.barcode-camera-error {
+  margin: 0;
+  color: #aab8ca;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.barcode-camera-close,
+.barcode-camera-cancel {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 9px;
+  color: #dbe5f0;
+  background: rgba(148, 163, 184, .06);
+  cursor: pointer;
+}
+
+.barcode-camera-preview {
+  width: 100%;
+  max-height: min(55dvh, 480px);
+  aspect-ratio: 4 / 3;
+  display: block;
+  border-radius: 10px;
+  background: #020617;
+  object-fit: cover;
+}
+
+.barcode-camera-status,
+.barcode-camera-error {
+  margin: 12px 0;
+}
+
+.barcode-camera-error {
+  color: #fca5a5;
+}
+
+.barcode-camera-cancel {
+  width: 100%;
 }
 
 /* Grid View */

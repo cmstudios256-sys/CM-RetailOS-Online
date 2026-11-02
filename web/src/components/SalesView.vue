@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Calendar, Download, Eye, Printer, Search, X } from '@lucide/vue'
+import { Calendar, Download, Eye, Printer, Search, Share2, X } from '@lucide/vue'
 import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
+import MobileReceiptShare from './MobileReceiptShare.vue'
+import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 
 type ShopReceiptSettings = {
@@ -19,6 +21,8 @@ const sales = ref<Sale[]>([])
 const searchTerm = ref('')
 const selectedDate = ref('')
 const selectedSale = ref<Sale | null>(null)
+const saleToShare = ref<Sale | null>(null)
+const mobileTouch = ref(false)
 const isDetailModalOpen = ref(false)
 const shopSettings = ref<ShopReceiptSettings | null>(null)
 const loading = ref(true)
@@ -59,6 +63,10 @@ function viewSaleDetails(sale: Sale) {
 function closeDetailModal() {
   isDetailModalOpen.value = false
   selectedSale.value = null
+}
+
+function shareSaleOnMobile(sale: Sale) {
+  if (mobileTouch.value) saleToShare.value = sale
 }
 
 function exportSalesHistory() {
@@ -198,7 +206,10 @@ async function loadSales() {
   }
 }
 
-onMounted(loadSales)
+onMounted(() => {
+  mobileTouch.value = isTouchDevice()
+  void loadSales()
+})
 </script>
 
 <template>
@@ -285,6 +296,16 @@ onMounted(loadSales)
                 <span class="status-badge status-completed">Completed</span>
               </td>
               <td class="text-center">
+                <button
+                  v-if="mobileTouch"
+                  type="button"
+                  class="action-btn mobile-sales-share"
+                  aria-label="Share receipt to WhatsApp"
+                  title="Share receipt to WhatsApp"
+                  @click.stop="shareSaleOnMobile(sale)"
+                >
+                  <Share2 :size="16" />
+                </button>
                 <button type="button" class="action-btn" @click="viewSaleDetails(sale)">
                   <Eye :size="16" />
                   View
@@ -370,6 +391,15 @@ onMounted(loadSales)
 
         <div class="modal-footer">
           <button type="button" class="btn-secondary" @click="closeDetailModal">Close</button>
+          <button
+            v-if="mobileTouch"
+            type="button"
+            class="btn-secondary mobile-sales-share-button"
+            @click="shareSaleOnMobile(selectedSale)"
+          >
+            <Share2 :size="16" />
+            Share to WhatsApp
+          </button>
           <button type="button" class="btn-primary" @click="printReceipt(selectedSale)">
             <Printer :size="16" />
             Print Receipt
@@ -377,6 +407,14 @@ onMounted(loadSales)
         </div>
       </div>
     </div>
+    <Teleport to="body">
+      <MobileReceiptShare
+        :sale="saleToShare"
+        :shop-name="shopSettings?.shopName || shopName"
+        :currency="currency"
+        @close="saleToShare = null"
+      />
+    </Teleport>
   </section>
 </template>
 
@@ -386,6 +424,17 @@ onMounted(loadSales)
   flex-direction: column;
   flex-grow: 1;
   min-height: 0;
+}
+
+.mobile-sales-share-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.mobile-sales-share {
+  margin-right: 6px;
 }
 
 .card {

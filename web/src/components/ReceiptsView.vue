@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { Calendar, Download, Eye, Printer, Search, X } from '@lucide/vue'
+import { Calendar, Download, Eye, Printer, Search, Share2, X } from '@lucide/vue'
 import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
+import MobileReceiptShare from './MobileReceiptShare.vue'
+import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 
 type ReceiptSettings = {
@@ -18,6 +20,8 @@ const props = defineProps<{ currency: string; shopName: string }>()
 const sales = ref<Sale[]>([])
 const settings = ref<ReceiptSettings | null>(null)
 const selectedReceipt = ref<Sale | null>(null)
+const receiptToShare = ref<Sale | null>(null)
+const mobileTouch = ref(false)
 const isReceiptModalOpen = ref(false)
 const searchTerm = ref('')
 const selectedDate = ref('')
@@ -56,6 +60,10 @@ function viewReceipt(sale: Sale) {
 function closeModal() {
   isReceiptModalOpen.value = false
   selectedReceipt.value = null
+}
+
+function shareReceiptOnMobile(sale: Sale) {
+  if (mobileTouch.value) receiptToShare.value = sale
 }
 
 function exportReceipts() {
@@ -200,6 +208,7 @@ function handlePrefsUpdated() {
 }
 
 onMounted(() => {
+  mobileTouch.value = isTouchDevice()
   void load()
   window.addEventListener('online-prefs-updated', handlePrefsUpdated)
 })
@@ -297,6 +306,16 @@ onUnmounted(() => {
                 <button type="button" class="action-btn" title="View Receipt" @click="viewReceipt(receipt)">
                   <Eye :size="16" />
                 </button>
+                <button
+                  v-if="mobileTouch"
+                  type="button"
+                  class="action-btn"
+                  title="Share receipt to WhatsApp"
+                  aria-label="Share receipt to WhatsApp"
+                  @click.stop="shareReceiptOnMobile(receipt)"
+                >
+                  <Share2 :size="16" />
+                </button>
                 <button type="button" class="action-btn" title="Print Receipt" @click="printSingleReceipt(receipt)">
                   <Printer :size="16" />
                 </button>
@@ -386,6 +405,15 @@ onUnmounted(() => {
 
         <div class="receipt-modal-actions">
           <button type="button" class="btn-secondary" @click="closeModal">Close</button>
+          <button
+            v-if="mobileTouch"
+            type="button"
+            class="btn-secondary mobile-receipt-share-button"
+            @click="shareReceiptOnMobile(selectedReceipt)"
+          >
+            <Share2 :size="16" />
+            Share to WhatsApp
+          </button>
           <button type="button" class="btn-primary" @click="printSingleReceipt(selectedReceipt)">
             <Printer :size="16" />
             Print Receipt
@@ -393,6 +421,14 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+    <Teleport to="body">
+      <MobileReceiptShare
+        :sale="receiptToShare"
+        :shop-name="settings?.shopName || shopName"
+        :currency="currency"
+        @close="receiptToShare = null"
+      />
+    </Teleport>
   </section>
 </template>
 
@@ -402,6 +438,13 @@ onUnmounted(() => {
   flex-direction: column;
   flex-grow: 1;
   min-height: 0;
+}
+
+.mobile-receipt-share-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 .card {
