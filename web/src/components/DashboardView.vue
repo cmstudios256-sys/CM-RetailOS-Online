@@ -357,7 +357,7 @@ onMounted(load)
 
     <div class="dashboard-cards-wrapper">
       <!-- Sales Overview -->
-      <div class="card sales-overview-card">
+      <div v-if="!isPhone" class="card sales-overview-card">
         <div class="tab-header">
           <h3 class="card-title">Sales Overview</h3>
           <div class="tab-controls-right">
