@@ -148,6 +148,12 @@ const mobileChartData = computed<ChartData<'bar', number[], string>>(() => {
   }
 })
 
+const hasMobileSales = computed(() =>
+  mobileChartData.value.datasets.some(dataset =>
+    dataset.data.some(value => Number(value) > 0),
+  ),
+)
+
 const mobileChartOptions = computed<ChartOptions<'bar'>>(() => ({
   responsive: true,
   maintainAspectRatio: false,
@@ -234,8 +240,11 @@ const gradientPlugin = {
 </script>
 
 <template>
+  <div v-if="props.isPhone && !hasMobileSales" class="empty-chart-state">
+    No sales in this period
+  </div>
   <Chart
-    v-if="props.isPhone"
+    v-else-if="props.isPhone"
     type="bar"
     :data="mobileChartData as any"
     :options="mobileChartOptions as any"

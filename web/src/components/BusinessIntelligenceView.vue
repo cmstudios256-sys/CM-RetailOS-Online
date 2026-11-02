@@ -28,6 +28,36 @@ import {
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
+const mobileBarEndLabelsPlugin = {
+  id: 'mobileBarEndLabels',
+  afterDatasetsDraw(chart: any) {
+    const { ctx, chartArea } = chart
+    if (!chartArea || chart.options.indexAxis !== 'y') return
+    const custom = chart.options.plugins?.mobileBarEndLabels
+    if (!custom?.enabled) return
+    const meta = chart.getDatasetMeta(0)
+    if (!meta?.data?.length) return
+
+    ctx.save()
+    ctx.font = '600 11px Inter, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = isLightMode.value ? '#334155' : '#e2e8f0'
+
+    meta.data.forEach((bar: any, index: number) => {
+      const value = chart.data.datasets[0]?.data?.[index]
+      if (typeof value !== 'number' || value <= 0) return
+      const label = custom.kind === 'hours'
+        ? `${value} sales`
+        : formatMoney(value, props.currency)
+      ctx.fillText(label, Math.min(bar.x + 8, chartArea.right - 2), bar.y)
+    })
+    ctx.restore()
+  },
+}
+
+ChartJS.register(mobileBarEndLabelsPlugin as any)
+
 type Period = 'Daily' | 'Weekly' | 'Monthly'
 
 type ProfitableProduct = {
@@ -133,6 +163,10 @@ const mobileProfitableProducts = computed(() =>
     .slice(0, 5),
 )
 
+const mobileProductMax = computed(() =>
+  Math.max(...mobileProfitableProducts.value.map(item => Math.max(item.profit, 0)), 0),
+)
+
 const isLightMode = computed(() => document.documentElement.getAttribute('data-theme') === 'light')
 const currentAccentColor = computed(() => getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#0ea5e9')
 
@@ -177,6 +211,9 @@ const mobileSalesByHourData = computed(() => ({
     borderColor: currentAccentColor.value,
     borderRadius: 4,
     borderSkipped: false,
+    barThickness: 22,
+    categoryPercentage: 0.62,
+    barPercentage: 0.62,
   }],
 }))
 
@@ -189,6 +226,9 @@ const mobileProfitableProductsData = computed(() => ({
     borderColor: currentAccentColor.value,
     borderRadius: 4,
     borderSkipped: false,
+    barThickness: 22,
+    categoryPercentage: 0.62,
+    barPercentage: 0.62,
   }],
 }))
 
@@ -196,6 +236,7 @@ const mobileHorizontalChartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   indexAxis: 'y' as const,
+  layout: { padding: { left: 8, right: 58, top: 2, bottom: 2 } },
   interaction: {
     mode: 'nearest' as const,
     intersect: true,
@@ -206,6 +247,7 @@ const mobileHorizontalChartOptions = computed(() => ({
       enabled: true,
       displayColors: false,
     },
+    mobileBarEndLabels: { enabled: true, kind: 'profit' },
   },
   scales: {
     x: {
@@ -229,6 +271,17 @@ const mobileHorizontalChartOptions = computed(() => ({
     },
   },
 }))
+
+const mobilePeakChartOptions = computed(() => {
+  const options: any = mobileHorizontalChartOptions.value
+  return {
+    ...options,
+    plugins: {
+      ...options.plugins,
+      mobileBarEndLabels: { enabled: true, kind: 'hours' },
+    },
+  }
+})
 
 const salesCountChartOptions = computed(() => ({
   responsive: true,
@@ -475,7 +528,7 @@ onUnmounted(() => {
           <Bar
             v-else-if="mobilePeakHours.length"
             :data="mobileSalesByHourData"
-            :options="mobileHorizontalChartOptions"
+            :options="mobilePeakChartOptions"
           />
           <div v-else class="empty-chart-state">No peak sales hours recorded for this period.</div>
         </div>
@@ -494,11 +547,24 @@ onUnmounted(() => {
           <div v-if="isPhone && !mobileProfitableProducts.length" class="empty-chart-state">
             No profitable product sales recorded for this period.
           </div>
-          <Bar
-            v-else-if="isPhone"
-            :data="mobileProfitableProductsData"
-            :options="mobileHorizontalChartOptions"
-          />
+          <div v-else-if="isPhone" class="mobile-profit-bar-list">
+            <div
+              v-for="item in mobileProfitableProducts"
+              :key="item.name"
+              class="mobile-profit-bar-row"
+            >
+              <div class="mobile-profit-bar-label">
+                <span>{{ item.name }}</span>
+                <strong>{{ formatMoney(item.profit, props.currency) }}</strong>
+              </div>
+              <div class="mobile-profit-bar-track">
+                <div
+                  class="mobile-profit-bar-fill"
+                  :style="{ width: `${mobileProductMax > 0 ? Math.max(3, (item.profit / mobileProductMax) * 100) : 0}%` }"
+                ></div>
+              </div>
+            </div>
+          </div>
           <div v-else-if="!profitableProducts.length" class="empty-chart-state">
             No profitable product sales recorded for this period.
           </div>
@@ -972,6 +1038,83 @@ tbody tr:hover {
 }
 
 @media (max-width: 639px) {
+  .card-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .bi-controls-right {
+    width: 100%;
+    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .time-range-selector {
+    width: 100%;
+  }
+
+  .time-range-selector button {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .date-picker-btn {
+    width: 46px;
+    height: 46px;
+  }
+
+  .mobile-profit-bar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mobile-profit-bar-row {
+    min-width: 0;
+  }
+
+  .mobile-profit-bar-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+    margin-bottom: 5px;
+    font-size: 0.78rem;
+  }
+
+  .mobile-profit-bar-label span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-profit-bar-label strong {
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .mobile-profit-bar-track {
+    height: 22px;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 5px;
+    background: rgba(148, 163, 184, 0.12);
+  }
+
+  .mobile-profit-bar-fill {
+    height: 100%;
+    max-width: 100%;
+    border-radius: 5px;
+    background: var(--accent-color, #0ea5e9);
+  }
+
   .full-width,
   .full-width .table-container {
     min-width: 0;

@@ -232,6 +232,12 @@ const mobileProfitTrendData = computed(() => {
   }
 })
 
+const hasMobileProfitData = computed(() =>
+  mobileProfitTrendData.value.datasets.some(dataset =>
+    dataset.data.some(value => Number(value) !== 0),
+  ),
+)
+
 const mobileChartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
@@ -619,8 +625,11 @@ onUnmounted(() => {
     <div v-if="isPhone" class="mobile-chart-card">
       <h3 class="card-title">Profit Trend</h3>
       <div class="mobile-chart-container">
+        <div v-if="!hasMobileProfitData" class="empty-chart-state">
+          No profit in this period
+        </div>
         <Bar
-          v-if="selectedPeriod === 'Daily'"
+          v-else-if="selectedPeriod === 'Daily'"
           :data="mobileProfitTrendData"
           :options="mobileChartOptions"
         />
@@ -918,6 +927,43 @@ onUnmounted(() => {
   width: 100%;
   height: 220px;
   min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .analytics-controls {
+    align-items: flex-start;
+  }
+
+  .controls-left {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .time-range-selector {
+    width: 100%;
+  }
+
+  .time-range-selector button {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .date-filter-wrapper {
+    justify-self: start;
+  }
+
+  .date-picker-btn {
+    width: 46px;
+    min-width: 46px;
+    height: 46px;
+    min-height: 46px;
+  }
+
+  .date-picker-btn > span {
+    display: none;
+  }
 }
 
 .charts-grid {

@@ -21,7 +21,7 @@ export type GuestSettings = {
 }
 
 export type GuestBundle = {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
   guestDeviceId: string
   idempotencyKey: string
   products: Product[]
@@ -90,9 +90,8 @@ function seedState(): GuestState {
   ]
   const coffee = productSeeds[0]
   const notebook = productSeeds[1]
-  const demoSale = (id: string, hoursAgo: number, product: Product, quantity: number): Sale => {
+  const demoSaleAt = (id: string, completedAt: Date, product: Product, quantity: number): Sale => {
     const lineTotal = product.sellingPrice * quantity
-    const completedAt = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000).toISOString()
     return {
       id,
       cashierName: 'Shop Owner',
@@ -101,7 +100,7 @@ function seedState(): GuestState {
       discount: 0,
       total: lineTotal,
       paymentMethod: 'cash',
-      completedAt,
+      completedAt: completedAt.toISOString(),
       items: [{
         productId: product.id,
         productName: product.name,
@@ -112,10 +111,26 @@ function seedState(): GuestState {
       }],
     }
   }
+  const weekStart = new Date(now)
+  weekStart.setHours(0, 0, 0, 0)
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7))
+  const atHourOnDay = (dayOffset: number, hour: number) => {
+    const date = new Date(weekStart)
+    date.setDate(date.getDate() + dayOffset)
+    date.setHours(hour, 0, 0, 0)
+    return date
+  }
+  const todayHour = now.getHours() > 1 ? now.getHours() : 1
   const sales = [
-    demoSale('demo-sale-001', 2, coffee, 1),
-    demoSale('demo-sale-002', 5, notebook, 2),
-    demoSale('demo-sale-003', 28, coffee, 2),
+    demoSaleAt('demo-sale-001', new Date(now.getFullYear(), now.getMonth(), now.getDate(), 1, 0, 0), coffee, 1),
+    demoSaleAt('demo-sale-002', new Date(now.getFullYear(), now.getMonth(), now.getDate(), todayHour, 0, 0), notebook, 2),
+    demoSaleAt('demo-sale-003', atHourOnDay(0, 9), coffee, 1),
+    demoSaleAt('demo-sale-004', atHourOnDay(1, 13), notebook, 1),
+    demoSaleAt('demo-sale-005', atHourOnDay(2, 17), coffee, 2),
+    demoSaleAt('demo-sale-006', atHourOnDay(3, 6), productSeeds[2], 2),
+    demoSaleAt('demo-sale-007', atHourOnDay(4, 11), notebook, 3),
+    demoSaleAt('demo-sale-008', atHourOnDay(5, 15), coffee, 1),
+    demoSaleAt('demo-sale-009', atHourOnDay(6, 19), productSeeds[2], 1),
   ]
   const movements: GuestStockMovement[] = productSeeds.map(product => ({
     id: `demo-opening-${product.id}`,
@@ -125,7 +140,7 @@ function seedState(): GuestState {
     createdAt: now.toISOString(),
   }))
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     guestDeviceId: getGuestDeviceId(),
     idempotencyKey: uuid(),
     demoData: true,
@@ -156,14 +171,20 @@ function readState(): GuestState {
     return initial
   }
   const state = JSON.parse(raw) as GuestState
-  if (
-    state.schemaVersion !== 1
-    || state.guestDeviceId !== getGuestDeviceId()
+  if (state.guestDeviceId !== getGuestDeviceId()
     || !Array.isArray(state.products)
     || !Array.isArray(state.sales)
-    || !Array.isArray(state.categories)
-  ) {
+    || !Array.isArray(state.categories)) {
     throw new Error('Guest data could not be read. Clear this browser’s CM RetailOS guest data and reload.')
+  }
+  if (state.demoData && state.schemaVersion !== 2) {
+    const refreshed = seedState()
+    writeState(refreshed)
+    return refreshed
+  }
+  if (state.schemaVersion !== 2) {
+    state.schemaVersion = 2
+    writeState(state)
   }
   return state
 }

@@ -1164,6 +1164,38 @@ onMounted(load)
     grid-template-columns: 1fr;
   }
 
+  .tab-header {
+    align-items: flex-start;
+  }
+
+  .tab-controls-right {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .tab-nav {
+    width: 100%;
+  }
+
+  .tab-nav button {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .tab-controls-right .date-picker-btn {
+    justify-self: start;
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    min-height: 46px;
+  }
+
+  .tab-controls-right .date-picker-btn span {
+    display: none;
+  }
+
   .tab-nav button {
     min-height: 44px;
   }
