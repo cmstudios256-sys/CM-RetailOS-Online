@@ -158,6 +158,67 @@ func TestProductWriteRequiresOwnerOrManager(t *testing.T) {
 	}
 }
 
+func TestOwnerManagerReadHandlersRejectCashier(t *testing.T) {
+	for _, path := range []string{
+		"/api/v1/business-intelligence",
+		"/api/v1/audit-logs",
+		"/api/v1/settings",
+		"/api/v1/settings/preferences",
+	} {
+		t.Run(path, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("create SQL mock: %v", err)
+			}
+			defer db.Close()
+
+			config := Config{JWTSecret: []byte("01234567890123456789012345678901")}
+			server := New(db, config)
+			expectActiveSession(mock, "shop-id", "user-id")
+
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			request.AddCookie(testSessionCookie(t, config, "shop-id", "user-id", "cashier"))
+			response := httptest.NewRecorder()
+			server.Handler().ServeHTTP(response, request)
+
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("status = %d, want %d; body: %s", response.Code, http.StatusForbidden, response.Body.String())
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatalf("cashier read guard expectations: %v", err)
+			}
+		})
+	}
+}
+
+func TestStockAdjustmentRequiresOwnerOrManager(t *testing.T) {
+	secret := []byte("01234567890123456789012345678901")
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create SQL mock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectQuery(`SELECT active FROM users WHERE id = \$1 AND shop_id = \$2`).
+		WithArgs("cashier-id", "shop-id").
+		WillReturnRows(sqlmock.NewRows([]string{"active"}).AddRow(true))
+	config := Config{JWTSecret: secret}
+	server := New(db, config)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/products/1/stock-adjustments",
+		strings.NewReader(`{"delta":1,"reason":"Security verification"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(testSessionCookie(t, config, "shop-id", "cashier-id", "cashier"))
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d; body: %s", response.Code, http.StatusForbidden, response.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("cashier stock-adjustment expectations: %v", err)
+	}
+}
+
 func TestBootstrapRouteDoesNotExist(t *testing.T) {
 	server := New(nil, Config{JWTSecret: []byte("01234567890123456789012345678901")})
 	bootstrapRequest := httptest.NewRequest(http.MethodGet, "/api/v1/auth/bootstrap", nil)

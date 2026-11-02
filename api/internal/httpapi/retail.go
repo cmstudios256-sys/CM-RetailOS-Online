@@ -488,6 +488,9 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) businessIntelligence(w http.ResponseWriter, r *http.Request) {
+	if !requireOwnerOrManager(w, r) {
+		return
+	}
 	claims := claimsFrom(r)
 	period := r.URL.Query().Get("period")
 	if period == "" {
@@ -651,6 +654,9 @@ func (s *Server) businessIntelligence(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) auditLogs(w http.ResponseWriter, r *http.Request) {
+	if !requireOwnerOrManager(w, r) {
+		return
+	}
 	search := strings.TrimSpace(r.URL.Query().Get("q"))
 	if len([]rune(search)) > 100 {
 		writeError(w, http.StatusBadRequest, "invalid_search", "Search text must be 100 characters or fewer.")
@@ -729,6 +735,9 @@ type shopSettings struct {
 }
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
+	if !requireOwnerOrManager(w, r) {
+		return
+	}
 	claims := claimsFrom(r)
 	var settings shopSettings
 	err := s.db.QueryRowContext(r.Context(), `
@@ -806,6 +815,9 @@ var allowedStaffPermissions = map[string]bool{
 }
 
 func (s *Server) getSettingsPreferences(w http.ResponseWriter, r *http.Request) {
+	if !requireOwnerOrManager(w, r) {
+		return
+	}
 	claims := claimsFrom(r)
 	var rawPrefs []byte
 	var rawUserPerms []byte
