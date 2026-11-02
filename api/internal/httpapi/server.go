@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	sessionCookieName = "cm_retailos_session"
-	sessionDuration   = 12 * time.Hour
-	maxRequestBytes   = 1 << 20
+	sessionCookieName       = "cm_retailos_session"
+	sessionDuration         = 12 * time.Hour
+	maxRequestBytes         = 1 << 20
 	initialMigrationVersion = 1
 )
 
@@ -54,9 +54,9 @@ type Server struct {
 	mux              *http.ServeMux
 	googleProviderMu sync.Mutex
 	googleProvider   *oidc.Provider
-	rateLimitsMu sync.Mutex
-	rateLimits map[string]*authRateLimit
-	frontend http.Handler
+	rateLimitsMu     sync.Mutex
+	rateLimits       map[string]*authRateLimit
+	frontend         http.Handler
 }
 
 type authRateLimit struct {
@@ -155,7 +155,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type responseCapture struct {
 	http.ResponseWriter
 	status int
-	body strings.Builder
+	body   strings.Builder
 }
 
 func (w *responseCapture) WriteHeader(status int) {
@@ -248,13 +248,13 @@ func (s *Server) Migrate(ctx context.Context) error {
 	}
 	if !applied {
 		for _, statement := range strings.Split(initialMigration, ";") {
-		statement = strings.TrimSpace(statement)
-		if statement == "" {
-			continue
-		}
-		if _, err := tx.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("apply database schema statement: %w", err)
-		}
+			statement = strings.TrimSpace(statement)
+			if statement == "" {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, statement); err != nil {
+				return fmt.Errorf("apply database schema statement: %w", err)
+			}
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, initialMigrationVersion); err != nil {
 			return fmt.Errorf("record initial migration: %w", err)

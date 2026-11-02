@@ -131,6 +131,7 @@ const statCards = computed(() => {
       trend: revTrend.trend,
       trendClass: revTrend.class,
       trendText: `vs ${vsLabel}`,
+      sparkline: chartPoints.value.slice(-7).map(point => point.sales || 0),
     },
     {
       label: `${timeLabel}'s Profit`,
@@ -142,6 +143,7 @@ const statCards = computed(() => {
       trend: profTrend.trend,
       trendClass: profTrend.class,
       trendText: `vs ${vsLabel}`,
+      sparkline: chartPoints.value.slice(-7).map(point => point.profit || 0),
     },
     {
       label: `Orders ${timeLabel}`,
@@ -153,6 +155,7 @@ const statCards = computed(() => {
       trend: ordTrend.trend,
       trendClass: ordTrend.class,
       trendText: `vs ${vsLabel}`,
+      sparkline: [] as number[],
     },
     {
       label: 'Total Inventory Value',
@@ -164,6 +167,7 @@ const statCards = computed(() => {
       trend: `${activeProductsCount.value} active items`,
       trendClass: 'trend-warning',
       trendText: 'currently in stock',
+      sparkline: [] as number[],
     },
   ]
 })
@@ -217,6 +221,18 @@ const salesChartData = computed(() => {
 
 function formatCurrency(val: number) {
   return `${activeCurrency.value} ${Math.round(val || 0).toLocaleString()}`
+}
+
+function sparklinePoints(values: number[] = []) {
+  if (!values.length) return ''
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = Math.max(max - min, 1)
+  return values.map((value, index) => {
+    const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100
+    const y = 36 - ((value - min) / range) * 30
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
 }
 
 function toggleDashboardCard() {
@@ -319,6 +335,22 @@ onMounted(load)
             <span class="stat-trend" :class="stat.trendClass">{{ stat.trend }}</span>
             <span v-if="stat.trendText" class="trend-text">{{ stat.trendText }}</span>
           </div>
+          <svg
+            v-if="isPhone && stat.sparkline?.length"
+            class="stat-sparkline"
+            viewBox="0 0 100 40"
+            role="img"
+            aria-label="Last seven value points"
+            preserveAspectRatio="none"
+          >
+            <polyline
+              :points="sparklinePoints(stat.sparkline)"
+              fill="none"
+              stroke="var(--accent-color, #0ea5e9)"
+              stroke-width="2"
+              vector-effect="non-scaling-stroke"
+            />
+          </svg>
         </div>
       </div>
     </div>
@@ -352,8 +384,11 @@ onMounted(load)
 
         <div class="sales-chart-container">
           <div class="sales-chart-plot">
-            <DashboardSalesChart v-if="!isPhone" :chart-data="salesChartData" :currency-symbol="activeCurrency" />
-            <p v-else class="chart-phone-hint">Charts available on tablet &amp; desktop</p>
+            <DashboardSalesChart
+              :chart-data="salesChartData"
+              :currency-symbol="activeCurrency"
+              :is-phone="isPhone"
+            />
           </div>
 
           <div class="chart-stats">
@@ -617,6 +652,13 @@ onMounted(load)
   color: var(--text-muted);
   font-weight: 400;
   margin-left: 4px;
+}
+
+.stat-sparkline {
+  width: 100%;
+  height: 40px;
+  margin-top: 8px;
+  opacity: 0.95;
 }
 
 /* Main Dashboard Cards Wrapper */
@@ -1117,9 +1159,13 @@ onMounted(load)
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tab-nav button {
+    min-height: 44px;
   }
 
   .sales-chart-container {

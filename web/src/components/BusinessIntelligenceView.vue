@@ -118,6 +118,21 @@ const profitTicks = computed(() => [
 
 const basketPairs = computed(() => insights.value?.marketBasket ?? [])
 
+const mobilePeakHours = computed(() =>
+  hourBars.value
+    .map((item, index) => ({ ...item, index }))
+    .filter(item => item.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6),
+)
+
+const mobileProfitableProducts = computed(() =>
+  profitableProducts.value
+    .slice()
+    .sort((a, b) => b.profit - a.profit)
+    .slice(0, 5),
+)
+
 const isLightMode = computed(() => document.documentElement.getAttribute('data-theme') === 'light')
 const currentAccentColor = computed(() => getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#0ea5e9')
 
@@ -152,6 +167,68 @@ const mostProfitableProductsData = computed(() => {
     ],
   }
 })
+
+const mobileSalesByHourData = computed(() => ({
+  labels: mobilePeakHours.value.map(item => item.label),
+  datasets: [{
+    label: 'Sales',
+    data: mobilePeakHours.value.map(item => item.count),
+    backgroundColor: currentAccentColor.value,
+    borderColor: currentAccentColor.value,
+    borderRadius: 4,
+    borderSkipped: false,
+  }],
+}))
+
+const mobileProfitableProductsData = computed(() => ({
+  labels: mobileProfitableProducts.value.map(item => item.name),
+  datasets: [{
+    label: 'Profit',
+    data: mobileProfitableProducts.value.map(item => item.profit),
+    backgroundColor: currentAccentColor.value,
+    borderColor: currentAccentColor.value,
+    borderRadius: 4,
+    borderSkipped: false,
+  }],
+}))
+
+const mobileHorizontalChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  indexAxis: 'y' as const,
+  interaction: {
+    mode: 'nearest' as const,
+    intersect: true,
+  },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      enabled: true,
+      displayColors: false,
+    },
+  },
+  scales: {
+    x: {
+      beginAtZero: true,
+      grid: { display: false },
+      border: { display: false },
+      ticks: {
+        maxTicksLimit: 4,
+        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        font: { size: 10 },
+      },
+    },
+    y: {
+      grid: { display: false },
+      border: { display: false },
+      ticks: {
+        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        font: { size: 10 },
+        autoSkip: false,
+      },
+    },
+  },
+}))
 
 const salesCountChartOptions = computed(() => ({
   responsive: true,
@@ -395,7 +472,12 @@ onUnmounted(() => {
 
         <div class="chart-container" style="position: relative; height: 100%; min-height: 240px;">
           <Bar v-if="!isPhone" :data="salesByHourData" :options="salesCountChartOptions" />
-          <p v-else class="chart-phone-hint">Charts available on tablet &amp; desktop</p>
+          <Bar
+            v-else-if="mobilePeakHours.length"
+            :data="mobileSalesByHourData"
+            :options="mobileHorizontalChartOptions"
+          />
+          <div v-else class="empty-chart-state">No peak sales hours recorded for this period.</div>
         </div>
       </div>
 
@@ -409,7 +491,14 @@ onUnmounted(() => {
         </div>
 
         <div class="chart-container" style="position: relative; height: 100%; min-height: 240px;">
-          <p v-if="isPhone" class="chart-phone-hint">Charts available on tablet &amp; desktop</p>
+          <div v-if="isPhone && !mobileProfitableProducts.length" class="empty-chart-state">
+            No profitable product sales recorded for this period.
+          </div>
+          <Bar
+            v-else-if="isPhone"
+            :data="mobileProfitableProductsData"
+            :options="mobileHorizontalChartOptions"
+          />
           <div v-else-if="!profitableProducts.length" class="empty-chart-state">
             No profitable product sales recorded for this period.
           </div>
@@ -879,6 +968,31 @@ tbody tr:hover {
 @media (max-width: 1024px) {
   .bi-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 639px) {
+  .full-width,
+  .full-width .table-container {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .full-width .table-container {
+    overflow-x: hidden;
+  }
+
+  .full-width table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .full-width th,
+  .full-width td {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
   }
 }
 </style>

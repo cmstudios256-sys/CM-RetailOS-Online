@@ -116,8 +116,6 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "registration_failed", "Account creation could not be completed.")
 		return
 	}
-	user.FullName, user.Email, user.Role = input.FullName, input.Email, "owner"
-	user.ShopName, user.Currency = input.ShopName, "UGX"
 	if err := tx.Commit(); err != nil {
 		log.Printf("commit email account registration: %v", err)
 		writeError(w, http.StatusInternalServerError, "registration_failed", "Account creation could not be completed.")

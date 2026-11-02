@@ -17,7 +17,7 @@ import {
 import { apiRequest, formatAxisValue, formatDate, formatMoney, formatTime } from '../api'
 import { downloadCsv, escapeHtml, openPrintDocument } from '../utils/reporting'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
-import { Line, Doughnut } from 'vue-chartjs'
+import { Bar, Line, Doughnut } from 'vue-chartjs'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import {
   Chart as ChartJS,
@@ -30,6 +30,7 @@ import {
   PointElement,
   Filler,
   ArcElement,
+  BarElement,
 } from 'chart.js'
 
 ChartJS.register(
@@ -42,6 +43,7 @@ ChartJS.register(
   PointElement,
   Filler,
   ArcElement,
+  BarElement,
 )
 
 type Period = 'Daily' | 'Weekly' | 'Monthly'
@@ -209,6 +211,78 @@ const profitTrendData = computed(() => {
     }],
   }
 })
+
+const mobileProfitTrendData = computed(() => {
+  const points = chartPoints.value.slice(-7)
+  const accent = currentAccentColor.value
+  return {
+    labels: points.map(point => point.label),
+    datasets: [{
+      label: 'Net Profit',
+      data: points.map(point => point.profit),
+      borderColor: accent,
+      backgroundColor: selectedPeriod.value === 'Daily' ? accent : accent + '33',
+      borderWidth: 2,
+      borderRadius: selectedPeriod.value === 'Daily' ? 4 : 0,
+      fill: selectedPeriod.value !== 'Daily',
+      tension: selectedPeriod.value === 'Daily' ? 0 : 0.35,
+      pointRadius: selectedPeriod.value === 'Daily' ? 0 : 3,
+      pointHoverRadius: selectedPeriod.value === 'Daily' ? 0 : 6,
+    }],
+  }
+})
+
+const mobileChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: {
+    mode: 'nearest' as const,
+    intersect: true,
+  },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      enabled: true,
+      displayColors: false,
+      callbacks: {
+        label: (context: any) => `${activeCurrency.value} ${Number(context.parsed.y || 0).toLocaleString()}`,
+      },
+    },
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+      border: { display: false },
+      ticks: {
+        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        autoSkip: true,
+        maxTicksLimit: 4,
+        maxRotation: 0,
+        font: { size: 10 },
+      },
+    },
+    y: {
+      beginAtZero: true,
+      grid: {
+        display: true,
+        color: isLightMode.value ? 'rgba(148, 163, 184, 0.08)' : 'rgba(148, 163, 184, 0.08)',
+        drawTicks: false,
+      },
+      border: { display: false },
+      ticks: {
+        maxTicksLimit: 4,
+        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        font: { size: 10 },
+        callback: (value: number | string) => {
+          const amount = Number(value)
+          if (amount >= 1000000) return `${amount / 1000000}M`
+          if (amount >= 1000) return `${amount / 1000}k`
+          return `${amount}`
+        },
+      },
+    },
+  },
+}))
 
 const profitByCategoryData = computed(() => {
   const cats = categories.value
@@ -542,7 +616,21 @@ onUnmounted(() => {
     </div>
 
     <!-- Charts Grid -->
-    <p v-if="isPhone" class="chart-phone-hint">Charts available on tablet &amp; desktop</p>
+    <div v-if="isPhone" class="mobile-chart-card">
+      <h3 class="card-title">Profit Trend</h3>
+      <div class="mobile-chart-container">
+        <Bar
+          v-if="selectedPeriod === 'Daily'"
+          :data="mobileProfitTrendData"
+          :options="mobileChartOptions"
+        />
+        <Line
+          v-else
+          :data="mobileProfitTrendData"
+          :options="mobileChartOptions"
+        />
+      </div>
+    </div>
     <div v-else class="charts-grid">
       <div class="chart-card">
         <h3 class="card-title">Profit Trend</h3>
@@ -815,6 +903,21 @@ onUnmounted(() => {
   color: var(--text-muted);
   font-size: 0.875rem;
   text-align: center;
+}
+
+.mobile-chart-card {
+  min-width: 0;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.mobile-chart-container {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  min-width: 0;
 }
 
 .charts-grid {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed } from 'vue'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
 import { Chart } from 'vue-chartjs'
 import {
@@ -33,22 +33,8 @@ ChartJS.register(
 const props = defineProps<{
   chartData: ChartData<'line' | 'bar', number[], string>
   currencySymbol?: string
+  isPhone?: boolean
 }>()
-
-const isMobile = ref(false)
-
-const checkMobile = () => {
-  isMobile.value = window.matchMedia('(max-width: 639px)').matches
-}
-
-onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
-})
 
 const isLightMode = computed(() => document.documentElement.getAttribute('data-theme') === 'light')
 const cur = computed(() => props.currencySymbol || 'UGX')
@@ -58,7 +44,7 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
   maintainAspectRatio: false,
   layout: {
     padding: {
-      bottom: isMobile.value ? 10 : 110,
+      bottom: props.isPhone ? 10 : 110,
     },
   },
   interaction: {
@@ -137,6 +123,84 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
   },
 }))
 
+const mobileChartData = computed<ChartData<'bar', number[], string>>(() => {
+  const source = props.chartData.labels?.slice(-7) ?? []
+  const salesDataset = props.chartData.datasets.find(dataset => dataset.label === 'Sales')
+  const sourceData = salesDataset?.data
+  const labels = source.map(label => String(label))
+  const values = Array.isArray(sourceData)
+    ? sourceData.slice(-7).map(value => Number(value) || 0)
+    : []
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#0ea5e9'
+
+  return {
+    labels,
+    datasets: [{
+      label: 'Sales',
+      backgroundColor: accent,
+      borderColor: accent,
+      borderRadius: 4,
+      borderSkipped: false,
+      data: values,
+      barPercentage: 0.72,
+      categoryPercentage: 0.72,
+    }],
+  }
+})
+
+const mobileChartOptions = computed<ChartOptions<'bar'>>(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: {
+    mode: 'nearest' as const,
+    intersect: true,
+  },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      enabled: true,
+      displayColors: false,
+      callbacks: {
+        label: context => `${cur.value} ${Number(context.parsed.y || 0).toLocaleString()}`,
+      },
+    },
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+      border: { display: false },
+      ticks: {
+        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        autoSkip: true,
+        maxTicksLimit: 4,
+        maxRotation: 0,
+        font: { size: 10 },
+      },
+    },
+    y: {
+      beginAtZero: true,
+      grid: {
+        display: true,
+        color: isLightMode.value ? 'rgba(15, 23, 42, 0.06)' : 'rgba(148, 163, 184, 0.08)',
+        drawTicks: false,
+      },
+      border: { display: false },
+      ticks: {
+        display: true,
+        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        maxTicksLimit: 4,
+        font: { size: 10 },
+        callback: value => {
+          const amount = Number(value)
+          if (amount >= 1000000) return `${amount / 1000000}M`
+          if (amount >= 1000) return `${amount / 1000}k`
+          return `${amount}`
+        },
+      },
+    },
+  },
+}))
+
 const gradientPlugin = {
   id: 'gradient',
   beforeRender(chart: ChartJsChart) {
@@ -170,5 +234,17 @@ const gradientPlugin = {
 </script>
 
 <template>
-  <Chart type="bar" :data="props.chartData" :options="chartOptions" :plugins="[gradientPlugin]" />
+  <Chart
+    v-if="props.isPhone"
+    type="bar"
+    :data="mobileChartData as any"
+    :options="mobileChartOptions as any"
+  />
+  <Chart
+    v-else
+    type="bar"
+    :data="props.chartData"
+    :options="chartOptions"
+    :plugins="[gradientPlugin]"
+  />
 </template>
