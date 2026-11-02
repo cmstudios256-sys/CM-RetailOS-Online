@@ -1,0 +1,2 @@
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS shops_is_demo_idx ON shops(is_demo) WHERE is_demo = TRUE;

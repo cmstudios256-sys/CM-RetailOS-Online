@@ -24,14 +24,18 @@ import (
 )
 
 const (
-	sessionCookieName       = "cm_retailos_session"
-	sessionDuration         = 12 * time.Hour
-	maxRequestBytes         = 1 << 20
-	initialMigrationVersion = 1
+	sessionCookieName        = "cm_retailos_session"
+	sessionDuration          = 12 * time.Hour
+	maxRequestBytes          = 1 << 20
+	initialMigrationVersion  = 1
+	demoFlagMigrationVersion = 2
 )
 
 //go:embed migrations/001_initial.sql
 var initialMigration string
+
+//go:embed migrations/002_demo_shop.sql
+var demoFlagMigration string
 
 type Config struct {
 	JWTSecret          []byte
@@ -258,6 +262,23 @@ func (s *Server) Migrate(ctx context.Context) error {
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, initialMigrationVersion); err != nil {
 			return fmt.Errorf("record initial migration: %w", err)
+		}
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, demoFlagMigrationVersion).Scan(&applied); err != nil {
+		return fmt.Errorf("check demo-shop migration: %w", err)
+	}
+	if !applied {
+		for _, statement := range strings.Split(demoFlagMigration, ";") {
+			statement = strings.TrimSpace(statement)
+			if statement == "" {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, statement); err != nil {
+				return fmt.Errorf("apply demo-shop migration statement: %w", err)
+			}
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, demoFlagMigrationVersion); err != nil {
+			return fmt.Errorf("record demo-shop migration: %w", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {

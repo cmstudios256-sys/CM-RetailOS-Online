@@ -39,6 +39,20 @@ cd web && npm install && npm run dev
 
 The API listens on `127.0.0.1:8080` and Vite serves the frontend on port 5180 by default.
 
+### Rich Demo Shop seed
+
+The guest Demo Shop is seeded in browser `localStorage` automatically with 218 realistic products and 2,000 deterministic sales. This refresh happens only when the demo seed schema changes, so normal guest activity is not reset on startup.
+
+For local PostgreSQL, run the API server once so migrations create the `shops.is_demo` flag, mark exactly one row as the Demo Shop (name `Demo Shop`, currency `UGX`, `is_demo = true`), then execute:
+
+```powershell
+cd api
+$env:DATABASE_URL="postgres://retailos:retailos@localhost:5432/retailos?sslmode=disable"
+.\seed-demo.ps1 -DemoShopId "<DEMO_SHOP_UUID>"
+```
+
+The seeder is transaction-based, deterministic, and idempotent: it refuses unless the target row is explicitly marked demo, then resets only that shop before inserting 218 products, 10 categories, and 2,000 sales. Demo seeding is intentionally manual rather than automatic at API startup; automatic startup mutations would make database behavior surprising and could accidentally affect deployments.
+
 ## Google sign-in
 
 Use a Google OAuth Web client. For local development, register:
