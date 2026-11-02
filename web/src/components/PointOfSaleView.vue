@@ -38,6 +38,7 @@ type ShopReceiptSettings = {
 const props = defineProps<{ currency: string; shopName: string; role: string }>()
 const products = ref<Product[]>([])
 const cart = ref<CartItem[]>([])
+const mobileCartOpen = ref(false)
 const search = ref('')
 const savedViewMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_pos_view_mode') : null) as 'list' | 'grid' | null
 const viewMode = ref<'list' | 'grid'>(savedViewMode === 'list' ? 'list' : 'grid')
@@ -308,6 +309,10 @@ function handleSearchInputEnter() {
 }
 
 function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && mobileCartOpen.value) {
+    mobileCartOpen.value = false
+    return
+  }
   if (showPinPad.value) return
   const activeTag = document.activeElement?.tagName
   if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return
@@ -501,6 +506,17 @@ onUnmounted(() => {
         <Printer :size="14" /> Print Receipt
       </button>
     </div>
+    <button
+      type="button"
+      class="mobile-cart-toggle"
+      aria-controls="pos-cart-panel"
+      :aria-expanded="mobileCartOpen"
+      @click="mobileCartOpen = true"
+    >
+      <ShoppingCart :size="18" />
+      <span>Cart · {{ formatQuantity(cartUnits) }}</span>
+      <strong>{{ formatMoney(payableTotal, currency) }}</strong>
+    </button>
 
     <!-- Left Panel: Product Selection -->
     <div class="products-panel">
@@ -646,18 +662,37 @@ onUnmounted(() => {
     </div>
 
     <!-- Right Panel: Cart -->
-    <div class="cart-panel">
+    <div
+      v-if="mobileCartOpen"
+      class="mobile-cart-backdrop"
+      @click="mobileCartOpen = false"
+    ></div>
+    <div
+      id="pos-cart-panel"
+      class="cart-panel"
+      :class="{ 'mobile-cart-open': mobileCartOpen }"
+    >
       <div class="panel-header">
         <h2 class="panel-title">Cart ({{ formatQuantity(cartUnits) }})</h2>
-        <button
-          v-if="cart.length > 0"
-          type="button"
-          class="clear-cart-btn"
-          title="Clear Cart"
-          @click="clearCart"
-        >
-          <Trash2 :size="18" />
-        </button>
+        <div class="cart-header-actions">
+          <button
+            v-if="cart.length > 0"
+            type="button"
+            class="clear-cart-btn"
+            title="Clear Cart"
+            @click="clearCart"
+          >
+            <Trash2 :size="18" />
+          </button>
+          <button
+            type="button"
+            class="mobile-cart-close"
+            aria-label="Close cart"
+            @click="mobileCartOpen = false"
+          >
+            <X :size="19" />
+          </button>
+        </div>
       </div>
 
       <div v-if="error" class="inline-error pos-inline-error" role="alert">{{ error }}</div>

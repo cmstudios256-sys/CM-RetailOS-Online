@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, FileClock, History, LayoutDashboard,
-  LockKeyhole, LogOut, Package, PackageCheck, ReceiptText, Settings as SettingsIcon, ShieldCheck, ShoppingCart,
+  LockKeyhole, LogOut, Menu, Package, PackageCheck, ReceiptText, Settings as SettingsIcon, ShieldCheck, ShoppingCart,
   Store, Tag, LineChart, X, Zap,
 } from '@lucide/vue'
 import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPermissions, syncOnlinePrefsFromServer } from '../api'
@@ -38,6 +38,7 @@ const emit = defineEmits<{
 const activePage = ref('dashboard')
 const isGuest = computed(() => props.guestMode === true)
 const sidebarCollapsed = ref(false)
+const mobileMoreOpen = ref(false)
 const topbarActions = ref<HTMLElement | null>(null)
 const profileOpen = ref(false)
 const notificationsOpen = ref(false)
@@ -91,6 +92,13 @@ const visibleNavigationGroups = computed(() => navigationGroups
   }))
   .filter(group => group.items.length > 0))
 const navigation = computed(() => visibleNavigationGroups.value.flatMap(group => group.items))
+const mobilePrimaryNavigation = computed(() => navigation.value.filter(item =>
+  ['dashboard', 'pos', 'products'].includes(item.id),
+))
+const mobileMoreNavigation = computed(() => navigation.value.filter(item =>
+  !['dashboard', 'pos', 'products'].includes(item.id),
+))
+const isMorePageActive = computed(() => mobileMoreNavigation.value.some(item => item.id === activePage.value))
 const pageTitle = computed(() => props.user.shopName || 'My Business')
 const now = ref(new Date())
 const dateText = computed(() => {
@@ -154,6 +162,11 @@ function openStockAlert(productId: number) {
   if (alert) alert.read = true
 }
 
+function navigateToPage(pageId: string) {
+  activePage.value = pageId
+  mobileMoreOpen.value = false
+}
+
 function markAllNotificationsRead() {
   notifications.value.forEach(item => { item.read = true })
 }
@@ -169,6 +182,7 @@ function handleEscape(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     profileOpen.value = false
     notificationsOpen.value = false
+    mobileMoreOpen.value = false
   }
 }
 
@@ -181,6 +195,7 @@ function handlePrefsUpdated() {
 }
 
 watch(activePage, () => {
+  mobileMoreOpen.value = false
   void loadNotifications()
 })
 
@@ -352,16 +367,48 @@ onUnmounted(() => {
 
       <nav class="mobile-bottom-nav" aria-label="Mobile main navigation">
         <button
-          v-for="item in navigation"
+          v-for="item in mobilePrimaryNavigation"
           :key="item.id"
           type="button"
           :class="{ active: activePage === item.id }"
           :aria-current="activePage === item.id ? 'page' : undefined"
-          @click="activePage = item.id"
+          @click="navigateToPage(item.id)"
         >
           <component :is="item.icon" :size="20" />
-          <span>{{ item.id === 'products' ? 'Products' : item.id === 'stock-levels' ? 'Stock' : item.id === 'dashboard' ? 'Home' : item.id === 'sales' ? 'Sales' : item.id === 'receipts' ? 'Receipts' : item.id === 'profit-analytics' ? 'Profit' : item.id === 'business-intelligence' ? 'Insights' : item.id === 'audit-logs' ? 'Audit' : item.id === 'settings' ? 'Settings' : 'POS' }}</span>
+          <span>{{ item.id === 'dashboard' ? 'Dashboard' : item.id === 'products' ? 'Products' : 'POS' }}</span>
         </button>
+        <button
+          v-if="mobileMoreNavigation.length"
+          type="button"
+          :class="{ active: isMorePageActive || mobileMoreOpen }"
+          aria-haspopup="menu"
+          :aria-expanded="mobileMoreOpen"
+          aria-controls="mobile-more-menu"
+          @click="mobileMoreOpen = !mobileMoreOpen"
+        >
+          <Menu :size="20" />
+          <span>More</span>
+        </button>
+        <div
+          v-if="mobileMoreOpen"
+          id="mobile-more-menu"
+          class="mobile-more-menu"
+          role="menu"
+          aria-label="More pages"
+        >
+          <button
+            v-for="item in mobileMoreNavigation"
+            :key="item.id"
+            type="button"
+            role="menuitem"
+            :class="{ active: activePage === item.id }"
+            :aria-current="activePage === item.id ? 'page' : undefined"
+            @click="navigateToPage(item.id)"
+          >
+            <component :is="item.icon" :size="18" />
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
       </nav>
     </div>
   </div>
