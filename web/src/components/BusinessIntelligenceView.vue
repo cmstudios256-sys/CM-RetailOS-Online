@@ -573,7 +573,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Frequently Bought Together -->
-      <div class="card full-width">
+      <div v-if="!isPhone" class="card full-width">
         <div class="card-header">
           <div class="header-left">
             <ShoppingBag :size="20" class="card-icon" style="color: #a855f7;" />

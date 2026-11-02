@@ -391,7 +391,7 @@ onMounted(load)
             />
           </div>
 
-          <div class="chart-stats">
+          <div v-if="!isPhone" class="chart-stats">
             <div v-for="stat in salesSummaryStats" :key="stat.label" class="chart-stat">
               <span class="chart-stat-label">{{ stat.label }}</span>
               <span class="chart-stat-value">{{ stat.value }}</span>
