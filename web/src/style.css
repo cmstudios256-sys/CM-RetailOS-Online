@@ -1952,4 +1952,5 @@ input[type=number] {
   height: 46px;
   min-height: 46px;
   flex: 0 0 46px;
+  overflow: hidden;
 }
