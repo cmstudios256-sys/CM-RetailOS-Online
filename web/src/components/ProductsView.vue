@@ -9,7 +9,9 @@ import {
   Edit,
   ImagePlus,
   Layers,
+  LayoutGrid,
   Lock,
+  List,
   Plus,
   PlusCircle,
   Search,
@@ -47,6 +49,10 @@ const categoryBusy = ref(false)
 const error = ref('')
 const notice = ref('')
 const isDropdownOpen = ref(false)
+const viewMode = ref<'grid' | 'list'>(
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches ? 'grid' : 'list',
+)
+const viewModeManuallySelected = ref(false)
 
 const showForm = ref(false)
 const editingProductId = ref<number | null>(null)
@@ -75,6 +81,17 @@ function handleBarcodeScanned() {
   if (isBarcodeScanning.value) {
     isBarcodeScanning.value = false
     if (scanTimeout) clearTimeout(scanTimeout)
+  }
+}
+
+function setViewMode(mode: 'grid' | 'list') {
+  viewModeManuallySelected.value = true
+  viewMode.value = mode
+}
+
+function updateDefaultViewMode() {
+  if (!viewModeManuallySelected.value) {
+    viewMode.value = window.matchMedia('(max-width: 640px)').matches ? 'grid' : 'list'
   }
 }
 
@@ -517,9 +534,11 @@ async function confirmDeleteProduct() {
 onMounted(() => {
   void loadProducts()
   window.addEventListener('click', closeDropdown)
+  window.addEventListener('resize', updateDefaultViewMode)
 })
 onUnmounted(() => {
   window.removeEventListener('click', closeDropdown)
+  window.removeEventListener('resize', updateDefaultViewMode)
 })
 </script>
 
@@ -609,6 +628,28 @@ onUnmounted(() => {
         </div>
 
         <div class="header-controls">
+          <div class="products-view-switcher" role="group" aria-label="Product layout">
+            <button
+              type="button"
+              title="Grid View"
+              aria-label="Grid View"
+              :aria-pressed="viewMode === 'grid'"
+              :class="{ active: viewMode === 'grid' }"
+              @click="setViewMode('grid')"
+            >
+              <LayoutGrid :size="17" />
+            </button>
+            <button
+              type="button"
+              title="List View"
+              aria-label="List View"
+              :aria-pressed="viewMode === 'list'"
+              :class="{ active: viewMode === 'list' }"
+              @click="setViewMode('list')"
+            >
+              <List :size="17" />
+            </button>
+          </div>
           <div class="search-bar">
             <Search class="search-icon" :size="18" />
             <input
@@ -651,7 +692,54 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="table-container" style="flex: 1; min-height: 0; overflow-y: auto;">
+      <div v-if="viewMode === 'grid'" class="products-grid">
+        <p v-if="loading" class="products-grid-empty">Loading products...</p>
+        <p v-else-if="filteredProducts.length === 0" class="products-grid-empty">No products found.</p>
+        <article v-for="product in filteredProducts" v-else :key="product.id" class="product-grid-card">
+          <div class="product-grid-header">
+            <div class="product-grid-name">
+              <h3>{{ product.name }}</h3>
+              <span>{{ product.category || 'General' }}</span>
+            </div>
+            <span class="stock-badge" :class="getStockStatusClass(product)">
+              {{ getStockStatusText(product) }}
+            </span>
+          </div>
+          <dl class="product-grid-details">
+            <div>
+              <dt>Selling price</dt>
+              <dd>{{ formatMoney(product.sellingPrice, currency) }}</dd>
+            </div>
+            <div>
+              <dt>Cost price</dt>
+              <dd>{{ formatMoney(product.costPrice, currency) }}</dd>
+            </div>
+            <div>
+              <dt>Quantity</dt>
+              <dd>{{ formatQuantity(product.quantity) }} {{ product.unit }}</dd>
+            </div>
+            <div>
+              <dt>Profit per unit</dt>
+              <dd :class="profitPerUnit(product) >= 0 ? 'profit-positive' : 'profit-negative'">
+                {{ formatMoney(profitPerUnit(product), currency) }}
+              </dd>
+            </div>
+          </dl>
+          <div v-if="canManage" class="product-grid-actions" :aria-label="`${product.name} actions`">
+            <button type="button" @click="openEditForm(product)">
+              <Edit :size="15" /> Edit
+            </button>
+            <button type="button" @click="openAdjustStock(product)">
+              <SlidersHorizontal :size="15" /> Adjust Stock
+            </button>
+            <button type="button" class="delete" @click="promptDeleteProduct(product)">
+              <Trash2 :size="15" /> Delete
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <div v-else class="table-container" style="flex: 1; min-height: 0; overflow-y: auto;">
         <table>
           <thead>
             <tr>
@@ -1277,7 +1365,6 @@ onUnmounted(() => {
 .summary-badge {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-left: 3px solid var(--accent-color);
   border-radius: 0.5rem;
   padding: 0.35rem 0.85rem;
   display: flex;
@@ -1308,6 +1395,159 @@ onUnmounted(() => {
   gap: 0.65rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.products-view-switcher {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background-color: var(--bg-surface);
+}
+
+.products-view-switcher button {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0.375rem;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.products-view-switcher button.active {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.products-view-switcher button:focus-visible,
+.product-grid-actions button:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.product-grid-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background: var(--bg-surface);
+}
+
+.product-grid-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.product-grid-name {
+  min-width: 0;
+}
+
+.product-grid-name h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.product-grid-name > span {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.product-grid-header .stock-badge {
+  flex: 0 0 auto;
+  white-space: normal;
+  text-align: center;
+}
+
+.product-grid-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.product-grid-details > div {
+  min-width: 0;
+}
+
+.product-grid-details dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.product-grid-details dd {
+  margin: 0.2rem 0 0;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.product-grid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.product-grid-actions button {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.45rem;
+  color: var(--text-secondary);
+  background: var(--bg-sidebar);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.product-grid-actions button:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-color);
+}
+
+.product-grid-actions button.delete {
+  color: #f87171;
+}
+
+.products-grid-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 2rem 1rem;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 .search-bar {
@@ -2017,6 +2257,10 @@ tbody tr:hover {
 }
 
 @media (max-width: 640px) {
+  .products-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .product-top-section {
     flex-direction: column-reverse;
     align-items: center;

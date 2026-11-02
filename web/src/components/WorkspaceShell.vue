@@ -356,7 +356,7 @@ onUnmounted(() => {
         <DashboardView v-if="activePage === 'dashboard'" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
         <PointOfSaleView v-else-if="activePage === 'pos'" :currency="user.currency" :shop-name="user.shopName" :role="user.role" />
         <ProductsView v-else-if="activePage === 'products'" :currency="user.currency" :role="user.role" :user-email="user.email" :google-connected="user.googleConnected" @navigate-settings="activePage = 'settings'" />
-        <StockLevelsView v-else-if="activePage === 'stock-levels'" :currency="user.currency" />
+        <StockLevelsView v-else-if="activePage === 'stock-levels'" :currency="user.currency" :role="user.role" />
         <ReceiptsView v-else-if="activePage === 'receipts'" :shop-name="user.shopName" :currency="user.currency" />
         <SalesView v-else-if="activePage === 'sales'" :shop-name="user.shopName" :currency="user.currency" />
         <ProfitAnalyticsView v-else-if="activePage === 'profit-analytics'" :shop-name="user.shopName" :currency="user.currency" />

@@ -348,7 +348,9 @@ onMounted(load)
         </div>
 
         <div class="sales-chart-container">
-          <DashboardSalesChart :chart-data="salesChartData" :currency-symbol="activeCurrency" />
+          <div class="sales-chart-plot">
+            <DashboardSalesChart :chart-data="salesChartData" :currency-symbol="activeCurrency" />
+          </div>
 
           <div class="chart-stats">
             <div v-for="stat in salesSummaryStats" :key="stat.label" class="chart-stat">
@@ -621,6 +623,7 @@ onMounted(load)
   align-items: stretch;
   flex: 1;
   min-height: 0;
+  min-width: 0;
 }
 
 .card {
@@ -641,6 +644,7 @@ onMounted(load)
 .sales-overview-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .tab-header {
@@ -694,6 +698,13 @@ onMounted(load)
   flex: 1;
   min-height: 260px;
   position: relative;
+  min-width: 0;
+}
+
+.sales-chart-plot {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
 }
 
 .chart-stats {
@@ -1080,11 +1091,15 @@ onMounted(load)
   }
 
   .dashboard-cards-wrapper {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sales-chart-container {
     min-height: 240px;
+  }
+
+  .sales-chart-plot {
+    inset: 0;
   }
 }
 
@@ -1097,6 +1112,13 @@ onMounted(load)
     display: flex;
     flex-direction: column;
     gap: 16px;
+  }
+
+  .sales-chart-plot {
+    position: relative;
+    inset: auto;
+    flex: 0 0 240px;
+    height: 240px;
   }
 
   .chart-stats {
