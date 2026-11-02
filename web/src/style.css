@@ -144,6 +144,36 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .topbar-user { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 1px solid transparent; border-radius: 9px; color: #cbd5e1; background: transparent; font-size: 10px; cursor: pointer; }
 .topbar-user .user-avatar { width: 28px; height: 28px; flex-basis: 28px; }
 .workspace-content { width: 100%; max-width: 1540px; margin: 0 auto; padding: 34px clamp(20px, 4vw, 48px) 40px; }
+.desktop-only-state {
+  min-height: calc(100dvh - 180px);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+  padding: 32px 20px;
+}
+.desktop-only-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  color: var(--primary-bright);
+  background: var(--surface-2, rgba(15, 23, 42, .8));
+}
+.desktop-only-state h2 {
+  margin: 18px 0 8px;
+  color: #f1f5f9;
+  font-size: clamp(20px, 5vw, 28px);
+}
+.desktop-only-state p {
+  max-width: 420px;
+  margin: 0;
+  color: #8797ac;
+  font-size: 14px;
+  line-height: 1.6;
+}
 .mobile-bottom-nav { display: none; }
 .view-stack { display: grid; gap: 20px; }
 .view-heading-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }

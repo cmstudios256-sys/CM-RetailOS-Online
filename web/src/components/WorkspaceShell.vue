@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useDesktopBreakpoint } from '../utils/breakpoints'
 import {
   BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, FileClock, History, LayoutDashboard,
   LockKeyhole, LogOut, Menu, Package, PackageCheck, ReceiptText, Settings as SettingsIcon, ShieldCheck, ShoppingCart,
-  Store, Tag, LineChart, X, Zap,
+  Store, Tag, LineChart, Monitor, X, Zap,
 } from '@lucide/vue'
 import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPermissions, syncOnlinePrefsFromServer } from '../api'
 import AuditLogsView from './AuditLogsView.vue'
@@ -36,6 +37,7 @@ const emit = defineEmits<{
   'user-updated': [settings: Pick<User, 'fullName' | 'shopName' | 'currency'>]
 }>()
 const activePage = ref('dashboard')
+const { isDesktop } = useDesktopBreakpoint()
 const isGuest = computed(() => props.guestMode === true)
 const sidebarCollapsed = ref(false)
 const mobileMoreOpen = ref(false)
@@ -88,7 +90,10 @@ function hasNavPermission(itemId: string): boolean {
 const visibleNavigationGroups = computed(() => navigationGroups
   .map(group => ({
     ...group,
-    items: group.items.filter(item => hasNavPermission(item.id)),
+    items: group.items.filter(item =>
+      hasNavPermission(item.id) &&
+      (isDesktop.value || !['profit-analytics', 'business-intelligence', 'audit-logs'].includes(item.id)),
+    ),
   }))
   .filter(group => group.items.length > 0))
 const navigation = computed(() => visibleNavigationGroups.value.flatMap(group => group.items))
@@ -99,6 +104,15 @@ const mobileMoreNavigation = computed(() => navigation.value.filter(item =>
   !['dashboard', 'pos', 'products'].includes(item.id),
 ))
 const isMorePageActive = computed(() => mobileMoreNavigation.value.some(item => item.id === activePage.value))
+const desktopOnlyPages: Record<string, string> = {
+  'profit-analytics': 'Profit Analytics',
+  'business-intelligence': 'Business Intelligence',
+  'audit-logs': 'Audit Logs',
+}
+const desktopLockedPageName = computed(() => desktopOnlyPages[activePage.value] ?? '')
+const isDesktopLockedPage = computed(() =>
+  !isDesktop.value && Object.prototype.hasOwnProperty.call(desktopOnlyPages, activePage.value),
+)
 const pageTitle = computed(() => props.user.shopName || 'My Business')
 const now = ref(new Date())
 const dateText = computed(() => {
@@ -189,7 +203,9 @@ function handleEscape(event: KeyboardEvent) {
 function handlePrefsUpdated() {
   prefsTick.value++
   applyOnlinePrefsToDom()
-  if (!navigation.value.some(item => item.id === activePage.value) && navigation.value.length > 0) {
+  if (!navigation.value.some(item => item.id === activePage.value)
+    && !Object.prototype.hasOwnProperty.call(desktopOnlyPages, activePage.value)
+    && navigation.value.length > 0) {
     activePage.value = navigation.value[0].id
   }
 }
@@ -202,7 +218,10 @@ watch(activePage, () => {
 onMounted(() => {
   const params = new URLSearchParams(window.location.search)
   const requestedPage = params.get('page')
-  if (requestedPage && navigation.value.some(item => item.id === requestedPage)) {
+  if (requestedPage && (
+    navigation.value.some(item => item.id === requestedPage) ||
+    Object.prototype.hasOwnProperty.call(desktopOnlyPages, requestedPage)
+  )) {
     activePage.value = requestedPage
     if (params.get('claim') !== 'guest') params.delete('page')
     params.delete('google_linked')
@@ -211,7 +230,9 @@ onMounted(() => {
   }
   applyOnlinePrefsToDom()
   void syncOnlinePrefsFromServer(props.user.id)
-  if (!navigation.value.some(item => item.id === activePage.value) && navigation.value.length > 0) {
+  if (!navigation.value.some(item => item.id === activePage.value)
+    && !Object.prototype.hasOwnProperty.call(desktopOnlyPages, activePage.value)
+    && navigation.value.length > 0) {
     activePage.value = navigation.value[0].id
   }
   void loadNotifications()
@@ -353,7 +374,12 @@ onUnmounted(() => {
       </div>
 
       <main class="workspace-content">
-        <DashboardView v-if="activePage === 'dashboard'" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
+        <section v-if="isDesktopLockedPage" class="desktop-only-state" role="status" aria-live="polite">
+          <div class="desktop-only-icon"><Monitor :size="30" /></div>
+          <h2>{{ desktopLockedPageName }}</h2>
+          <p>{{ desktopLockedPageName }} is available on desktop — open CM RetailOS on a computer.</p>
+        </section>
+        <DashboardView v-else-if="activePage === 'dashboard'" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
         <PointOfSaleView v-else-if="activePage === 'pos'" :currency="user.currency" :shop-name="user.shopName" :role="user.role" />
         <ProductsView v-else-if="activePage === 'products'" :currency="user.currency" :role="user.role" :user-email="user.email" :google-connected="user.googleConnected" @navigate-settings="activePage = 'settings'" />
         <StockLevelsView v-else-if="activePage === 'stock-levels'" :currency="user.currency" :role="user.role" />

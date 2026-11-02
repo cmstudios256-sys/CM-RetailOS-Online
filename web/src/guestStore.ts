@@ -21,7 +21,7 @@ export type GuestSettings = {
 }
 
 export type GuestBundle = {
-  schemaVersion: 1 | 2 | 3
+  schemaVersion: 1 | 2 | 3 | 4
   guestDeviceId: string
   idempotencyKey: string
   products: Product[]
@@ -289,7 +289,7 @@ function seedState(): GuestState {
     createdAt: now.toISOString(),
   }))
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     guestDeviceId: getGuestDeviceId(),
     idempotencyKey: uuid(),
     demoData: true,
@@ -326,13 +326,13 @@ function readState(): GuestState {
     || !Array.isArray(state.categories)) {
     throw new Error('Guest data could not be read. Clear this browser’s CM RetailOS guest data and reload.')
   }
-  if (state.demoData && state.schemaVersion !== 3) {
+  if (state.demoData && state.schemaVersion !== 4) {
     const refreshed = seedState()
     writeState(refreshed)
     return refreshed
   }
-  if (state.schemaVersion !== 3) {
-    state.schemaVersion = 3
+  if (state.schemaVersion !== 4) {
+    state.schemaVersion = 4
     writeState(state)
   }
   return state
@@ -467,7 +467,8 @@ function businessIntelligenceFor(state: GuestState, url: URL) {
   const profits = new Map<string, number>()
   const pairs = new Map<string, number>()
   for (const sale of state.sales) {
-    const hourWindow = Math.floor(new Date(sale.completedAt).getHours() / 2) % 12
+    const hour = new Date(sale.completedAt).getHours()
+    const hourWindow = Math.floor(((hour - 6 + 24) % 24) / 2)
     peakSalesHours[hourWindow]++
     for (const item of sale.items) {
       profits.set(item.productName, (profits.get(item.productName) ?? 0) + item.lineTotal - item.quantity * item.unitCost)

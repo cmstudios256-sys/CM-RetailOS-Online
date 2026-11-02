@@ -13,3 +13,17 @@ export function usePhoneBreakpoint() {
 
   return { isPhone }
 }
+
+export function useDesktopBreakpoint() {
+  const mediaQuery = window.matchMedia('(min-width: 1024px)')
+  const isDesktop = ref(mediaQuery.matches)
+
+  const update = (event: MediaQueryListEvent | MediaQueryList) => {
+    isDesktop.value = event.matches
+  }
+
+  onMounted(() => mediaQuery.addEventListener('change', update))
+  onUnmounted(() => mediaQuery.removeEventListener('change', update))
+
+  return { isDesktop }
+}
