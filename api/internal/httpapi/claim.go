@@ -360,9 +360,19 @@ func importGuestData(r *http.Request, tx *sql.Tx, claims *sessionClaims, input g
 		return result, err
 	}
 	_, err = tx.ExecContext(r.Context(), `
-		UPDATE shops SET name = $1, currency = $2, address = $3, phone = $4,
-			receipt_header = $5, receipt_footer = $6, receipt_show_phone = $7,
-			preferences = COALESCE(preferences, '{}'::jsonb) || $8::jsonb
+		UPDATE shops SET
+			name = CASE WHEN COALESCE(preferences->>'__businessProfileSetupComplete', 'false') = 'true' THEN name ELSE $1 END,
+			currency = $2,
+			address = CASE WHEN COALESCE(preferences->>'__businessProfileSetupComplete', 'false') = 'true' THEN address ELSE $3 END,
+			phone = CASE WHEN COALESCE(preferences->>'__businessProfileSetupComplete', 'false') = 'true' THEN phone ELSE $4 END,
+			receipt_header = $5,
+			receipt_footer = $6,
+			receipt_show_phone = CASE WHEN COALESCE(preferences->>'__businessProfileSetupComplete', 'false') = 'true' THEN receipt_show_phone ELSE $7 END,
+			preferences = (COALESCE(preferences, '{}'::jsonb) || ($8::jsonb - '__businessProfileSetupComplete')) ||
+				CASE WHEN preferences ? '__businessProfileSetupComplete'
+					THEN jsonb_build_object('__businessProfileSetupComplete', preferences->'__businessProfileSetupComplete')
+					ELSE '{}'::jsonb
+				END
 		WHERE id = $9`,
 		strings.TrimSpace(input.Settings.ShopName), strings.ToUpper(strings.TrimSpace(input.Settings.Currency)),
 		strings.TrimSpace(input.Settings.Address), strings.TrimSpace(input.Settings.Phone),

@@ -883,7 +883,14 @@ func (s *Server) updateSettingsPreferences(w http.ResponseWriter, r *http.Reques
 	claims := claimsFrom(r)
 	var savedRaw []byte
 	err = s.db.QueryRowContext(r.Context(), `
-		UPDATE shops SET preferences = $1::jsonb
+		UPDATE shops SET preferences = ($1::jsonb - '__businessProfileSetupComplete') ||
+			CASE WHEN preferences->'__businessProfileSetupComplete' = 'true'::jsonb
+				OR $1::jsonb->'__businessProfileSetupComplete' = 'true'::jsonb
+				THEN jsonb_build_object('__businessProfileSetupComplete', TRUE)
+				WHEN preferences ? '__businessProfileSetupComplete'
+				THEN jsonb_build_object('__businessProfileSetupComplete', preferences->'__businessProfileSetupComplete')
+				ELSE '{}'::jsonb
+			END
 		WHERE id = $2
 		RETURNING preferences`,
 		string(encoded), claims.ShopID,

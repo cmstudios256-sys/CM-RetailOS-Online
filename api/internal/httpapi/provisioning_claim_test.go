@@ -111,7 +111,7 @@ func TestFirstTimeGoogleProvisioningAndGuestClaim(t *testing.T) {
 		mock.ExpectQuery(`INSERT INTO products`).
 			WithArgs(claimShopID, "", "Coffee", "", "", "", 10.0, 0.0, 4.0, 0.0, "", true).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(expectedProductID))
-		mock.ExpectExec(`UPDATE shops SET name`).
+		mock.ExpectExec(`(?s)UPDATE shops SET\s+name = CASE WHEN.*__businessProfileSetupComplete.*receipt_show_phone = CASE WHEN.*preferences = .*WHERE id = \$9`).
 			WithArgs("My Shop", "UGX", "", "", "", "", false, []byte("{}"), claimShopID).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectExec(`UPDATE guest_imports SET response`).

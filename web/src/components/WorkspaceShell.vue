@@ -33,7 +33,7 @@ const props = defineProps<{ user: User; guestMode?: boolean; demoMode?: boolean;
 const emit = defineEmits<{
   'connect-google': [page: string]
   'sign-out': []
-  'user-updated': [settings: Pick<User, 'shopName' | 'currency'>]
+  'user-updated': [settings: Pick<User, 'fullName' | 'shopName' | 'currency'>]
 }>()
 const activePage = ref('dashboard')
 const isGuest = computed(() => props.guestMode === true)

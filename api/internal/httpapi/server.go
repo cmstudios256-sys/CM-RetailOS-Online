@@ -89,6 +89,7 @@ func New(db *sql.DB, config Config) *Server {
 	s.mux.HandleFunc("POST /api/v1/auth/password-reset/request", s.requestPasswordReset)
 	s.mux.HandleFunc("POST /api/v1/auth/password-reset/confirm", s.confirmPasswordReset)
 	s.mux.Handle("GET /api/v1/auth/me", s.requireSession(http.HandlerFunc(s.me)))
+	s.mux.Handle("PUT /api/v1/auth/profile", s.requireSession(http.HandlerFunc(s.updateProfile)))
 	s.mux.Handle("GET /api/v1/dashboard", s.requireSession(http.HandlerFunc(s.dashboard)))
 	s.mux.Handle("GET /api/v1/business-intelligence", s.requireSession(http.HandlerFunc(s.businessIntelligence)))
 	s.mux.Handle("GET /api/v1/audit-logs", s.requireSession(http.HandlerFunc(s.auditLogs)))
@@ -267,6 +268,38 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		user.GoogleEmail = user.Email
 	}
 	writeJSON(w, http.StatusOK, map[string]identity{"user": user})
+}
+
+func (s *Server) updateProfile(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		FullName string `json:"fullName"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	input.FullName = strings.TrimSpace(input.FullName)
+	if !validLength(input.FullName, 1, 100) {
+		writeError(w, http.StatusBadRequest, "invalid_profile", "Enter an owner name between 1 and 100 characters.")
+		return
+	}
+	claims := claimsFrom(r)
+	var fullName string
+	err := s.db.QueryRowContext(r.Context(), `
+		UPDATE users SET full_name = $1
+		WHERE id = $2 AND shop_id = $3 AND active = TRUE
+		RETURNING full_name`,
+		input.FullName, claims.Subject, claims.ShopID,
+	).Scan(&fullName)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "user_not_found", "The account profile could not be found.")
+		return
+	}
+	if err != nil {
+		log.Printf("update account profile for user %s: %v", claims.Subject, err)
+		writeError(w, http.StatusInternalServerError, "request_failed", "The account profile could not be saved.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"fullName": fullName})
 }
 
 type sessionClaimsKey struct{}

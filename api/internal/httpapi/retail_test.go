@@ -1000,13 +1000,13 @@ func TestSettingsPreferencesAndStaffPermissionsPersistInDatabase(t *testing.T) {
 
 	// 1. PUT /api/v1/settings/preferences
 	expectActiveSession(mock, shopID, ownerID)
-	mock.ExpectQuery(`(?s)UPDATE shops SET preferences = \$1::jsonb\s+WHERE id = \$2\s+RETURNING preferences`).
+	mock.ExpectQuery(`(?s)UPDATE shops SET preferences = \(\$1::jsonb - '__businessProfileSetupComplete'\).*OR \$1::jsonb->'__businessProfileSetupComplete' = 'true'::jsonb.*preferences->'__businessProfileSetupComplete'.*WHERE id = \$2\s+RETURNING preferences`).
 		WithArgs(sqlmock.AnyArg(), shopID).
 		WillReturnRows(sqlmock.NewRows([]string{"preferences"}).
-			AddRow([]byte(`{"country":"Uganda","applicationSettings":{"themeMode":"light"}}`)))
+			AddRow([]byte(`{"country":"Uganda","applicationSettings":{"themeMode":"light"},"__businessProfileSetupComplete":true}`)))
 
 	putReq := httptest.NewRequest(http.MethodPut, "/api/v1/settings/preferences",
-		strings.NewReader(`{"preferences":{"country":"Uganda","applicationSettings":{"themeMode":"light"}}}`))
+		strings.NewReader(`{"preferences":{"country":"Uganda","applicationSettings":{"themeMode":"light"},"__businessProfileSetupComplete":true}}`))
 	putReq.Header.Set("Content-Type", "application/json")
 	putReq.AddCookie(testSessionCookie(t, config, shopID, ownerID, "owner"))
 	putResp := httptest.NewRecorder()

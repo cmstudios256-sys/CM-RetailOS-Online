@@ -7,7 +7,8 @@ CM RetailOS Online is a free, open-source retail workspace. The Vue browser clie
 - First visits open a seeded **Demo Shop** with obviously fictional products, sales, and amounts. Public API demo routes return static fixtures and never query a shop or tenant table.
 - The complete workspace remains usable while disconnected. Guest products, categories, sales, stock movements, and settings are stored in browser `localStorage` under a stable random guest-device UUID.
 - The header shows a **Demo** badge and **Not connected** status while using the seeded demo. The **Connect Google** button and **Save to cloud** menu action start the same OAuth flow.
-- On the OAuth return, the app restores the active page, silently checks the session cookie, and posts the guest bundle to the authenticated claim endpoint. After a successful claim, the local transactional bundle is cleared so a later sign-out does not show stale cloud data.
+- On the OAuth return, the app restores the active page, silently checks the session cookie, and posts the guest bundle to the authenticated claim endpoint. First-time cloud setup requires the owner's full name, a business name, phone number, and physical address; the phone is enabled on receipts. After a successful claim, the local transactional bundle is cleared so a later sign-out does not show stale cloud data.
+- Business profile changes in Settings are saved through the authenticated API to the configured PostgreSQL/Supabase database, including the owner's account name and the shop's receipt details.
 - Sign out clears the session cookie only. Cloud records are not deleted; the browser returns to its local guest workspace.
 - The browser does not show email/password sign-in or signup forms. Legacy email/password API routes remain in the backend but are not used by the browser app.
 
@@ -117,7 +118,7 @@ Each claim is one database transaction. A stored SHA-256 payload hash prevents r
 
 1. Start PostgreSQL, the API, and Vite using the steps above. Open the app; it should show **Demo Shop**, **Demo**, and **Not connected** without an auth page.
 2. Add a product, adjust its stock, create a category, and complete a sale. Reload the page and confirm the local records remain.
-3. Select **Connect Google** or **Save to cloud** and complete Google consent. The browser returns to the page you were using; the status changes to **Connected as <email>** after the guest claim succeeds.
+3. Select **Connect Google** or **Save to cloud** and complete Google consent. The browser returns to the page you were using; after the guest claim succeeds, complete the required owner's full name, business name, phone number, and physical address setup to continue.
 4. Inspect the shop using the authenticated API/database and confirm the products, category, sale, movement history, and settings were imported. Sign out; the cookie is cleared, cloud data remains, and the browser opens local guest mode.
 
 ## Data isolation

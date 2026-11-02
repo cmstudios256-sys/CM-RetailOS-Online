@@ -45,7 +45,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'user-updated': [settings: { shopName: string; currency: string }]
+  'user-updated': [settings: { fullName: string; shopName: string; currency: string }]
 }>()
 
 type ShopSettingsResponse = {
@@ -408,6 +408,7 @@ async function loadSettings() {
   loadLocalPrefs()
   await syncOnlinePrefsFromServer(props.userId)
   loadLocalPrefs()
+  appSettings.value.shopDetails.owner = props.userName || appSettings.value.shopDetails.owner
   loadStaffPermsMap()
   try {
     const result = await apiRequest<{ settings: ShopSettingsResponse }>('/settings')
@@ -428,6 +429,11 @@ async function loadSettings() {
 async function saveConfigurations() {
   isSavingConfig.value = true
   try {
+    const ownerName = appSettings.value.shopDetails.owner.trim()
+    if (!ownerName || ownerName.length > 100) {
+      showToast('error', 'Enter an owner name between 1 and 100 characters.')
+      return
+    }
     appSettings.value.shopDetails.country = selectedCountry.value
     persistLocalPrefs()
     const payload: ShopSettingsResponse = {
@@ -443,9 +449,15 @@ async function saveConfigurations() {
       method: 'PUT',
       body: payload,
     })
+    const profile = await apiRequest<{ fullName: string }>('/auth/profile', {
+      method: 'PUT',
+      body: { fullName: ownerName },
+    })
     appSettings.value.shopDetails.name = result.settings.shopName
     appSettings.value.shopDetails.currency = result.settings.currency
+    appSettings.value.shopDetails.owner = profile.fullName
     emit('user-updated', {
+      fullName: profile.fullName,
       shopName: result.settings.shopName,
       currency: result.settings.currency,
     })

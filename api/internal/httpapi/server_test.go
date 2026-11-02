@@ -61,6 +61,65 @@ func TestAuthSessionReturnsGuestWhenCookieIsAbsent(t *testing.T) {
 	}
 }
 
+func TestUpdateProfileChangesAuthenticatedUsersName(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create SQL mock: %v", err)
+	}
+	defer db.Close()
+
+	const (
+		shopID = "shop-id"
+		userID = "user-id"
+	)
+	config := Config{JWTSecret: []byte("01234567890123456789012345678901")}
+	expectActiveSession(mock, shopID, userID)
+	mock.ExpectQuery(`UPDATE users SET full_name = \$1\s+WHERE id = \$2 AND shop_id = \$3 AND active = TRUE\s+RETURNING full_name`).
+		WithArgs("Alex Owner", userID, shopID).
+		WillReturnRows(sqlmock.NewRows([]string{"full_name"}).AddRow("Alex Owner"))
+
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/auth/profile", strings.NewReader(`{"fullName":" Alex Owner "}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(testSessionCookie(t, config, shopID, userID, "owner"))
+	response := httptest.NewRecorder()
+	New(db, config).Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"fullName":"Alex Owner"}` {
+		t.Fatalf("profile update response = %d %s, want updated owner name", response.Code, response.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("profile update expectations: %v", err)
+	}
+}
+
+func TestUpdateProfileRejectsBlankName(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create SQL mock: %v", err)
+	}
+	defer db.Close()
+
+	const (
+		shopID = "shop-id"
+		userID = "user-id"
+	)
+	config := Config{JWTSecret: []byte("01234567890123456789012345678901")}
+	expectActiveSession(mock, shopID, userID)
+
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/auth/profile", strings.NewReader(`{"fullName":"   "}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(testSessionCookie(t, config, shopID, userID, "owner"))
+	response := httptest.NewRecorder()
+	New(db, config).Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "invalid_profile") {
+		t.Fatalf("blank profile update response = %d %s, want invalid profile", response.Code, response.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("blank profile update expectations: %v", err)
+	}
+}
+
 func TestProductWriteRequiresOwnerOrManager(t *testing.T) {
 	secret := []byte("01234567890123456789012345678901")
 	db, mock, err := sqlmock.New()
