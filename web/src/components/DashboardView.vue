@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   Boxes,
   Calendar,
@@ -9,6 +9,7 @@ import {
   X,
 } from '@lucide/vue'
 import { apiRequest, formatAxisValue, formatQuantity, type Product } from '../api'
+import { getThemeColors, hexToRgba } from '../utils/chartColors'
 import DashboardSalesChart from './DashboardSalesChart.vue'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 
@@ -68,6 +69,11 @@ const productToRestock = ref<DashboardProduct | null>(null)
 const newQuantity = ref<number>(0)
 const restocking = ref(false)
 const restockError = ref('')
+const themeVersion = ref(0)
+
+function handlePrefsUpdated() {
+  themeVersion.value++
+}
 
 const activeCurrency = computed(() => dashboard.value?.currency || props.currency || 'UGX')
 
@@ -193,6 +199,8 @@ const salesSummaryStats = computed(() => {
 })
 
 const salesChartData = computed(() => {
+  void themeVersion.value
+  const { accent, complement } = getThemeColors()
   const data = chartPoints.value
   const labels = data.map(s => s.label)
 
@@ -203,7 +211,7 @@ const salesChartData = computed(() => {
         {
           type: 'line' as const,
           label: 'Sales Revenue',
-          borderColor: '#0ea5e9',
+          borderColor: accent,
           borderWidth: 2.5,
           fill: true,
           data: data.map(s => s.sales),
@@ -230,14 +238,14 @@ const salesChartData = computed(() => {
     }
   }
 
-  // Combined: Sales line + Profit bars
+  // Combined: Sales line (accent) + Profit bars (complementary/accent tint matching mother repo)
   return {
     labels,
     datasets: [
       {
         type: 'line' as const,
         label: 'Sales Revenue',
-        borderColor: '#0ea5e9',
+        borderColor: accent,
         borderWidth: 2.5,
         fill: true,
         data: data.map(s => s.sales),
@@ -246,9 +254,9 @@ const salesChartData = computed(() => {
       {
         type: 'bar' as const,
         label: 'Net Profit',
-        backgroundColor: 'rgba(16, 185, 129, 0.65)',
-        hoverBackgroundColor: '#10b981',
-        borderColor: '#10b981',
+        backgroundColor: hexToRgba(accent, 0.3),
+        hoverBackgroundColor: accent,
+        borderColor: hexToRgba(accent, 0.7),
         borderWidth: 1,
         borderRadius: { topLeft: 4, topRight: 4 },
         borderSkipped: 'bottom' as const,
@@ -347,7 +355,13 @@ async function load() {
 }
 
 watch([selectedPeriod, reportDate, topSellingDate], load)
-onMounted(load)
+onMounted(() => {
+  void load()
+  window.addEventListener('online-prefs-updated', handlePrefsUpdated)
+})
+onUnmounted(() => {
+  window.removeEventListener('online-prefs-updated', handlePrefsUpdated)
+})
 </script>
 
 <template>

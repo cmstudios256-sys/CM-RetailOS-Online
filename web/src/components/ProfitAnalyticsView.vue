@@ -18,6 +18,7 @@ import {
 import { apiRequest, formatDate, formatMoney, formatTime } from '../api'
 import { downloadCsv, escapeHtml, openPrintDocument } from '../utils/reporting'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
+import { getThemeColors, hexToRgba } from '../utils/chartColors'
 import { Bar, Line, Doughnut } from 'vue-chartjs'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import {
@@ -57,6 +58,11 @@ type ChartPoint = {
 }
 
 const { isPhone } = usePhoneBreakpoint()
+
+const themeVersion = ref(0)
+function handlePrefsUpdated() {
+  themeVersion.value++
+}
 
 type ProfitCategory = {
   name: string
@@ -143,6 +149,8 @@ const categoryBreakdown = computed(() => {
 const isLightMode = computed(() => document.documentElement.getAttribute('data-theme') === 'light')
 
 const profitTrendData = computed(() => {
+  void themeVersion.value
+  const { accent, complement } = getThemeColors()
   const points = chartPoints.value
   const labels = points.map(p => p.label)
 
@@ -184,15 +192,15 @@ const profitTrendData = computed(() => {
         {
           type: 'line' as const,
           label: 'Revenue',
-          borderColor: '#6366f1',
+          borderColor: accent,
           backgroundColor: (context: any) => {
             const chart = context.chart
             const { ctx, chartArea } = chart
-            if (!chartArea) return 'rgba(99, 102, 241, 0.15)'
+            if (!chartArea) return hexToRgba(accent, 0.15)
             const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
-            gradient.addColorStop(0, 'rgba(99, 102, 241, 0.28)')
-            gradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.08)')
-            gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)')
+            gradient.addColorStop(0, hexToRgba(accent, 0.28))
+            gradient.addColorStop(0.5, hexToRgba(accent, 0.08))
+            gradient.addColorStop(1, hexToRgba(accent, 0.0))
             return gradient
           },
           borderWidth: 2,
@@ -200,7 +208,7 @@ const profitTrendData = computed(() => {
           tension: 0.35,
           pointRadius: (ctx: any) => (Number(ctx.raw) > 0 ? 3 : 0),
           pointHoverRadius: 5,
-          pointBackgroundColor: '#6366f1',
+          pointBackgroundColor: accent,
           pointBorderColor: '#ffffff',
           pointBorderWidth: 1.5,
           data: points.map(p => p.sales),
@@ -208,15 +216,15 @@ const profitTrendData = computed(() => {
         {
           type: 'line' as const,
           label: 'Net Profit',
-          borderColor: '#10b981',
+          borderColor: complement,
           backgroundColor: (context: any) => {
             const chart = context.chart
             const { ctx, chartArea } = chart
-            if (!chartArea) return 'rgba(16, 185, 129, 0.2)'
+            if (!chartArea) return hexToRgba(complement, 0.2)
             const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
-            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.38)')
-            gradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.12)')
-            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)')
+            gradient.addColorStop(0, hexToRgba(complement, 0.38))
+            gradient.addColorStop(0.5, hexToRgba(complement, 0.12))
+            gradient.addColorStop(1, hexToRgba(complement, 0.0))
             return gradient
           },
           borderWidth: 2.5,
@@ -224,7 +232,7 @@ const profitTrendData = computed(() => {
           tension: 0.35,
           pointRadius: (ctx: any) => (Number(ctx.raw) > 0 ? 3.5 : 0),
           pointHoverRadius: 6,
-          pointBackgroundColor: '#10b981',
+          pointBackgroundColor: complement,
           pointBorderColor: '#ffffff',
           pointBorderWidth: 1.5,
           data: points.map(p => p.profit),
@@ -233,21 +241,21 @@ const profitTrendData = computed(() => {
     }
   }
 
-  // Default: Net Profit
+  // Default: Net Profit (uses accent border with complementary subtle gradient fill)
   return {
     labels,
     datasets: [{
       type: 'line' as const,
       label: 'Net Profit',
-      borderColor: '#10b981',
+      borderColor: accent,
       backgroundColor: (context: any) => {
         const chart = context.chart
         const { ctx, chartArea } = chart
-        if (!chartArea) return 'rgba(16, 185, 129, 0.2)'
+        if (!chartArea) return hexToRgba(complement, 0.2)
         const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
-        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)')
-        gradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.12)')
-        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)')
+        gradient.addColorStop(0, hexToRgba(complement, 0.4))
+        gradient.addColorStop(0.5, hexToRgba(complement, 0.12))
+        gradient.addColorStop(1, hexToRgba(complement, 0.0))
         return gradient
       },
       borderWidth: 2.5,
@@ -255,7 +263,7 @@ const profitTrendData = computed(() => {
       tension: 0.35,
       pointRadius: (ctx: any) => (Number(ctx.raw) > 0 ? 3.5 : 0),
       pointHoverRadius: 6,
-      pointBackgroundColor: '#10b981',
+      pointBackgroundColor: accent,
       pointBorderColor: '#ffffff',
       pointBorderWidth: 1.5,
       data: points.map(p => p.profit),
@@ -264,15 +272,16 @@ const profitTrendData = computed(() => {
 })
 
 const mobileProfitTrendData = computed(() => {
+  void themeVersion.value
+  const { accent, complement } = getThemeColors()
   const points = chartPoints.value.slice(-7)
-  const accent = '#10b981'
   return {
     labels: points.map(point => point.label),
     datasets: [{
       label: 'Net Profit',
       data: points.map(point => point.profit),
       borderColor: accent,
-      backgroundColor: selectedPeriod.value === 'Daily' ? accent : 'rgba(16, 185, 129, 0.25)',
+      backgroundColor: selectedPeriod.value === 'Daily' ? accent : hexToRgba(complement, 0.25),
       borderWidth: 2,
       borderRadius: selectedPeriod.value === 'Daily' ? 4 : 0,
       fill: selectedPeriod.value !== 'Daily',
@@ -555,11 +564,13 @@ async function load() {
 
 watch([selectedPeriod, reportDate], load)
 onMounted(() => {
-  load()
+  void load()
   window.addEventListener('click', closeExportDropdown)
+  window.addEventListener('online-prefs-updated', handlePrefsUpdated)
 })
 onUnmounted(() => {
   window.removeEventListener('click', closeExportDropdown)
+  window.removeEventListener('online-prefs-updated', handlePrefsUpdated)
 })
 </script>
 

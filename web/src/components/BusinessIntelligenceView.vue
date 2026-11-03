@@ -15,6 +15,7 @@ import {
 import { apiRequest, formatDate, formatMoney, formatTime } from '../api'
 import { downloadCsv, escapeHtml, openPrintDocument } from '../utils/reporting'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
+import { getThemeColors, hexToComplementaryHsla, hexToRgba } from '../utils/chartColors'
 import { Bar } from 'vue-chartjs'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import {
@@ -162,76 +163,87 @@ const mobileProfitableProducts = computed(() =>
     .slice(0, 5),
 )
 
+const themeVersion = ref(0)
+function handlePrefsUpdated() {
+  themeVersion.value++
+}
+
 const mobileProductMax = computed(() =>
   Math.max(...mobileProfitableProducts.value.map(item => Math.max(item.profit, 0)), 0),
 )
 
 const isLightMode = computed(() => document.documentElement.getAttribute('data-theme') === 'light')
 
-const salesByHourData = computed(() => ({
-  labels: hourIntervals.map(i => i.axisLabel),
-  datasets: [
-    {
-      label: 'Sales Count',
-      backgroundColor: (context: any) => {
-        const chart = context.chart
-        const { ctx, chartArea } = chart
-        if (!chartArea) return '#0ea5e9'
-        const count = context.raw ?? 0
-        const isPeak = context.dataIndex === peakHourIndex.value && count > 0
-        if (isPeak) {
+const salesByHourData = computed(() => {
+  void themeVersion.value
+  const { accent, complement } = getThemeColors()
+  return {
+    labels: hourIntervals.map(i => i.axisLabel),
+    datasets: [
+      {
+        label: 'Sales Count',
+        backgroundColor: (context: any) => {
+          const chart = context.chart
+          const { ctx, chartArea } = chart
+          if (!chartArea) return accent
+          const count = context.raw ?? 0
+          const isPeak = context.dataIndex === peakHourIndex.value && count > 0
+          if (isPeak) {
+            // Highlight peak rush hour using complementary color
+            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top)
+            gradient.addColorStop(0, hexToRgba(complement, 0.4))
+            gradient.addColorStop(1, complement)
+            return gradient
+          }
           const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top)
-          gradient.addColorStop(0, 'rgba(217, 119, 6, 0.4)')
-          gradient.addColorStop(1, '#f59e0b')
+          gradient.addColorStop(0, hexToRgba(accent, 0.25))
+          gradient.addColorStop(1, accent)
           return gradient
-        }
-        const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top)
-        gradient.addColorStop(0, 'rgba(14, 165, 233, 0.25)')
-        gradient.addColorStop(1, '#38bdf8')
-        return gradient
+        },
+        hoverBackgroundColor: (context: any) => {
+          const count = context.raw ?? 0
+          return context.dataIndex === peakHourIndex.value && count > 0 ? complement : accent
+        },
+        borderColor: (context: any) => {
+          const count = context.raw ?? 0
+          return context.dataIndex === peakHourIndex.value && count > 0 ? complement : accent
+        },
+        borderWidth: 1,
+        borderRadius: { topLeft: 6, topRight: 6 },
+        borderSkipped: 'bottom' as const,
+        barPercentage: 0.6,
+        categoryPercentage: 0.75,
+        data: hourBars.value.map(item => item.count),
       },
-      hoverBackgroundColor: (context: any) => {
-        const count = context.raw ?? 0
-        return context.dataIndex === peakHourIndex.value && count > 0 ? '#fbbf24' : '#0ea5e9'
-      },
-      borderColor: (context: any) => {
-        const count = context.raw ?? 0
-        return context.dataIndex === peakHourIndex.value && count > 0 ? '#f59e0b' : '#38bdf8'
-      },
-      borderWidth: 1,
-      borderRadius: { topLeft: 6, topRight: 6 },
-      borderSkipped: 'bottom' as const,
-      barPercentage: 0.6,
-      categoryPercentage: 0.75,
-      data: hourBars.value.map(item => item.count),
-    },
-  ],
-}))
+    ],
+  }
+})
 
 const mostProfitableProductsData = computed(() => {
+  void themeVersion.value
+  const { accent } = getThemeColors()
   const list = topProfitableProducts.value
+  const profits = list.map(p => p.profit)
+  const maxVal = Math.max(...profits, 1)
+
   return {
     labels: list.map(p => p.name),
     datasets: [
       {
         label: 'Total Profit',
         backgroundColor: (context: any) => {
-          const chart = context.chart
-          const { ctx, chartArea } = chart
-          if (!chartArea) return '#10b981'
-          const gradient = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0)
-          gradient.addColorStop(0, 'rgba(16, 185, 129, 0.45)')
-          gradient.addColorStop(1, '#10b981')
-          return gradient
+          const val = Number(context.raw ?? 0)
+          const opacity = Math.min(1, Math.max(0.3, 0.25 + 0.75 * (val / maxVal)))
+          return hexToComplementaryHsla(accent, opacity)
         },
-        hoverBackgroundColor: '#10b981',
-        borderColor: '#10b981',
+        hoverBackgroundColor: hexToComplementaryHsla(accent, 0.95),
+        borderColor: hexToComplementaryHsla(accent, 1),
         borderWidth: 1,
         borderRadius: { topRight: 6, bottomRight: 6 },
         borderSkipped: 'left' as const,
         barPercentage: 0.65,
         categoryPercentage: 0.8,
-        data: list.map(p => p.profit),
+        data: profits,
       },
     ],
   }
@@ -348,35 +360,50 @@ const profitBarChartOptions = computed(() => ({
   },
 }))
 
-const mobileSalesByHourData = computed(() => ({
-  labels: mobilePeakHours.value.map(item => item.shortRange || item.label),
-  datasets: [{
-    label: 'Sales',
-    data: mobilePeakHours.value.map(item => item.count),
-    backgroundColor: '#0ea5e9',
-    borderColor: '#0ea5e9',
-    borderRadius: 4,
-    borderSkipped: false,
-    barThickness: 22,
-    categoryPercentage: 0.62,
-    barPercentage: 0.62,
-  }],
-}))
+const mobileSalesByHourData = computed(() => {
+  void themeVersion.value
+  const { accent } = getThemeColors()
+  return {
+    labels: mobilePeakHours.value.map(item => item.shortRange || item.label),
+    datasets: [{
+      label: 'Sales',
+      data: mobilePeakHours.value.map(item => item.count),
+      backgroundColor: accent,
+      borderColor: accent,
+      borderRadius: 4,
+      borderSkipped: false,
+      barThickness: 22,
+      categoryPercentage: 0.62,
+      barPercentage: 0.62,
+    }],
+  }
+})
 
-const mobileProfitableProductsData = computed(() => ({
-  labels: mobileProfitableProducts.value.map(item => item.name),
-  datasets: [{
-    label: 'Profit',
-    data: mobileProfitableProducts.value.map(item => item.profit),
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
-    borderRadius: 4,
-    borderSkipped: false,
-    barThickness: 22,
-    categoryPercentage: 0.62,
-    barPercentage: 0.62,
-  }],
-}))
+const mobileProfitableProductsData = computed(() => {
+  void themeVersion.value
+  const { accent } = getThemeColors()
+  const list = mobileProfitableProducts.value
+  const profits = list.map(item => item.profit)
+  const maxVal = Math.max(...profits, 1)
+
+  return {
+    labels: list.map(item => item.name),
+    datasets: [{
+      label: 'Profit',
+      data: profits,
+      backgroundColor: profits.map(val => {
+        const opacity = Math.min(1, Math.max(0.35, 0.25 + 0.75 * (val / maxVal)))
+        return hexToComplementaryHsla(accent, opacity)
+      }),
+      borderColor: hexToComplementaryHsla(accent, 1),
+      borderRadius: 4,
+      borderSkipped: false,
+      barThickness: 22,
+      categoryPercentage: 0.62,
+      barPercentage: 0.62,
+    }],
+  }
+})
 
 const mobileHorizontalChartOptions = computed(() => ({
   responsive: true,
@@ -505,11 +532,13 @@ async function load() {
 
 watch([selectedPeriod, selectedDate], load)
 onMounted(() => {
-  load()
+  void load()
   window.addEventListener('click', closeExportDropdown)
+  window.addEventListener('online-prefs-updated', handlePrefsUpdated)
 })
 onUnmounted(() => {
   window.removeEventListener('click', closeExportDropdown)
+  window.removeEventListener('online-prefs-updated', handlePrefsUpdated)
 })
 </script>
 

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import {
   Building,
@@ -31,7 +31,7 @@ import {
   Activity,
   Settings as SettingsIcon,
 } from '@lucide/vue'
-import { apiRequest, formatTime, syncOnlinePrefsFromServer } from '../api'
+import { apiRequest, formatTime, getComplementaryColor, syncOnlinePrefsFromServer } from '../api'
 import { openPrintDocument, escapeHtml } from '../utils/reporting'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import CustomSelect from './CustomSelect.vue'
@@ -330,6 +330,7 @@ function applyThemeModeDom(mode: 'dark' | 'light' | 'system') {
 function applyAccentColorDom(color: string) {
   if (!color) return
   document.documentElement.style.setProperty('--accent-color', color)
+  document.documentElement.style.setProperty('--accent-complement', getComplementaryColor(color))
 }
 
 function applyTypographyDom(font: string) {

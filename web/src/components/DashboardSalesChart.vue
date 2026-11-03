@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
+import { getThemeColors, hexToRgba } from '../utils/chartColors'
 import { Chart } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -138,7 +139,7 @@ const mobileChartData = computed<ChartData<'bar', number[], string>>(() => {
   const values = Array.isArray(sourceData)
     ? sourceData.slice(-7).map(value => Number(value) || 0)
     : []
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#0ea5e9'
+  const { accent } = getThemeColors()
 
   return {
     labels,
@@ -223,17 +224,20 @@ const gradientPlugin = {
       const chartArea = chart.chartArea
       if (!chartArea) return
       const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
-      const border = String(lineDataset.borderColor || '#0ea5e9').toLowerCase()
-      const isEmerald = border.includes('10b981') || border.includes('16, 185, 129')
+      const border = String(lineDataset.borderColor || '').toLowerCase()
+      const { complement, accent } = getThemeColors()
 
-      if (isEmerald) {
-        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.38)')
-        gradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.1)')
-        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)')
+      // If this dataset represents the sales revenue line/fill, use complementary color with alpha gradient
+      const isProfit = border.includes('10b981') || border.includes('16, 185, 129')
+      if (isProfit) {
+        gradient.addColorStop(0, hexToRgba('#10b981', 0.38))
+        gradient.addColorStop(0.5, hexToRgba('#10b981', 0.1))
+        gradient.addColorStop(1, hexToRgba('#10b981', 0.0))
       } else {
-        gradient.addColorStop(0, 'rgba(14, 165, 233, 0.38)')
-        gradient.addColorStop(0.5, 'rgba(14, 165, 233, 0.1)')
-        gradient.addColorStop(1, 'rgba(14, 165, 233, 0.0)')
+        // Use complementary color for the gradient fill matching mother repo
+        gradient.addColorStop(0, hexToRgba(complement, 0.4))
+        gradient.addColorStop(0.5, hexToRgba(complement, 0.1))
+        gradient.addColorStop(1, hexToRgba(complement, 0.0))
       }
       lineDataset.backgroundColor = gradient
     }
