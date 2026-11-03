@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Download, Search, SlidersHorizontal, X } from '@lucide/vue'
 import { apiRequest, formatMoney, formatQuantity, type Product } from '../api'
 import { downloadCsv } from '../utils/reporting'
@@ -38,6 +39,22 @@ const filteredProducts = computed(() => {
     return matchesSearch && matchesCategory && matchesStock
   })
 })
+
+const stockListRef = ref<HTMLElement | null>(null)
+const stockListVirtualizer = useVirtualizer(computed(() => ({
+  count: filteredProducts.value.length,
+  getScrollElement: () => stockListRef.value,
+  estimateSize: () => 38,
+  overscan: 8,
+})))
+const virtualStockListItems = computed(() => stockListVirtualizer.value.getVirtualItems())
+
+watch(
+  () => [search.value, selectedCategory.value, selectedStock.value, filteredProducts.value.length],
+  () => {
+    stockListRef.value?.scrollTo({ top: 0 })
+  },
+)
 
 const totalProducts = computed(() => filteredProducts.value.length)
 const totalUnits = computed(() => filteredProducts.value.reduce((sum, product) => sum + product.quantity, 0))
@@ -201,65 +218,69 @@ onMounted(load)
         </div>
       </div>
 
-      <div class="table-container" style="flex: 1; min-height: 0; overflow-y: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th class="text-center">Product</th>
-              <th class="text-center">Category</th>
-              <th class="text-center">Current Stock</th>
-              <th class="text-center">Unit</th>
-              <th class="text-center">Projected Revenue</th>
-              <th class="text-center">Projected Profit</th>
-              <th class="text-center">Profit per Unit</th>
-              <th class="text-center">Status</th>
-              <th v-if="canManage" class="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td :colspan="canManage ? 9 : 8" class="empty-message">Loading stock levels...</td>
-            </tr>
-            <tr v-else-if="filteredProducts.length === 0">
-              <td :colspan="canManage ? 9 : 8" class="empty-message">No products found.</td>
-            </tr>
-            <tr v-for="item in filteredProducts" v-else :key="item.id" style="height: 38px;">
-              <td class="text-center font-medium text-slate-200">{{ item.name }}</td>
-              <td class="text-center">{{ item.category || 'General' }}</td>
-              <td class="text-center font-semibold">{{ formatQuantity(item.quantity) }}</td>
-              <td class="text-center text-slate-400">{{ item.unit }}</td>
-              <td class="text-center">{{ formatMoney(projectedRevenue(item), currency) }}</td>
-              <td
-                class="text-center font-semibold"
-                :class="projectedProfit(item) >= 0 ? 'profit-positive' : 'profit-negative'"
+      <div ref="stockListRef" class="table-container virtual-list-container" style="flex: 1; min-height: 0; overflow-y: auto;">
+        <div class="virtual-list-header stock-list-header" :class="{ 'with-actions': canManage }">
+          <span>Product</span>
+          <span>Category</span>
+          <span>Current Stock</span>
+          <span>Unit</span>
+          <span>Projected Revenue</span>
+          <span>Projected Profit</span>
+          <span>Profit per Unit</span>
+          <span>Status</span>
+          <span v-if="canManage">Actions</span>
+        </div>
+        <div v-if="loading" class="empty-message">Loading stock levels...</div>
+        <div v-else-if="filteredProducts.length === 0" class="empty-message">No products found.</div>
+        <div
+          v-else
+          class="virtual-list-spacer"
+          :style="{ height: `${stockListVirtualizer.getTotalSize()}px` }"
+        >
+          <div
+            v-for="virtualRow in virtualStockListItems"
+            :key="String(virtualRow.key)"
+            class="virtual-list-row stock-list-header"
+            :class="{ 'with-actions': canManage }"
+            :style="{ transform: `translateY(${virtualRow.start}px)`, height: `${virtualRow.size}px` }"
+          >
+            <template v-if="filteredProducts[virtualRow.index]">
+              <span class="font-medium text-slate-200">{{ filteredProducts[virtualRow.index].name }}</span>
+              <span>{{ filteredProducts[virtualRow.index].category || 'General' }}</span>
+              <span class="font-semibold">{{ formatQuantity(filteredProducts[virtualRow.index].quantity) }}</span>
+              <span class="text-slate-400">{{ filteredProducts[virtualRow.index].unit }}</span>
+              <span>{{ formatMoney(projectedRevenue(filteredProducts[virtualRow.index]), currency) }}</span>
+              <span
+                class="font-semibold"
+                :class="projectedProfit(filteredProducts[virtualRow.index]) >= 0 ? 'profit-positive' : 'profit-negative'"
               >
-                {{ formatMoney(projectedProfit(item), currency) }}
-              </td>
-              <td
-                class="text-center font-semibold"
-                :class="profitPerUnit(item) >= 0 ? 'profit-positive' : 'profit-negative'"
+                {{ formatMoney(projectedProfit(filteredProducts[virtualRow.index]), currency) }}
+              </span>
+              <span
+                class="font-semibold"
+                :class="profitPerUnit(filteredProducts[virtualRow.index]) >= 0 ? 'profit-positive' : 'profit-negative'"
               >
-                {{ formatMoney(profitPerUnit(item), currency) }}
-              </td>
-              <td class="text-center">
-                <span class="status-badge" :class="getStockStatus(item).class">
-                  {{ getStockStatus(item).text }}
+                {{ formatMoney(profitPerUnit(filteredProducts[virtualRow.index]), currency) }}
+              </span>
+              <span>
+                <span class="status-badge" :class="getStockStatus(filteredProducts[virtualRow.index]).class">
+                  {{ getStockStatus(filteredProducts[virtualRow.index]).text }}
                 </span>
-              </td>
-              <td v-if="canManage" class="text-center">
+              </span>
+              <span v-if="canManage" class="actions-cell">
                 <button
                   type="button"
                   class="stock-adjust-button"
-                  :aria-label="`Adjust stock for ${item.name}`"
-                  @click="openAdjustStock(item)"
+                  :aria-label="`Adjust stock for ${filteredProducts[virtualRow.index].name}`"
+                  @click="openAdjustStock(filteredProducts[virtualRow.index])"
                 >
                   <SlidersHorizontal :size="15" />
                   Adjust
                 </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </span>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -321,7 +342,7 @@ onMounted(load)
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 1rem 1.25rem;
   color: var(--text-secondary);
   display: flex;
   flex-direction: column;
@@ -334,27 +355,28 @@ onMounted(load)
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .summary-badges {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .summary-badge {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
-  padding: 0.35rem 0.85rem;
+  padding: 0.3rem 0.7rem;
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .summary-badge:nth-child(2) {
@@ -377,13 +399,19 @@ onMounted(load)
 
 .header-controls {
   display: flex;
-  gap: 0.65rem;
+  gap: 0.5rem;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  margin-left: auto;
+  justify-content: flex-end;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .search-bar {
   position: relative;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .search-icon {
@@ -401,7 +429,7 @@ onMounted(load)
   border-radius: 0.375rem;
   padding: 0.4rem 0.75rem 0.4rem 2.25rem;
   color: var(--text-primary);
-  width: min(210px, 32vw);
+  width: clamp(140px, 15vw, 200px);
   font-size: 0.825rem;
 }
 
@@ -414,10 +442,12 @@ onMounted(load)
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 0.375rem;
-  padding: 0.4rem 0.75rem;
+  padding: 0.4rem 0.65rem;
   color: var(--text-primary);
   font-size: 0.825rem;
   cursor: pointer;
+  flex-shrink: 0;
+  max-width: 140px;
 }
 
 .export-btn {
@@ -452,20 +482,91 @@ onMounted(load)
   overflow-y: auto;
 }
 
+.virtual-list-container {
+  position: relative;
+  background-color: var(--bg-sidebar);
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+}
+
+.virtual-list-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-list-header,
+.virtual-list-row {
+  display: grid;
+  align-items: center;
+}
+
+.stock-list-header {
+  grid-template-columns: minmax(140px, 1.4fr) minmax(100px, 1fr) minmax(90px, 0.9fr) minmax(70px, 0.7fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr);
+  min-width: 820px;
+}
+
+.stock-list-header.with-actions {
+  grid-template-columns: minmax(140px, 1.4fr) minmax(100px, 1fr) minmax(90px, 0.9fr) minmax(70px, 0.7fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(90px, 0.9fr);
+  min-width: 910px;
+}
+
+.virtual-list-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: 38px;
+  background-color: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.virtual-list-header > span,
+.virtual-list-row > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: center;
+  font-size: 0.825rem;
+  white-space: nowrap;
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.virtual-list-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+.virtual-list-row:hover {
+  background-color: var(--bg-surface);
+}
+
+.actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .stock-adjust-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0.4rem 0.65rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
   border: 1px solid var(--border-color);
-  border-radius: 0.45rem;
+  border-radius: 0.35rem;
   color: var(--text-secondary);
   background: var(--bg-surface);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   cursor: pointer;
 }
 

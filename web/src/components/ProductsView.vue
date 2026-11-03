@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import {
   AlertTriangle,
@@ -10,9 +11,7 @@ import {
   Edit,
   ImagePlus,
   Layers,
-  LayoutGrid,
   Lock,
-  List,
   Plus,
   PlusCircle,
   Search,
@@ -51,10 +50,7 @@ const error = ref('')
 const notice = ref('')
 const isDropdownOpen = ref(false)
 const { isPhone } = usePhoneBreakpoint()
-const viewMode = ref<'grid' | 'list'>(
-  typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches ? 'grid' : 'list',
-)
-const viewModeManuallySelected = ref(false)
+const viewMode = computed<'grid' | 'list'>(() => (isPhone.value ? 'grid' : 'list'))
 
 const showForm = ref(false)
 const editingProductId = ref<number | null>(null)
@@ -83,20 +79,6 @@ function handleBarcodeScanned() {
   if (isBarcodeScanning.value) {
     isBarcodeScanning.value = false
     if (scanTimeout) clearTimeout(scanTimeout)
-  }
-}
-
-function setViewMode(mode: 'grid' | 'list') {
-  if (isPhone.value) return
-  viewModeManuallySelected.value = true
-  viewMode.value = mode
-}
-
-function updateDefaultViewMode() {
-  if (isPhone.value) {
-    viewMode.value = 'grid'
-  } else if (!viewModeManuallySelected.value) {
-    viewMode.value = 'list'
   }
 }
 
@@ -203,6 +185,49 @@ const filteredProducts = computed(() => {
     return matchesQuery && matchesCategory && matchesStock
   })
 })
+
+const productsGridRef = ref<HTMLElement | null>(null)
+const productsGridColumns = ref(3)
+const productsGridRowHeight = computed(() => isPhone.value ? 234 : 360)
+
+function updateProductsGridColumns() {
+  productsGridColumns.value = isPhone.value ? 2 : 3
+}
+
+const productsGridRowCount = computed(() =>
+  Math.ceil(filteredProducts.value.length / productsGridColumns.value),
+)
+
+const productsGridVirtualizer = useVirtualizer(computed(() => ({
+  count: productsGridRowCount.value,
+  getScrollElement: () => productsGridRef.value,
+  estimateSize: () => productsGridRowHeight.value,
+  overscan: 3,
+})))
+
+const virtualProductRows = computed(() => productsGridVirtualizer.value.getVirtualItems())
+
+function productsGridProducts(rowIndex: number) {
+  const start = rowIndex * productsGridColumns.value
+  return filteredProducts.value.slice(start, start + productsGridColumns.value)
+}
+
+const productsListRef = ref<HTMLElement | null>(null)
+const productsListVirtualizer = useVirtualizer(computed(() => ({
+  count: filteredProducts.value.length,
+  getScrollElement: () => productsListRef.value,
+  estimateSize: () => 38,
+  overscan: 8,
+})))
+const virtualProductListItems = computed(() => productsListVirtualizer.value.getVirtualItems())
+
+watch(
+  () => [search.value, selectedCategory.value, selectedStock.value, viewMode.value, filteredProducts.value.length],
+  () => {
+    productsGridRef.value?.scrollTo({ top: 0 })
+    productsListRef.value?.scrollTo({ top: 0 })
+  },
+)
 
 const totalProducts = computed(() => filteredProducts.value.length)
 const totalUnits = computed(() => filteredProducts.value.reduce((sum, product) => sum + product.quantity, 0))
@@ -538,17 +563,18 @@ async function confirmDeleteProduct() {
 
 onMounted(() => {
   void loadProducts()
+  updateProductsGridColumns()
   window.addEventListener('click', closeDropdown)
-  window.addEventListener('resize', updateDefaultViewMode)
+  window.addEventListener('resize', updateProductsGridColumns)
 })
 onUnmounted(() => {
   window.removeEventListener('click', closeDropdown)
-  window.removeEventListener('resize', updateDefaultViewMode)
+  window.removeEventListener('resize', updateProductsGridColumns)
 })
 </script>
 
 <template>
-  <section class="view-section">
+  <section class="view-section products-view-section">
     <div v-if="error && !showForm && !adjustingProduct && !showCategoryModal" class="inline-error" role="alert">{{ error }}</div>
     <div v-if="notice" class="inline-success" role="status">{{ notice }}</div>
 
@@ -633,28 +659,6 @@ onUnmounted(() => {
         </div>
 
         <div class="header-controls">
-          <div class="products-view-switcher" role="group" aria-label="Product layout">
-            <button
-              type="button"
-              title="Grid View"
-              aria-label="Grid View"
-              :aria-pressed="viewMode === 'grid'"
-              :class="{ active: viewMode === 'grid' }"
-              @click="setViewMode('grid')"
-            >
-              <LayoutGrid :size="17" />
-            </button>
-            <button
-              type="button"
-              title="List View"
-              aria-label="List View"
-              :aria-pressed="viewMode === 'list'"
-              :class="{ active: viewMode === 'list' }"
-              @click="setViewMode('list')"
-            >
-              <List :size="17" />
-            </button>
-          </div>
           <div class="search-bar">
             <Search class="search-icon" :size="18" />
             <input
@@ -697,114 +701,101 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-if="viewMode === 'grid'" class="products-grid">
+      <div v-if="isPhone" ref="productsGridRef" class="products-grid">
         <p v-if="loading" class="products-grid-empty">Loading products...</p>
         <p v-else-if="filteredProducts.length === 0" class="products-grid-empty">No products found.</p>
-        <article v-for="product in filteredProducts" v-else :key="product.id" class="product-grid-card">
-          <div class="product-grid-header">
-            <div class="product-grid-name">
-              <h3>{{ product.name }}</h3>
-              <span>{{ product.category || 'General' }}</span>
-            </div>
-            <span class="stock-badge" :class="getStockStatusClass(product)">
-              {{ getStockStatusText(product) }}
-            </span>
-          </div>
-          <dl class="product-grid-details">
-            <div>
-              <dt>Selling price</dt>
-              <dd>{{ formatMoney(product.sellingPrice, currency) }}</dd>
-            </div>
-            <div>
-              <dt>Cost price</dt>
-              <dd>{{ formatMoney(product.costPrice, currency) }}</dd>
-            </div>
-            <div>
-              <dt>Quantity</dt>
-              <dd>{{ formatQuantity(product.quantity) }} {{ product.unit }}</dd>
-            </div>
-            <div>
-              <dt>Profit per unit</dt>
-              <dd :class="profitPerUnit(product) >= 0 ? 'profit-positive' : 'profit-negative'">
-                {{ formatMoney(profitPerUnit(product), currency) }}
-              </dd>
-            </div>
-          </dl>
-          <div v-if="canManage" class="product-grid-actions" :aria-label="`${product.name} actions`">
-            <button type="button" @click="openEditForm(product)">
-              <Edit :size="15" /> Edit
-            </button>
-            <button type="button" @click="openAdjustStock(product)">
-              <SlidersHorizontal :size="15" /> Adjust Stock
-            </button>
-            <button type="button" class="delete" @click="promptDeleteProduct(product)">
-              <Trash2 :size="15" /> Delete
-            </button>
-          </div>
-        </article>
-      </div>
-
-      <div v-else class="table-container" style="flex: 1; min-height: 0; overflow-y: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th class="text-center">Product Name</th>
-              <th class="text-center">Category</th>
-              <th class="text-center">Cost Price</th>
-              <th class="text-center">Selling Price</th>
-              <th class="text-center">Quantity</th>
-              <th class="text-center">Unit</th>
-              <th class="text-center">Profit Per Unit</th>
-              <th v-if="canManage" class="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td :colspan="canManage ? 8 : 7" class="empty-message">Loading products...</td>
-            </tr>
-            <tr v-else-if="filteredProducts.length === 0">
-              <td :colspan="canManage ? 8 : 7" class="empty-message">
-                <div v-if="categories.length === 0 && canManage" class="empty-categories-cta">
-                  <p>No categories found. You must create a category before adding products.</p>
-                  <button type="button" class="btn-primary" @click="openCategoryManagement">
-                    <Layers :size="18" />
-                    Create Your First Category
-                  </button>
+        <div
+          v-else
+          class="virtual-grid-spacer"
+          :style="{ height: `${productsGridVirtualizer.getTotalSize()}px` }"
+        >
+          <div
+            v-for="virtualRow in virtualProductRows"
+            :key="String(virtualRow.key)"
+            class="virtual-grid-row products-virtual-row"
+            :style="{
+              transform: `translateY(${virtualRow.start}px)`,
+              height: isPhone ? '226px' : '348px',
+              gridTemplateColumns: `repeat(${productsGridColumns}, minmax(0, 1fr))`,
+            }"
+          >
+            <article
+              v-for="product in productsGridProducts(virtualRow.index)"
+              :key="product.id"
+              class="product-grid-card"
+            >
+              <div class="product-grid-header">
+                <div class="product-grid-name">
+                  <h3>{{ product.name }}</h3>
+                  <span>{{ product.category || 'General' }}</span>
                 </div>
-                <span v-else>No products found.</span>
-              </td>
-            </tr>
-            <tr v-for="product in filteredProducts" v-else :key="product.id" style="height: 38px;">
-              <td class="text-center font-medium text-slate-200">{{ product.name }}</td>
-              <td class="text-center">{{ product.category || 'General' }}</td>
-              <td class="text-center">{{ formatMoney(product.costPrice, currency) }}</td>
-              <td class="text-center">{{ formatMoney(product.sellingPrice, currency) }}</td>
-              <td class="text-center">
                 <span class="stock-badge" :class="getStockStatusClass(product)">
                   {{ getStockStatusText(product) }}
                 </span>
-              </td>
-              <td class="text-center">{{ product.unit }}</td>
-              <td
-                class="text-center font-semibold"
-                :class="profitPerUnit(product) >= 0 ? 'profit-positive' : 'profit-negative'"
-              >
-                {{ formatMoney(profitPerUnit(product), currency) }}
-              </td>
-              <td v-if="canManage" class="text-center actions">
-                <button type="button" class="action-btn" title="Edit Product" @click="openEditForm(product)">
-                  <Edit :size="16" />
-                </button>
-                <button type="button" class="action-btn" title="Adjust Stock" @click="openAdjustStock(product)">
-                  <SlidersHorizontal :size="16" />
-                </button>
-                <button type="button" class="action-btn delete" title="Delete Product" @click="promptDeleteProduct(product)">
-                  <Trash2 :size="16" />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </div>
+              <dl class="product-grid-details">
+                <div><dt>Selling price</dt><dd>{{ formatMoney(product.sellingPrice, currency) }}</dd></div>
+                <div><dt>Cost price</dt><dd>{{ formatMoney(product.costPrice, currency) }}</dd></div>
+                <div><dt>Quantity</dt><dd>{{ formatQuantity(product.quantity) }} {{ product.unit }}</dd></div>
+                <div>
+                  <dt>Profit per unit</dt>
+                  <dd :class="profitPerUnit(product) >= 0 ? 'profit-positive' : 'profit-negative'">
+                    {{ formatMoney(profitPerUnit(product), currency) }}
+                  </dd>
+                </div>
+              </dl>
+              <div v-if="canManage" class="product-grid-actions" :aria-label="`${product.name} actions`">
+                <button type="button" @click="openEditForm(product)"><Edit :size="15" /> Edit</button>
+                <button type="button" @click="openAdjustStock(product)"><SlidersHorizontal :size="15" /> Adjust Stock</button>
+                <button type="button" class="delete" @click="promptDeleteProduct(product)"><Trash2 :size="15" /> Delete</button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <div v-else ref="productsListRef" class="table-container virtual-list-container">
+        <div class="virtual-list-header products-list-header" :class="{ 'with-actions': canManage }">
+          <span>Product Name</span><span>Category</span><span>Cost Price</span><span>Selling Price</span>
+          <span>Quantity</span><span>Unit</span><span>Profit Per Unit</span>
+          <span v-if="canManage">Actions</span>
+        </div>
+        <p v-if="loading" class="products-grid-empty">Loading products...</p>
+        <p v-else-if="filteredProducts.length === 0" class="products-grid-empty">No products found.</p>
+        <div
+          v-else
+          class="virtual-list-spacer"
+          :style="{ height: `${productsListVirtualizer.getTotalSize()}px` }"
+        >
+          <div
+            v-for="virtualRow in virtualProductListItems"
+            :key="String(virtualRow.key)"
+            class="virtual-list-row products-list-header"
+            :class="{ 'with-actions': canManage }"
+            :style="{ transform: `translateY(${virtualRow.start}px)`, height: `${virtualRow.size}px` }"
+          >
+            <template v-if="filteredProducts[virtualRow.index]">
+              <span class="font-medium text-slate-200">{{ filteredProducts[virtualRow.index].name }}</span>
+              <span>{{ filteredProducts[virtualRow.index].category || 'General' }}</span>
+              <span>{{ formatMoney(filteredProducts[virtualRow.index].costPrice, currency) }}</span>
+              <span>{{ formatMoney(filteredProducts[virtualRow.index].sellingPrice, currency) }}</span>
+              <span>
+                <span class="stock-badge" :class="getStockStatusClass(filteredProducts[virtualRow.index])">
+                  {{ getStockStatusText(filteredProducts[virtualRow.index]) }}
+                </span>
+              </span>
+              <span>{{ filteredProducts[virtualRow.index].unit }}</span>
+              <span :class="profitPerUnit(filteredProducts[virtualRow.index]) >= 0 ? 'profit-positive' : 'profit-negative'">
+                {{ formatMoney(profitPerUnit(filteredProducts[virtualRow.index]), currency) }}
+              </span>
+              <span v-if="canManage" class="actions">
+                <button type="button" class="action-btn" title="Edit Product" @click="openEditForm(filteredProducts[virtualRow.index])"><Edit :size="16" /></button>
+                <button type="button" class="action-btn" title="Adjust Stock" @click="openAdjustStock(filteredProducts[virtualRow.index])"><SlidersHorizontal :size="16" /></button>
+                <button type="button" class="action-btn delete" title="Delete Product" @click="promptDeleteProduct(filteredProducts[virtualRow.index])"><Trash2 :size="16" /></button>
+              </span>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1341,7 +1332,7 @@ onUnmounted(() => {
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 1rem 1.25rem;
   color: var(--text-secondary);
   display: flex;
   flex-direction: column;
@@ -1354,27 +1345,28 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .summary-badges {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .summary-badge {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
-  padding: 0.35rem 0.85rem;
+  padding: 0.3rem 0.7rem;
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .summary-badge:nth-child(2) {
@@ -1397,63 +1389,58 @@ onUnmounted(() => {
 
 .header-controls {
   display: flex;
-  gap: 0.65rem;
+  gap: 0.5rem;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  margin-left: auto;
+  justify-content: flex-end;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
-.products-view-switcher {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  background-color: var(--bg-surface);
-}
-
-.products-view-switcher button {
-  width: 44px;
-  height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 0.375rem;
-  color: var(--text-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.products-view-switcher button.active {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.products-view-switcher button:focus-visible,
 .product-grid-actions button:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
 .products-grid {
-  display: grid;
+  display: block;
+  display: block;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
   gap: 0.75rem;
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow: visible;
+  overflow-y: auto;
+}
+
+.virtual-grid-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-grid-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: grid;
+  gap: 0.75rem;
 }
 
 .product-grid-card {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 0.9rem;
   min-width: 0;
   padding: 1rem;
   border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   background: var(--bg-surface);
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .product-grid-header {
@@ -1557,6 +1544,8 @@ onUnmounted(() => {
 
 .search-bar {
   position: relative;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .search-icon {
@@ -1574,7 +1563,7 @@ onUnmounted(() => {
   border-radius: 0.375rem;
   padding: 0.4rem 0.75rem 0.4rem 2.25rem;
   color: var(--text-primary);
-  width: min(210px, 32vw);
+  width: clamp(140px, 15vw, 200px);
   font-size: 0.825rem;
 }
 
@@ -1587,10 +1576,12 @@ onUnmounted(() => {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 0.375rem;
-  padding: 0.4rem 0.75rem;
+  padding: 0.4rem 0.65rem;
   color: var(--text-primary);
   font-size: 0.825rem;
   cursor: pointer;
+  flex-shrink: 0;
+  max-width: 140px;
 }
 
 .action-dropdown-container {
@@ -1664,6 +1655,80 @@ onUnmounted(() => {
   min-height: 0;
   overflow-x: auto;
   overflow-y: auto;
+}
+
+.virtual-list-container {
+  position: relative;
+  background-color: var(--bg-sidebar);
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+}
+
+.virtual-list-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-list-header,
+.virtual-list-row {
+  display: grid;
+  align-items: center;
+}
+
+.virtual-list-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: 38px;
+  background-color: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.virtual-list-header > span,
+.virtual-list-row > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: center;
+  font-size: 0.825rem;
+  white-space: nowrap;
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.virtual-list-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+.virtual-list-row:hover {
+  background-color: var(--bg-surface);
+}
+
+.virtual-list-row .actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.products-list-header {
+  grid-template-columns: repeat(7, minmax(110px, 1fr));
+  min-width: 770px;
+}
+
+.products-list-header.with-actions {
+  grid-template-columns: repeat(8, minmax(110px, 1fr));
+  min-width: 880px;
 }
 
 table {
@@ -2262,11 +2327,166 @@ tbody tr:hover {
 }
 
 @media (max-width: 639px) {
-  .products-view-switcher {
-    display: none;
+  .view-section {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
   }
+
+  .card {
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    border-top: 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .card-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin: 0;
+    padding: 12px;
+  }
+
+  .summary-badges {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .summary-badge {
+    min-width: 0;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .header-controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .search-bar,
+  .search-bar input {
+    width: 100%;
+  }
+
+  .search-bar {
+    grid-column: 1 / -1;
+  }
+
+  .search-bar input {
+    height: 42px;
+    font-size: 12px;
+  }
+
+  .filter-select {
+    width: 100%;
+    height: 42px;
+  }
+
+  .filter-select[aria-label="Filter by category"] {
+    grid-column: 1 / -1;
+  }
+
+  .action-dropdown-container,
+  .action-dropdown-btn {
+    width: 100%;
+  }
+
+
   .products-grid {
-    grid-template-columns: minmax(0, 1fr);
+    display: block;
+    padding: 8px;
+  }
+
+  .virtual-grid-row {
+    gap: 8px;
+  }
+
+  .product-grid-card {
+    min-width: 0;
+    padding: 8px;
+    gap: 6px;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .product-grid-header {
+    gap: 4px;
+    min-height: 48px;
+    align-items: flex-start;
+  }
+
+  .product-grid-name {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .product-grid-name h3 {
+    font-size: 13px;
+    line-height: 1.25;
+    height: 33px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .product-grid-name > span {
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .product-grid-details {
+    gap: 4px 6px;
+  }
+
+  .product-grid-details dt {
+    font-size: 10.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .product-grid-details dd {
+    font-size: 12px;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .product-grid-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding-top: 6px;
+  }
+
+  .product-grid-actions button {
+    min-height: 34px;
+    padding: 0 4px;
+    font-size: 11px;
+    gap: 2px;
+  }
+
+  .product-grid-actions button.delete {
+    grid-column: 1 / -1;
   }
 
   .product-top-section {

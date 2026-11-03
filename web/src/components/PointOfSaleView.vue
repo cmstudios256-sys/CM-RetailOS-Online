@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import {
   AlertCircle,
   Camera,
   Barcode,
   CheckCircle2,
+  ChevronUp,
   Delete,
   Image as ImageIcon,
   LayoutGrid,
@@ -69,6 +71,7 @@ function setViewMode(mode: 'list' | 'grid') {
 }
 
 watch(isPhone, phone => {
+  updatePosGridColumns()
   if (phone) {
     viewMode.value = 'grid'
   } else {
@@ -105,7 +108,6 @@ function hideProductImagePreview() {
   productImagePreview.value = null
 }
 
-const customerName = ref('')
 const paymentMethod = ref<'cash' | 'mobile_money' | 'card'>('cash')
 const discountAmount = ref<number | ''>('')
 const amountTendered = ref<number | ''>('')
@@ -230,6 +232,50 @@ const filteredProducts = computed(() => {
     || product.category.toLowerCase().includes(query),
   )
 })
+
+const posGridRef = ref<HTMLElement | null>(null)
+const posGridColumns = ref(3)
+const posGridRowHeight = computed(() => isPhone.value ? 132 : 158)
+
+function updatePosGridColumns() {
+  // Mobile phone is 2 columns, iPad / tablet and desktop strictly use 3 columns
+  posGridColumns.value = isPhone.value ? 2 : 3
+}
+
+const posGridRowCount = computed(() =>
+  Math.ceil(filteredProducts.value.length / posGridColumns.value),
+)
+
+const posGridVirtualizer = useVirtualizer(computed(() => ({
+  count: posGridRowCount.value,
+  getScrollElement: () => posGridRef.value,
+  estimateSize: () => posGridRowHeight.value,
+  overscan: 3,
+})))
+
+const virtualPosRows = computed(() => posGridVirtualizer.value.getVirtualItems())
+
+function posGridProducts(rowIndex: number) {
+  const start = rowIndex * posGridColumns.value
+  return filteredProducts.value.slice(start, start + posGridColumns.value)
+}
+
+const posListRef = ref<HTMLElement | null>(null)
+const posListVirtualizer = useVirtualizer(computed(() => ({
+  count: filteredProducts.value.length,
+  getScrollElement: () => posListRef.value,
+  estimateSize: () => 38,
+  overscan: 8,
+})))
+const virtualPosListItems = computed(() => posListVirtualizer.value.getVirtualItems())
+
+watch(
+  () => [search.value, viewMode.value, filteredProducts.value.length],
+  () => {
+    posGridRef.value?.scrollTo({ top: 0 })
+    posListRef.value?.scrollTo({ top: 0 })
+  },
+)
 
 const subtotal = computed(() =>
   Math.round(cart.value.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0) * 100) / 100,
@@ -459,7 +505,6 @@ function removeFromCart(productId: number) {
 
 function clearCart() {
   cart.value = []
-  customerName.value = ''
   discountAmount.value = ''
   amountTendered.value = ''
   isDiscountUnlocked.value = false
@@ -546,7 +591,7 @@ async function checkout() {
     const result = await apiRequest<{ sale: Sale }>('/sales/checkout', {
       method: 'POST',
       body: {
-        customerName: customerName.value,
+        customerName: '',
         paymentMethod: paymentMethod.value,
         discount: discountValue.value,
         items: cart.value.map(item => ({
@@ -575,16 +620,28 @@ async function checkout() {
   }
 }
 
+let gridResizeObserver: ResizeObserver | null = null
+
 onMounted(() => {
   mobileTouch.value = isTouchDevice()
   cameraSupported.value = mobileTouch.value && window.isSecureContext && !!navigator.mediaDevices?.getUserMedia
   loadProducts()
+  updatePosGridColumns()
+  if (posGridRef.value && typeof ResizeObserver !== 'undefined') {
+    gridResizeObserver = new ResizeObserver(() => {
+      updatePosGridColumns()
+    })
+    gridResizeObserver.observe(posGridRef.value)
+  }
+  window.addEventListener('resize', updatePosGridColumns)
   window.addEventListener('keydown', handleGlobalKeydown)
   window.addEventListener('online-prefs-updated', handlePrefsUpdated)
 })
 
 onUnmounted(() => {
   closeBarcodeCamera()
+  gridResizeObserver?.disconnect()
+  window.removeEventListener('resize', updatePosGridColumns)
   window.removeEventListener('keydown', handleGlobalKeydown)
   window.removeEventListener('online-prefs-updated', handlePrefsUpdated)
   if (toastTimer) clearTimeout(toastTimer)
@@ -608,13 +665,22 @@ onUnmounted(() => {
     <button
       type="button"
       class="mobile-cart-toggle"
+      :class="{ 'has-items': cartUnits > 0 }"
       aria-controls="pos-cart-panel"
       :aria-expanded="mobileCartOpen"
       @click="mobileCartOpen = true"
     >
-      <ShoppingCart :size="18" />
-      <span>Cart · {{ formatQuantity(cartUnits) }}</span>
-      <strong>{{ formatMoney(payableTotal, currency) }}</strong>
+      <div class="mobile-cart-toggle-left">
+        <div class="cart-icon-bubble">
+          <ShoppingCart :size="17" />
+          <span v-if="cartUnits > 0" class="cart-bubble-badge">{{ formatQuantity(cartUnits) }}</span>
+        </div>
+        <span class="cart-toggle-label">{{ cartUnits > 0 ? 'View Order' : 'Cart' }}</span>
+      </div>
+      <div class="mobile-cart-toggle-right">
+        <strong class="cart-toggle-total">{{ formatMoney(payableTotal, currency) }}</strong>
+        <ChevronUp :size="18" class="cart-toggle-chevron" />
+      </div>
     </button>
 
     <!-- Left Panel: Product Selection -->
@@ -669,52 +735,66 @@ onUnmounted(() => {
       <div v-if="loading" class="empty-message">Loading products...</div>
 
       <!-- Product Grid View -->
-      <div v-else-if="viewMode === 'grid'" class="product-grid">
+      <div v-else-if="viewMode === 'grid'" ref="posGridRef" class="product-grid">
         <div v-if="!filteredProducts.length" class="empty-grid-message">No products found.</div>
         <div
-          v-for="product in filteredProducts"
-          :key="product.id"
-          class="product-card"
-          :class="{ disabled: product.quantity <= 0, 'out-of-stock': product.quantity <= 0, 'no-image': !product.image }"
-          @click="addToCart(product)"
+          v-else
+          class="virtual-grid-spacer"
+          :style="{ height: `${posGridVirtualizer.getTotalSize()}px` }"
         >
-          <div class="product-name" :title="product.name">{{ product.name }}</div>
-          <div class="product-category" :title="product.category || 'General'">
-            {{ product.category || 'General' }}
-          </div>
-
-          <div class="product-card-body">
-            <div class="card-meta">
-              <div
-                class="product-stock"
-                :class="{
-                  'in-stock': product.quantity > product.minStock,
-                  low: product.quantity <= product.minStock && product.quantity > 0,
-                  out: product.quantity <= 0
-                }"
-              >
-                <span v-if="product.quantity > product.minStock">In Stock ({{ product.quantity }})</span>
-                <span v-else-if="product.quantity > 0">Low Stock ({{ product.quantity }})</span>
-                <span v-else>Out of Stock</span>
-              </div>
-              <div class="product-price">{{ formatMoney(product.sellingPrice, currency) }}</div>
-            </div>
-
+          <div
+            v-for="virtualRow in virtualPosRows"
+            :key="String(virtualRow.key)"
+            class="virtual-grid-row"
+            :style="{
+              transform: `translateY(${virtualRow.start}px)`,
+              gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 185px))',
+            }"
+          >
             <div
-              class="product-image-small"
-              @pointerenter="product.image && updateProductImagePreview($event, product)"
-              @pointermove="product.image && updateProductImagePreview($event, product)"
-              @pointerleave="hideProductImagePreview"
+              v-for="product in posGridProducts(virtualRow.index)"
+              :key="product.id"
+              class="product-card"
+              :class="{ disabled: product.quantity <= 0, 'out-of-stock': product.quantity <= 0, 'no-image': !product.image }"
+              @click="addToCart(product)"
             >
-              <img
-                v-if="product.image"
-                :src="product.image"
-                :alt="product.name"
-                class="real-product-img"
-                loading="lazy"
-              />
-              <div v-else class="image-fallback">
-                <ImageIcon :size="32" class="fallback-icon" :stroke-width="1.6" />
+              <div class="product-name" :title="product.name">{{ product.name }}</div>
+              <div class="product-category" :title="product.category || 'General'">
+                {{ product.category || 'General' }}
+              </div>
+              <div class="product-card-body">
+                <div class="card-meta">
+                  <div
+                    class="product-stock"
+                    :class="{
+                      'in-stock': product.quantity > product.minStock,
+                      low: product.quantity <= product.minStock && product.quantity > 0,
+                      out: product.quantity <= 0
+                    }"
+                  >
+                    <span v-if="product.quantity > product.minStock">In Stock ({{ product.quantity }})</span>
+                    <span v-else-if="product.quantity > 0">Low Stock ({{ product.quantity }})</span>
+                    <span v-else>Out of Stock</span>
+                  </div>
+                  <div class="product-price">{{ formatMoney(product.sellingPrice, currency) }}</div>
+                </div>
+                <div
+                  class="product-image-small"
+                  @pointerenter="product.image && updateProductImagePreview($event, product)"
+                  @pointermove="product.image && updateProductImagePreview($event, product)"
+                  @pointerleave="hideProductImagePreview"
+                >
+                  <img
+                    v-if="product.image"
+                    :src="product.image"
+                    :alt="product.name"
+                    class="real-product-img"
+                    loading="lazy"
+                  />
+                  <div v-else class="image-fallback">
+                    <ImageIcon :size="34" class="fallback-icon" :stroke-width="1.6" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -722,50 +802,47 @@ onUnmounted(() => {
       </div>
 
       <!-- Product List View -->
-      <div v-else class="product-list-container">
-        <table class="product-list-table">
-          <thead>
-            <tr>
-              <th class="text-center">Name</th>
-              <th class="text-center">Category</th>
-              <th class="text-center">Price</th>
-              <th class="text-center">Quantity</th>
-              <th class="text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="!filteredProducts.length">
-              <td colspan="5" class="empty-message">No products found.</td>
-            </tr>
-            <tr
-              v-for="product in filteredProducts"
-              :key="product.id"
-              :class="{ 'out-of-stock': product.quantity <= 0 }"
-              style="height: 38px; cursor: pointer;"
-              @click="addToCart(product)"
-            >
-              <td class="text-center font-medium text-slate-200">{{ product.name }}</td>
-              <td class="text-center">{{ product.category || 'Uncategorized' }}</td>
-              <td class="text-center">{{ formatMoney(product.sellingPrice, currency) }}</td>
-              <td class="text-center">
-                <span class="stock-badge" :class="getStockStatusClass(product)">
-                  {{ getStockStatusText(product) }}
+      <div v-else ref="posListRef" class="product-list-container virtual-list-container">
+        <div class="virtual-list-header pos-list-header">
+          <span>Name</span><span>Category</span><span>Price</span><span>Quantity</span><span>Action</span>
+        </div>
+        <div v-if="!filteredProducts.length" class="empty-grid-message">No products found.</div>
+        <div
+          v-else
+          class="virtual-list-spacer"
+          :style="{ height: `${posListVirtualizer.getTotalSize()}px` }"
+        >
+          <div
+            v-for="virtualRow in virtualPosListItems"
+            :key="String(virtualRow.key)"
+            class="virtual-list-row pos-list-header"
+            :class="{ 'out-of-stock': filteredProducts[virtualRow.index]?.quantity <= 0 }"
+            :style="{ transform: `translateY(${virtualRow.start}px)`, height: `${virtualRow.size}px` }"
+            @click="filteredProducts[virtualRow.index] && addToCart(filteredProducts[virtualRow.index])"
+          >
+            <template v-if="filteredProducts[virtualRow.index]">
+              <span class="font-medium text-slate-200" :title="filteredProducts[virtualRow.index].name">{{ filteredProducts[virtualRow.index].name }}</span>
+              <span :title="filteredProducts[virtualRow.index].category || 'Uncategorized'">{{ filteredProducts[virtualRow.index].category || 'Uncategorized' }}</span>
+              <span>{{ formatMoney(filteredProducts[virtualRow.index].sellingPrice, currency) }}</span>
+              <span>
+                <span class="stock-badge" :class="getStockStatusClass(filteredProducts[virtualRow.index])">
+                  {{ getStockStatusText(filteredProducts[virtualRow.index]) }}
                 </span>
-              </td>
-              <td class="text-center">
+              </span>
+              <span>
                 <button
                   type="button"
                   class="add-btn-list"
-                  :disabled="product.quantity <= 0"
+                  :disabled="filteredProducts[virtualRow.index].quantity <= 0"
                   title="Add to cart"
-                  @click.stop="addToCart(product)"
+                  @click.stop="addToCart(filteredProducts[virtualRow.index])"
                 >
                   <Plus :size="16" />
                 </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </span>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -780,8 +857,15 @@ onUnmounted(() => {
       class="cart-panel"
       :class="{ 'mobile-cart-open': mobileCartOpen }"
     >
-      <div class="panel-header">
-        <h2 class="panel-title">Cart ({{ formatQuantity(cartUnits) }})</h2>
+      <div class="mobile-sheet-drag-handle" aria-hidden="true"></div>
+      <div class="panel-header cart-panel-header">
+        <div class="cart-title-group">
+          <div class="cart-title-badge">
+            <ShoppingCart :size="17" />
+          </div>
+          <h2 class="panel-title">Cart</h2>
+          <span v-if="cartUnits > 0" class="cart-count-pill">{{ formatQuantity(cartUnits) }} {{ cartUnits === 1 ? 'item' : 'items' }}</span>
+        </div>
         <div class="cart-header-actions">
           <button
             v-if="cart.length > 0"
@@ -790,7 +874,8 @@ onUnmounted(() => {
             title="Clear Cart"
             @click="clearCart"
           >
-            <Trash2 :size="18" />
+            <Trash2 :size="16" />
+            <span class="clear-btn-text">Clear</span>
           </button>
           <button
             type="button"
@@ -798,7 +883,7 @@ onUnmounted(() => {
             aria-label="Close cart"
             @click="mobileCartOpen = false"
           >
-            <X :size="19" />
+            <X :size="20" />
           </button>
         </div>
       </div>
@@ -827,63 +912,67 @@ onUnmounted(() => {
       </div>
 
       <div v-if="cart.length === 0" class="empty-cart">
-        <ShoppingCart :size="48" />
-        <p>Your cart is empty</p>
-        <span>Add products from the left panel to get started.</span>
+        <div class="empty-cart-icon-wrap">
+          <ShoppingCart :size="40" />
+        </div>
+        <p class="empty-cart-title">Your cart is empty</p>
+        <span class="empty-cart-subtitle">Add products from the catalog to build an order.</span>
       </div>
 
       <div v-else class="cart-items">
         <div v-for="item in cart" :key="item.product.id" class="cart-item">
-          <div class="item-info">
-            <p class="item-name">{{ item.product.name }}</p>
-            <p class="item-price">{{ formatMoney(item.product.sellingPrice, currency) }}</p>
+          <div class="cart-item-top">
+            <div class="item-info">
+              <p class="item-name" :title="item.product.name">{{ item.product.name }}</p>
+              <p class="item-price">{{ formatMoney(item.product.sellingPrice, currency) }} each</p>
+            </div>
+            <p class="item-total">{{ formatMoney(item.product.sellingPrice * item.quantity, currency) }}</p>
           </div>
-          <div class="quantity-controls">
-            <button type="button" @click="changeQuantity(item, item.quantity - 1)">
-              <Minus :size="14" />
-            </button>
-            <input
-              type="number"
-              class="quantity-input"
-              :value="item.quantity"
-              min="0.001"
-              :max="item.product.quantity"
-              step="any"
-              @change="changeQuantity(item, Number(($event.target as HTMLInputElement).value))"
-            />
+          <div class="cart-item-bottom">
+            <div class="quantity-controls">
+              <button
+                type="button"
+                class="qty-btn"
+                aria-label="Decrease quantity"
+                @click="changeQuantity(item, item.quantity - 1)"
+              >
+                <Minus :size="14" />
+              </button>
+              <input
+                type="number"
+                class="quantity-input"
+                :value="item.quantity"
+                min="0.001"
+                :max="item.product.quantity"
+                step="any"
+                @change="changeQuantity(item, Number(($event.target as HTMLInputElement).value))"
+              />
+              <button
+                type="button"
+                class="qty-btn"
+                aria-label="Increase quantity"
+                :disabled="item.quantity >= item.product.quantity"
+                @click="changeQuantity(item, item.quantity + 1)"
+              >
+                <Plus :size="14" />
+              </button>
+            </div>
             <button
               type="button"
-              :disabled="item.quantity >= item.product.quantity"
-              @click="changeQuantity(item, item.quantity + 1)"
+              class="remove-item-btn"
+              title="Remove item"
+              aria-label="Remove item"
+              @click="removeFromCart(item.product.id)"
             >
-              <Plus :size="14" />
+              <Trash2 :size="16" />
             </button>
           </div>
-          <p class="item-total">{{ formatMoney(item.product.sellingPrice * item.quantity, currency) }}</p>
-          <button type="button" class="remove-item-btn" @click="removeFromCart(item.product.id)">
-            <Trash2 :size="16" />
-          </button>
         </div>
       </div>
 
       <div class="order-summary">
-        <div v-if="cart.length > 0" class="pos-meta-row">
-          <input
-            v-model.trim="customerName"
-            type="text"
-            maxlength="120"
-            class="pos-customer-input"
-            placeholder="Walk-in customer (optional)"
-          />
-          <select v-model="paymentMethod" class="pos-payment-select" aria-label="Payment method">
-            <option value="cash">Cash</option>
-            <option value="mobile_money">Mobile Money</option>
-            <option value="card">Card</option>
-          </select>
-        </div>
-
-        <div class="summary-row">
-          <span>Discount</span>
+        <div class="summary-row discount-row">
+          <span class="summary-label">Discount</span>
           <button
             v-if="requiresPinUnlock"
             type="button"
@@ -915,15 +1004,18 @@ onUnmounted(() => {
           <span>{{ formatMoney(subtotal, currency) }}</span>
         </div>
 
-        <div class="summary-row total">
-          <span>Total</span>
-          <span>{{ formatMoney(payableTotal, currency) }}</span>
+        <div class="summary-total-banner">
+          <div class="total-text-group">
+            <span class="total-label">Total to Pay</span>
+            <span v-if="cartUnits > 0" class="total-badge">{{ formatQuantity(cartUnits) }} {{ cartUnits === 1 ? 'item' : 'items' }}</span>
+          </div>
+          <strong class="total-amount">{{ formatMoney(payableTotal, currency) }}</strong>
         </div>
 
         <!-- Change Calculator Section -->
         <div v-if="cart.length > 0 && paymentMethod === 'cash'" class="change-calculator">
           <div class="tendered-input-row">
-            <label>Cash Received</label>
+            <label class="tendered-label">Cash Received</label>
             <div class="discount-input-wrapper tendered-wrapper">
               <span class="currency-prefix">{{ currency }}</span>
               <input
@@ -942,7 +1034,7 @@ onUnmounted(() => {
             class="change-display-row"
             :class="changeDue >= 0 ? 'change-valid' : 'change-insufficient'"
           >
-            <span>{{ changeDue < 0 ? 'Still Due' : 'Change to Return' }}</span>
+            <span class="change-status-text">{{ changeDue < 0 ? 'Still Due' : 'Change to Return' }}</span>
             <span class="change-amount">{{ formatMoney(Math.abs(changeDue), currency) }}</span>
           </div>
         </div>
@@ -953,7 +1045,11 @@ onUnmounted(() => {
           :disabled="cart.length === 0 || submitting || !discountValid || !tenderValid"
           @click="checkout"
         >
-          {{ submitting ? 'Processing…' : 'Checkout' }}
+          <span v-if="submitting">Processing…</span>
+          <span v-else class="checkout-btn-content">
+            <span>Checkout</span>
+            <span class="checkout-btn-price">{{ formatMoney(payableTotal, currency) }}</span>
+          </span>
         </button>
       </div>
     </div>
@@ -1309,13 +1405,27 @@ onUnmounted(() => {
 /* Grid View */
 .product-grid {
   padding: 1rem;
-  display: grid;
+  display: block;
   grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
   grid-auto-rows: max-content;
   gap: 0.75rem;
   overflow-y: auto;
   flex-grow: 1;
   align-content: start;
+}
+
+.virtual-grid-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-grid-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: grid;
+  gap: 0.75rem;
 }
 
 .empty-grid-message {
@@ -1329,13 +1439,17 @@ onUnmounted(() => {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  padding: 9px 10px;
+  padding: 9px 10px 10px 11px;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s, border-color 0.2s, background-color 0.2s;
   display: flex;
   flex-direction: column;
   position: relative;
-  min-height: auto;
+  min-height: 146px;
+  height: 146px;
+  max-width: 185px;
+  width: 100%;
+  box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   user-select: none;
 }
@@ -1419,11 +1533,11 @@ onUnmounted(() => {
 
 .product-card-body {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
-  margin-top: 2px;
+  margin-top: auto;
   position: relative;
 }
 
@@ -1431,23 +1545,25 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: center;
-  gap: 4px;
-  flex: 1;
+  justify-content: flex-end;
+  gap: 5px;
+  flex: 1 1 0%;
   min-width: 0;
-  position: relative;
-  z-index: 2;
+  overflow: hidden;
 }
 
 .product-stock {
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 9999px;
   line-height: 1.2;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .product-stock.in-stock {
@@ -1472,13 +1588,11 @@ onUnmounted(() => {
   margin: 0;
   font-weight: 800;
   color: #f97316;
-  font-size: 15.5px;
+  font-size: 14px;
   line-height: 1.2;
   white-space: nowrap;
   letter-spacing: -0.01em;
   margin-top: 1px;
-  position: relative;
-  z-index: 2;
   text-shadow: 0 0 5px rgba(15, 23, 42, 0.9), 0 0 10px rgba(15, 23, 42, 0.8);
 }
 
@@ -1489,19 +1603,18 @@ onUnmounted(() => {
 }
 
 .product-image-small {
-  width: 72px;
-  height: 72px;
+  width: 66px;
+  height: 66px;
+  margin-left: auto;
   flex-shrink: 0;
   border-radius: 9px;
   overflow: hidden;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.25s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  position: relative;
-  z-index: 1;
 }
 
 [data-theme='light'] .product-image-small {
@@ -1523,7 +1636,7 @@ onUnmounted(() => {
 }
 
 .image-fallback {
-  background: rgba(148, 163, 184, 0.09);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.75) 100%);
   width: 100%;
   height: 100%;
   display: flex;
@@ -1532,13 +1645,19 @@ onUnmounted(() => {
   transition: background-color 0.2s ease;
 }
 
+[data-theme='light'] .image-fallback {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
 .product-card:hover .image-fallback {
-  background: rgba(14, 165, 233, 0.08);
+  background: rgba(14, 165, 233, 0.12);
 }
 
 .fallback-icon {
+  width: 34px;
+  height: 34px;
   color: #94a3b8;
-  opacity: 0.75;
+  opacity: 0.85;
   transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
@@ -1603,6 +1722,71 @@ onUnmounted(() => {
   overflow-x: auto;
   flex-grow: 1;
   min-height: 0;
+}
+
+.virtual-list-container {
+  position: relative;
+}
+
+.virtual-list-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-list-header,
+.virtual-list-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 2.2fr) minmax(110px, 1.3fr) minmax(90px, 1fr) minmax(100px, 1fr) 52px;
+  min-width: 500px;
+}
+
+.virtual-list-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: 38px;
+  align-items: center;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.virtual-list-header > span,
+.virtual-list-row > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.65rem;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: center;
+  font-size: 0.825rem;
+  white-space: nowrap;
+  box-sizing: border-box;
+  height: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.virtual-list-header > span:last-child,
+.virtual-list-row > span:last-child {
+  border-right: none;
+  padding: 0.4rem 0.25rem;
+}
+
+.virtual-list-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  cursor: pointer;
+}
+
+.virtual-list-row:hover {
+  background: var(--bg-surface);
 }
 
 .product-list-table {
@@ -1699,19 +1883,78 @@ onUnmounted(() => {
 }
 
 /* Cart Panel */
-.clear-cart-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 0.25rem;
+.mobile-sheet-drag-handle {
+  display: none;
+}
+
+.cart-panel-header {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.cart-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cart-title-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.cart-count-pill {
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.cart-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.clear-cart-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  cursor: pointer;
+  padding: 0.3rem 0.65rem;
+  border-radius: 7px;
+  transition: all 0.15s;
 }
 
 .clear-cart-btn:hover {
-  color: #f87171;
-  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.clear-btn-text {
+  display: inline;
+}
+
+.mobile-cart-close {
+  display: none;
 }
 
 .pos-inline-error {
@@ -1763,32 +2006,75 @@ onUnmounted(() => {
   align-items: center;
   color: var(--text-muted);
   text-align: center;
-  padding: 1.5rem;
+  padding: 2rem 1.5rem;
 }
 
-.empty-cart p {
-  font-size: 1.05rem;
+.empty-cart-icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px dashed rgba(148, 163, 184, 0.2);
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.empty-cart-title {
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-secondary);
-  margin: 0.75rem 0 0.25rem;
+  margin: 0 0 0.25rem;
 }
 
-.empty-cart span {
-  font-size: 0.85rem;
+.empty-cart-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  max-width: 220px;
 }
 
 .cart-items {
-  flex-grow: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
 .cart-item {
   display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.cart-item:hover {
+  background: rgba(30, 41, 59, 0.75);
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+.cart-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.cart-item-bottom {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid var(--border-subtle);
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
 }
 
 .item-info {
@@ -1798,52 +2084,60 @@ onUnmounted(() => {
 
 .item-name {
   margin: 0;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
-  font-size: 0.85rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.88rem;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .item-price {
-  margin: 0.1rem 0 0;
+  margin: 0.15rem 0 0;
   font-size: 0.75rem;
   color: var(--text-muted);
 }
 
 .quantity-controls {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  background-color: var(--bg-surface);
-  border-radius: 0.375rem;
-  padding: 0.15rem;
+  gap: 0.2rem;
+  background-color: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 2px;
 }
 
 .quantity-controls button {
-  background: none;
+  background: rgba(255, 255, 255, 0.05);
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 0.2rem;
-  display: flex;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s;
+}
+
+.quantity-controls button:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
 }
 
 .quantity-controls button:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 .quantity-input {
-  width: 2.5rem;
+  width: 2.8rem;
   text-align: center;
-  font-weight: 600;
-  font-size: 0.85rem;
+  font-weight: 700;
+  font-size: 0.88rem;
   background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-primary);
-  border-radius: 0.25rem;
+  border: none;
+  color: #ffffff;
   padding: 0.1rem 0;
   -moz-appearance: textfield;
 }
@@ -1856,56 +2150,48 @@ onUnmounted(() => {
 
 .item-total {
   margin: 0;
-  font-weight: 600;
-  width: 78px;
+  font-weight: 700;
   text-align: right;
-  font-size: 0.85rem;
-  color: var(--text-primary);
+  font-size: 0.92rem;
+  color: #38bdf8;
+  white-space: nowrap;
 }
 
 .remove-item-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
   cursor: pointer;
-  display: flex;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s;
 }
 
 .remove-item-btn:hover {
-  color: #f87171;
+  background: rgba(239, 68, 68, 0.22);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 .order-summary {
-  padding: 1rem 1.25rem;
-  border-top: 1px solid var(--border-subtle);
-  background-color: rgba(15, 23, 42, 0.5);
+  margin-top: auto;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background-color: rgba(15, 23, 42, 0.65);
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-}
-
-.pos-meta-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.5rem;
-  margin-bottom: 0.15rem;
-}
-
-.pos-customer-input,
-.pos-payment-select {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 0.375rem;
-  padding: 0.35rem 0.6rem;
-  color: var(--text-primary);
-  font-size: 0.78rem;
+  flex-shrink: 0;
 }
 
 .summary-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
 }
 
 .summary-subtotal-row {
@@ -1913,13 +2199,46 @@ onUnmounted(() => {
   font-size: 0.8rem;
 }
 
-.summary-row.total {
-  font-size: 1.15rem;
+.summary-total-banner {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.total-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.total-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
   font-weight: 700;
-  color: var(--text-primary);
-  margin-top: 0.2rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid var(--border-color);
+}
+
+.total-badge {
+  font-size: 0.7rem;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.total-amount {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #34d399;
+  letter-spacing: -0.01em;
 }
 
 .discount-input-wrapper {
@@ -2025,26 +2344,54 @@ onUnmounted(() => {
 
 .checkout-btn {
   width: 100%;
-  background-color: #22c55e;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   color: #ffffff;
-  font-weight: 600;
-  padding: 0.75rem;
-  border-radius: 0.5rem;
+  font-weight: 700;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
   border: none;
   cursor: pointer;
-  margin-top: 0.25rem;
-  font-size: 0.95rem;
-  transition: background-color 0.2s;
+  margin-top: 0.35rem;
+  font-size: 1rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkout-btn-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.checkout-btn-price {
+  background: rgba(0, 0, 0, 0.22);
+  padding: 0.25rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
 .checkout-btn:hover:not(:disabled) {
-  background-color: #16a34a;
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.45);
+  transform: translateY(-1px);
+}
+
+.checkout-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .checkout-btn:disabled {
-  background-color: var(--bg-hover);
+  background: var(--bg-hover);
   color: var(--text-muted);
+  box-shadow: none;
   cursor: not-allowed;
+  transform: none;
 }
 
 .empty-message {
@@ -2220,11 +2567,53 @@ onUnmounted(() => {
 }
 
 @media (max-width: 639px) {
+  .pos-container {
+    width: 100%;
+    margin: 0;
+    height: calc(100dvh - 60px - 64px);
+    gap: 0;
+  }
+
+  .products-panel {
+    border-radius: 0;
+    border-right: 0;
+    border-left: 0;
+  }
+
+  .panel-header {
+    min-height: 60px;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .panel-title {
+    font-size: 14px;
+  }
+
+  .header-controls {
+    flex: 0 1 auto;
+    gap: 6px;
+  }
+
+  .search-bar {
+    width: min(190px, 52vw);
+    height: 38px;
+  }
+
+  .search-bar input {
+    width: 100%;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0.4rem 2.25rem 0.4rem 2.25rem;
+    font-size: 12px;
+  }
+
   .view-switcher {
     display: none;
   }
 
   .product-grid {
+    display: block;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     padding: 8px;
@@ -2232,6 +2621,9 @@ onUnmounted(() => {
 
   .product-card {
     min-width: 0;
+    max-width: none;
+    min-height: 124px;
+    height: 124px;
     padding: 8px;
   }
 

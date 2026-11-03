@@ -3721,5 +3721,121 @@ input:checked + .slider:before {
   }
 }
 
+@media (max-width: 639px) {
+  .settings-page {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .settings-sidebar {
+    width: 100%;
+    min-height: 64px;
+    height: 64px;
+    flex-direction: row;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .sidebar-menu {
+    width: 100%;
+    min-width: 0;
+    height: 64px;
+    padding: 0;
+    flex-direction: row;
+    gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-sidebar);
+    scrollbar-width: none;
+  }
+
+  .sidebar-menu::-webkit-scrollbar {
+    display: none;
+  }
+
+  .menu-category {
+    min-width: 0;
+    display: contents;
+  }
+
+  .category-title,
+  .menu-category:last-child,
+  .sidebar-menu + .sidebar-feedback,
+  .settings-sidebar > div[style],
+  .settings-sidebar > div:not(.sidebar-feedback):last-child {
+    display: none !important;
+  }
+
+  .menu-group-card {
+    display: contents;
+    height: 64px;
+    min-width: 0;
+    flex: 1;
+    flex-direction: row;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .menu-item {
+    width: auto;
+    min-width: 0;
+    height: 64px;
+    flex: 1 1 0;
+    justify-content: center;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 6px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    text-align: center;
+  }
+
+  .menu-item.active {
+    border-bottom-color: var(--accent-primary, #3b82f6);
+    border-left: 0;
+    background: transparent;
+  }
+
+  .menu-item .item-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+  }
+
+  .item-text {
+    min-width: 0;
+  }
+
+  .item-label {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+  }
+
+  .item-desc {
+    display: none;
+  }
+
+  .settings-content {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+}
+
 
 </style>

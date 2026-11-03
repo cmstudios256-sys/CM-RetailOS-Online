@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Calendar, Download, Eye, Printer, Search, Share2, X } from '@lucide/vue'
 import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
 import MobileReceiptShare from './MobileReceiptShare.vue'
@@ -42,6 +43,30 @@ const filteredReceipts = computed(() =>
     const matchesDate = !selectedDate.value || formatISODate(sale.completedAt) === selectedDate.value
     return matchesSearch && matchesDate
   }),
+)
+
+const headerRef = ref<HTMLElement | null>(null)
+const receiptsListRef = ref<HTMLElement | null>(null)
+const receiptsListVirtualizer = useVirtualizer(computed(() => ({
+  count: filteredReceipts.value.length,
+  getScrollElement: () => receiptsListRef.value,
+  estimateSize: () => 44,
+  overscan: 8,
+})))
+const virtualReceiptsListItems = computed(() => receiptsListVirtualizer.value.getVirtualItems())
+
+function syncHeaderScroll(e: Event) {
+  const target = e.target as HTMLElement
+  if (headerRef.value) {
+    headerRef.value.scrollLeft = target.scrollLeft
+  }
+}
+
+watch(
+  () => [searchTerm.value, selectedDate.value, filteredReceipts.value.length],
+  () => {
+    receiptsListRef.value?.scrollTo({ top: 0 })
+  },
 )
 
 function calculateTotalCost(sale: Sale) {
@@ -272,57 +297,68 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="table-container" style="flex: 1; min-height: 0; overflow-y: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th class="text-center">Receipt ID</th>
-              <th class="text-center">Sale ID</th>
-              <th class="text-center">Date</th>
-              <th class="text-center">Total</th>
-              <th class="text-center">Profit</th>
-              <th class="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="6" class="empty-message">Loading receipts...</td>
-            </tr>
-            <tr v-else-if="filteredReceipts.length === 0">
-              <td colspan="6" class="empty-message">No receipts found.</td>
-            </tr>
-            <tr v-for="receipt in filteredReceipts" v-else :key="receipt.id" style="height: 38px;">
-              <td class="text-center font-medium text-slate-200">{{ receiptNumber(receipt) }}</td>
-              <td class="text-center">#{{ shortSaleId(receipt.id) }}</td>
-              <td class="text-center">{{ formatDate(receipt.completedAt) }} {{ formatTime(receipt.completedAt) }}</td>
-              <td class="text-center font-semibold">{{ formatMoney(receipt.total, currency) }}</td>
-              <td
-                class="text-center font-semibold"
-                :class="calculateProfit(receipt) >= 0 ? 'profit-positive' : 'profit-negative'"
-              >
-                {{ formatMoney(calculateProfit(receipt), currency) }}
-              </td>
-              <td class="text-center actions">
-                <button type="button" class="action-btn" title="View Receipt" @click="viewReceipt(receipt)">
-                  <Eye :size="16" />
-                </button>
-                <button
-                  v-if="mobileTouch"
-                  type="button"
-                  class="action-btn"
-                  title="Share receipt to WhatsApp"
-                  aria-label="Share receipt to WhatsApp"
-                  @click.stop="shareReceiptOnMobile(receipt)"
+      <div class="virtual-list-container">
+        <div ref="headerRef" class="virtual-list-header-wrapper">
+          <div class="virtual-list-header receipts-list-header">
+            <span>Receipt ID</span>
+            <span>Sale ID</span>
+            <span>Date</span>
+            <span>Total</span>
+            <span>Profit</span>
+            <span>Actions</span>
+          </div>
+        </div>
+        <div v-if="loading" class="empty-message">Loading receipts...</div>
+        <div v-else-if="filteredReceipts.length === 0" class="empty-message">No receipts found.</div>
+        <div
+          v-else
+          ref="receiptsListRef"
+          class="table-container virtual-list-scroll-body"
+          @scroll="syncHeaderScroll"
+        >
+          <div
+            class="virtual-list-spacer"
+            :style="{ height: `${receiptsListVirtualizer.getTotalSize()}px` }"
+          >
+            <div
+              v-for="virtualRow in virtualReceiptsListItems"
+              :key="String(virtualRow.key)"
+              class="virtual-list-row receipts-list-header"
+              :style="{ transform: `translateY(${virtualRow.start}px)`, height: `${virtualRow.size}px` }"
+            >
+              <template v-if="filteredReceipts[virtualRow.index]">
+                <span class="font-medium text-slate-200" :title="receiptNumber(filteredReceipts[virtualRow.index])">{{ receiptNumber(filteredReceipts[virtualRow.index]) }}</span>
+                <span>#{{ shortSaleId(filteredReceipts[virtualRow.index].id) }}</span>
+                <span>{{ formatDate(filteredReceipts[virtualRow.index].completedAt) }} {{ formatTime(filteredReceipts[virtualRow.index].completedAt) }}</span>
+                <span class="font-semibold">{{ formatMoney(filteredReceipts[virtualRow.index].total, currency) }}</span>
+                <span
+                  class="font-semibold"
+                  :class="calculateProfit(filteredReceipts[virtualRow.index]) >= 0 ? 'profit-positive' : 'profit-negative'"
                 >
-                  <Share2 :size="16" />
-                </button>
-                <button type="button" class="action-btn" title="Print Receipt" @click="printSingleReceipt(receipt)">
-                  <Printer :size="16" />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                  {{ formatMoney(calculateProfit(filteredReceipts[virtualRow.index]), currency) }}
+                </span>
+                <span class="actions-cell">
+                  <button type="button" class="action-btn" title="View Receipt" @click="viewReceipt(filteredReceipts[virtualRow.index])">
+                    <Eye :size="15" />
+                  </button>
+                  <button
+                    v-if="mobileTouch"
+                    type="button"
+                    class="action-btn"
+                    title="Share receipt to WhatsApp"
+                    aria-label="Share receipt to WhatsApp"
+                    @click.stop="shareReceiptOnMobile(filteredReceipts[virtualRow.index])"
+                  >
+                    <Share2 :size="15" />
+                  </button>
+                  <button type="button" class="action-btn" title="Print Receipt" @click="printSingleReceipt(filteredReceipts[virtualRow.index])">
+                    <Printer :size="15" />
+                  </button>
+                </span>
+              </template>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -598,8 +634,121 @@ onUnmounted(() => {
 .table-container {
   flex-grow: 1;
   min-height: 0;
-  overflow-x: auto;
+}
+
+.virtual-list-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background-color: var(--bg-sidebar);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.virtual-list-header-wrapper {
+  overflow-x: hidden;
+  flex-shrink: 0;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.virtual-list-scroll-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+.virtual-list-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-list-header,
+.virtual-list-row {
+  display: grid;
+  align-items: center;
+}
+
+.receipts-list-header {
+  grid-template-columns: minmax(200px, 1.8fr) minmax(110px, 1fr) minmax(180px, 1.5fr) minmax(110px, 1fr) minmax(110px, 1fr) 80px;
+  min-width: 790px;
+}
+
+.virtual-list-header {
+  min-height: 40px;
+  background-color: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.virtual-list-header > span,
+.virtual-list-row > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.65rem;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: center;
+  font-size: 0.825rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.virtual-list-header > span:last-child,
+.virtual-list-row > span:last-child {
+  border-right: none;
+}
+
+.virtual-list-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+.virtual-list-row:hover {
+  background-color: var(--bg-surface);
+}
+
+.actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.action-btn {
+  background: rgba(14, 165, 233, 0.09);
+  border: 1px solid rgba(14, 165, 233, 0.22);
+  color: #38bdf8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.action-btn:hover {
+  color: #ffffff;
+  background-color: var(--accent-color, #0ea5e9);
+  border-color: var(--accent-color, #0ea5e9);
 }
 
 table {
@@ -651,22 +800,6 @@ tbody tr:hover {
   display: flex;
   gap: 0.5rem;
   justify-content: center;
-}
-
-.action-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 0.25rem;
-  display: inline-flex;
-  align-items: center;
-}
-
-.action-btn:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-hover);
 }
 
 .empty-message {

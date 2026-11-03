@@ -1,12 +1,16 @@
 import type { Sale } from '../api'
 
 export function shortSaleId(id: string): string {
+  if (!id) return ''
+  if (id.startsWith('demo-sale-')) {
+    return `DEMO-${id.slice(10)}`
+  }
   const clean = id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
   return clean.slice(0, 8) || id
 }
 export function receiptNumber(sale: Pick<Sale, 'id' | 'completedAt'>): string {
   const datePart = sale.completedAt ? sale.completedAt.slice(0, 10).replace(/-/g, '') : '00000000'
-  return `RCPT-${datePart}-${shortSaleId(sale.id).slice(0, 6)}`
+  return `RCPT-${datePart}-${shortSaleId(sale.id)}`
 }
 
 export function escapeHtml(value: unknown): string {

@@ -174,6 +174,9 @@ const statCards = computed(() => {
 
 const chartPoints = computed(() => dashboard.value?.chart ?? [])
 
+type SalesChartMode = 'all' | 'sales' | 'profit'
+const salesChartMode = ref<SalesChartMode>('all')
+
 const salesSummaryStats = computed(() => {
   const data = chartPoints.value
   const totalSales = data.reduce((sum, item) => sum + (item.sales || 0), 0)
@@ -183,37 +186,75 @@ const salesSummaryStats = computed(() => {
     null,
   )
   return [
-    { label: 'Sales', value: `${activeCurrency.value} ${Math.round(totalSales).toLocaleString()}` },
-    { label: 'Profit', value: `${activeCurrency.value} ${Math.round(totalProfit).toLocaleString()}` },
-    { label: 'Best', value: bestPoint && bestPoint.sales > 0 ? bestPoint.label : 'N/A' },
+    { label: 'Sales', value: `${activeCurrency.value} ${Math.round(totalSales).toLocaleString()}`, sub: 'Gross Revenue' },
+    { label: 'Profit', value: `${activeCurrency.value} ${Math.round(totalProfit).toLocaleString()}`, sub: 'Direct Margin' },
+    { label: 'Best', value: bestPoint && bestPoint.sales > 0 ? bestPoint.label : 'N/A', sub: bestPoint && bestPoint.sales > 0 ? `${activeCurrency.value} ${Math.round(bestPoint.sales).toLocaleString()}` : 'Peak Volume' },
   ]
 })
 
-const currentAccentColor = computed(() => getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#0ea5e9')
-
 const salesChartData = computed(() => {
   const data = chartPoints.value
+  const labels = data.map(s => s.label)
+
+  if (salesChartMode.value === 'sales') {
+    return {
+      labels,
+      datasets: [
+        {
+          type: 'line' as const,
+          label: 'Sales Revenue',
+          borderColor: '#0ea5e9',
+          borderWidth: 2.5,
+          fill: true,
+          data: data.map(s => s.sales),
+          order: 1,
+        },
+      ],
+    }
+  }
+
+  if (salesChartMode.value === 'profit') {
+    return {
+      labels,
+      datasets: [
+        {
+          type: 'line' as const,
+          label: 'Net Profit',
+          borderColor: '#10b981',
+          borderWidth: 2.5,
+          fill: true,
+          data: data.map(s => s.profit),
+          order: 1,
+        },
+      ],
+    }
+  }
+
+  // Combined: Sales line + Profit bars
   return {
-    labels: data.map(s => s.label),
+    labels,
     datasets: [
       {
         type: 'line' as const,
-        label: 'Sales',
-        borderColor: currentAccentColor.value,
-        borderWidth: 2,
+        label: 'Sales Revenue',
+        borderColor: '#0ea5e9',
+        borderWidth: 2.5,
         fill: true,
         data: data.map(s => s.sales),
         order: 1,
       },
       {
         type: 'bar' as const,
-        label: 'Profit',
-        backgroundColor: currentAccentColor.value + '4D',
-        borderColor: currentAccentColor.value + 'B3',
+        label: 'Net Profit',
+        backgroundColor: 'rgba(16, 185, 129, 0.65)',
+        hoverBackgroundColor: '#10b981',
+        borderColor: '#10b981',
         borderWidth: 1,
+        borderRadius: { topLeft: 4, topRight: 4 },
+        borderSkipped: 'bottom' as const,
         data: data.map(s => s.profit),
         order: 2,
-        barPercentage: 0.5,
+        barPercentage: 0.55,
       },
     ],
   }
@@ -355,12 +396,39 @@ onMounted(load)
       </div>
     </div>
 
-    <div class="dashboard-cards-wrapper">
+    <div v-if="!isPhone" class="dashboard-cards-wrapper">
       <!-- Sales Overview -->
       <div v-if="!isPhone" class="card sales-overview-card">
         <div class="tab-header">
-          <h3 class="card-title">Sales Overview</h3>
+          <div>
+            <h3 class="card-title">Sales Overview</h3>
+            <p class="card-subtitle">{{ selectedPeriod }} revenue & profitability timeline</p>
+          </div>
           <div class="tab-controls-right">
+            <div class="chart-mode-nav">
+              <button
+                type="button"
+                :class="{ active: salesChartMode === 'all' }"
+                @click="salesChartMode = 'all'"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                :class="{ active: salesChartMode === 'sales' }"
+                @click="salesChartMode = 'sales'"
+              >
+                Sales
+              </button>
+              <button
+                type="button"
+                :class="{ active: salesChartMode === 'profit' }"
+                @click="salesChartMode = 'profit'"
+              >
+                Profit
+              </button>
+            </div>
+
             <div class="tab-nav">
               <button
                 v-for="period in periods"
@@ -373,7 +441,7 @@ onMounted(load)
               </button>
             </div>
             <div class="date-picker-btn" :class="{ 'active-date': reportDate !== '' }" title="Filter chart by date">
-              <Calendar :size="16" />
+              <Calendar :size="15" />
               <input v-model="reportDate" type="date" class="invisible-date-picker" aria-label="Filter Sales Overview by date" />
               <button v-if="reportDate" type="button" class="clear-date-btn" title="Clear Date" @click.stop="reportDate = ''">
                 <X :size="12" />
@@ -392,8 +460,16 @@ onMounted(load)
           </div>
 
           <div v-if="!isPhone" class="chart-stats">
-            <div v-for="stat in salesSummaryStats" :key="stat.label" class="chart-stat">
-              <span class="chart-stat-label">{{ stat.label }}</span>
+            <div
+              v-for="stat in salesSummaryStats"
+              :key="stat.label"
+              class="chart-stat"
+              :class="`stat-${stat.label.toLowerCase()}`"
+            >
+              <div class="stat-badge-row">
+                <span class="chart-stat-label">{{ stat.label }}</span>
+                <span class="stat-badge">{{ stat.sub }}</span>
+              </div>
               <span class="chart-stat-value">{{ stat.value }}</span>
             </div>
           </div>
@@ -401,7 +477,7 @@ onMounted(load)
       </div>
 
       <!-- Right Column: Top Selling Products / Stock Alerts -->
-      <div class="rotating-card-slot">
+      <div v-if="!isPhone" class="rotating-card-slot">
         <!-- Top Selling Products -->
         <div v-if="rotatingDashboardCard === 'top-selling'" class="card rotating-dashboard-card">
           <div class="rotating-card-header">
@@ -609,14 +685,15 @@ onMounted(load)
 }
 
 .stat-value {
-  font-size: 1.3rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 6px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
   line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .currency-prefix {
@@ -702,17 +779,55 @@ onMounted(load)
   flex-wrap: wrap;
 }
 
+.card-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .tab-controls-right {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chart-mode-nav {
+  display: inline-flex;
+  background: var(--glass-bg);
+  border-radius: 9999px;
+  padding: 3px;
+  border: 1px solid var(--border-light);
+  gap: 2px;
+}
+
+.chart-mode-nav button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.18s ease;
+}
+
+.chart-mode-nav button:hover {
+  color: var(--text-primary);
+}
+
+.chart-mode-nav button.active {
+  background: rgba(14, 165, 233, 0.22);
+  color: #38bdf8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .tab-nav {
   display: flex;
   background: var(--glass-bg);
   border-radius: 9999px;
-  padding: 4px;
+  padding: 3px;
   border: 1px solid var(--border-light);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -721,10 +836,10 @@ onMounted(load)
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
-  padding: 5px 14px;
+  padding: 4px 12px;
   border-radius: 9999px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   transition: all 0.2s ease;
 }
@@ -750,37 +865,44 @@ onMounted(load)
   font-size: 0.875rem;
   text-align: center;
 }
+
 .sales-chart-container {
+  display: flex;
+  flex-direction: column;
   flex: 1;
-  min-height: 260px;
-  position: relative;
+  min-height: 310px;
+  gap: 12px;
   min-width: 0;
 }
 
 .sales-chart-plot {
-  position: absolute;
-  inset: 0;
-  min-width: 0;
+  flex: 1;
+  min-height: 215px;
+  position: relative;
+  width: 100%;
 }
 
 .chart-stats {
-  position: absolute;
-  right: 4px;
-  bottom: 10px;
-  left: 36px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .chart-stat {
   position: relative;
   min-width: 0;
-  padding: 12px 14px 11px;
+  padding: 11px 15px;
   overflow: hidden;
-  border: 1px solid var(--border-color);
-  background: linear-gradient(180deg, var(--bg-surface), var(--glass-bg));
-  box-shadow: inset 0 1px 0 var(--border-light);
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(15, 23, 42, 0.35) 100%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chart-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.4);
 }
 
 .chart-stat::before {
@@ -789,35 +911,66 @@ onMounted(load)
   top: 0;
   right: 0;
   left: 0;
-  height: 2px;
-  background-color: var(--accent-color);
+  height: 2.5px;
 }
 
-.chart-stat:nth-child(2)::before {
+.stat-sales::before {
+  background-color: #0ea5e9;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+}
+.stat-sales {
+  border-top-color: rgba(14, 165, 233, 0.3);
+}
+
+.stat-profit::before {
   background-color: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+.stat-profit {
+  border-top-color: rgba(16, 185, 129, 0.3);
 }
 
-.chart-stat:nth-child(3)::before {
-  background-color: #facc15;
+.stat-best::before {
+  background-color: #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+.stat-best {
+  border-top-color: rgba(245, 158, 11, 0.3);
+}
+
+.stat-badge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
 }
 
 .chart-stat-label {
-  display: block;
-  margin-bottom: 4px;
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.08);
 }
 
 .chart-stat-value {
   display: block;
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 
 /* Right Rotating Card (Top Selling Products / Stock Alerts) */
@@ -1162,6 +1315,105 @@ onMounted(load)
 @media (max-width: 639px) {
   .stats-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-height: 570px;
+    grid-template-rows:
+      minmax(158px, 1fr)
+      minmax(158px, 1fr)
+      minmax(112px, 1fr)
+      minmax(112px, 1fr);
+  }
+
+  .view-section {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    gap: 0;
+  }
+
+  .stat-card {
+    min-height: 112px;
+    padding: 16px 16px 14px;
+    border-radius: 14px;
+    border-color: rgba(148, 163, 184, 0.18);
+    border-top-width: 2px;
+    background: linear-gradient(
+      145deg,
+      rgba(28, 42, 64, 0.96),
+      rgba(13, 23, 38, 0.98)
+    );
+    box-shadow:
+      0 10px 24px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  }
+
+  .stat-card:nth-child(1),
+  .stat-card:nth-child(2) {
+    min-height: 158px;
+  }
+
+  .stat-icon {
+    top: 14px;
+    right: 14px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.075);
+  }
+
+  .stat-content {
+    padding-right: 54px;
+  }
+
+  .stat-label {
+    margin-bottom: 8px;
+    font-size: 12px;
+    line-height: 1.25;
+    font-weight: 700;
+    color: #b8c5d8;
+    letter-spacing: 0.01em;
+  }
+
+  .stat-value {
+    margin-bottom: 7px;
+    font-size: 22px;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: -0.025em;
+  }
+
+  .currency-prefix {
+    font-size: 12px;
+    font-weight: 800;
+    color: #9fb1c8;
+    margin-right: 5px;
+  }
+
+  .stat-sub-value {
+    font-size: 13px;
+    color: #cbd5e1;
+  }
+
+  .stat-trend-wrapper {
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .stat-trend {
+    font-weight: 800;
+  }
+
+  .trend-text {
+    color: #9aabc0;
+    margin-left: 5px;
+  }
+
+  .stat-sparkline {
+    height: 40px;
+    margin-top: 8px;
   }
 
   .tab-header {

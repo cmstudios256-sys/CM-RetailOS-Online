@@ -44,7 +44,10 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
   maintainAspectRatio: false,
   layout: {
     padding: {
-      bottom: props.isPhone ? 10 : 110,
+      top: 6,
+      bottom: 6,
+      left: 0,
+      right: 0,
     },
   },
   interaction: {
@@ -72,29 +75,33 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
         display: false,
       },
       ticks: {
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        color: isLightMode.value ? '#64748b' : '#94a3b8',
         autoSkip: true,
         maxTicksLimit: 12,
         maxRotation: 0,
         minRotation: 0,
         font: {
           size: 11,
+          weight: 'normal',
         },
       },
       border: {
-        color: isLightMode.value ? '#cbd5e1' : '#334155',
+        display: false,
       },
     },
     y: {
       beginAtZero: true,
       grid: {
-        color: isLightMode.value ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)',
+        color: isLightMode.value ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
+        borderDash: [3, 4],
+        drawTicks: false,
       },
       ticks: {
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        color: isLightMode.value ? '#64748b' : '#94a3b8',
         font: {
           size: 11,
         },
+        padding: 8,
         callback: (value) => {
           if (typeof value === 'number') {
             if (value === 0) return '0'
@@ -112,20 +119,20 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
   },
   elements: {
     line: {
-      tension: 0.4,
+      tension: 0.3,
     },
     point: {
-      radius: 0,
-      hoverRadius: 5,
-      hoverBackgroundColor: '#fff',
-      hoverBorderColor: 'var(--accent-color, #0ea5e9)',
+      radius: (ctx) => (Number(ctx.raw) > 0 ? 3 : 0),
+      hoverRadius: 6,
+      hoverBackgroundColor: '#ffffff',
+      hoverBorderWidth: 2,
     },
   },
 }))
 
 const mobileChartData = computed<ChartData<'bar', number[], string>>(() => {
   const source = props.chartData.labels?.slice(-7) ?? []
-  const salesDataset = props.chartData.datasets.find(dataset => dataset.label === 'Sales')
+  const salesDataset = props.chartData.datasets.find(dataset => dataset.label?.toLowerCase().includes('sales'))
   const sourceData = salesDataset?.data
   const labels = source.map(label => String(label))
   const values = Array.isArray(sourceData)
@@ -210,30 +217,25 @@ const mobileChartOptions = computed<ChartOptions<'bar'>>(() => ({
 const gradientPlugin = {
   id: 'gradient',
   beforeRender(chart: ChartJsChart) {
-    if (chart.data.datasets[0]) {
-      const dataset = chart.data.datasets[0]
+    const lineDataset = chart.data.datasets.find(d => d.type === 'line' || (d as any).fill)
+    if (lineDataset) {
       const ctx = chart.ctx
-      const gradient = ctx.createLinearGradient(0, 0, 0, chart.height)
-      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#0ea5e9'
+      const chartArea = chart.chartArea
+      if (!chartArea) return
+      const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
+      const border = String(lineDataset.borderColor || '#0ea5e9').toLowerCase()
+      const isEmerald = border.includes('10b981') || border.includes('16, 185, 129')
 
-      const hexToRgba = (hex: string, alpha: number) => {
-        let r = 14, g = 165, b = 233
-        const clean = hex.startsWith('#') ? hex.slice(1) : hex
-        if (clean.length === 3) {
-          r = parseInt(clean[0] + clean[0], 16)
-          g = parseInt(clean[1] + clean[1], 16)
-          b = parseInt(clean[2] + clean[2], 16)
-        } else if (clean.length === 6) {
-          r = parseInt(clean.substring(0, 2), 16)
-          g = parseInt(clean.substring(2, 4), 16)
-          b = parseInt(clean.substring(4, 6), 16)
-        }
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`
+      if (isEmerald) {
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.38)')
+        gradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.1)')
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)')
+      } else {
+        gradient.addColorStop(0, 'rgba(14, 165, 233, 0.38)')
+        gradient.addColorStop(0.5, 'rgba(14, 165, 233, 0.1)')
+        gradient.addColorStop(1, 'rgba(14, 165, 233, 0.0)')
       }
-
-      gradient.addColorStop(0, hexToRgba(accent, 0.35))
-      gradient.addColorStop(1, hexToRgba(accent, 0))
-      dataset.backgroundColor = gradient
+      lineDataset.backgroundColor = gradient
     }
   },
 }

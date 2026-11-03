@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { RefreshCw, Search, ShieldCheck } from '@lucide/vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
+import { RefreshCw, Search } from '@lucide/vue'
 import { apiRequest, formatDate, formatTime } from '../api'
 
 type AuditLog = {
@@ -27,6 +28,22 @@ const filteredLogs = computed(() => {
     || log.level.toLowerCase().includes(query),
   )
 })
+
+const auditListRef = ref<HTMLElement | null>(null)
+const auditListVirtualizer = useVirtualizer(computed(() => ({
+  count: filteredLogs.value.length,
+  getScrollElement: () => auditListRef.value,
+  estimateSize: () => 38,
+  overscan: 8,
+})))
+const virtualAuditListItems = computed(() => auditListVirtualizer.value.getVirtualItems())
+
+watch(
+  () => [searchTerm.value, filteredLogs.value.length],
+  () => {
+    auditListRef.value?.scrollTo({ top: 0 })
+  },
+)
 
 function getLogLevelClass(level: string) {
   switch (level) {
@@ -67,10 +84,6 @@ onMounted(load)
       <div class="card-header">
         <div class="title-group">
           <h2 class="card-title">Audit Logs</h2>
-          <span class="scope-note">
-            <ShieldCheck :size="14" />
-            Read-only history of completed sales &amp; stock adjustments (up to 500 records)
-          </span>
         </div>
         <div class="header-controls">
           <div class="search-bar">
@@ -89,37 +102,40 @@ onMounted(load)
         </div>
       </div>
 
-      <div class="table-container" style="flex: 1; min-height: 0; overflow-y: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th class="text-center">Timestamp</th>
-              <th class="text-center">User</th>
-              <th class="text-center">Action</th>
-              <th class="text-center">Details</th>
-              <th class="text-center">Level</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="5" class="empty-message">Loading audit logs...</td>
-            </tr>
-            <tr v-else-if="filteredLogs.length === 0">
-              <td colspan="5" class="empty-message">No audit logs found.</td>
-            </tr>
-            <tr v-for="log in filteredLogs" v-else :key="log.id" style="height: 38px;">
-              <td class="text-center font-medium text-slate-200">{{ formatDate(log.timestamp) }} {{ formatTime(log.timestamp) }}</td>
-              <td class="text-center">{{ log.user }}</td>
-              <td class="text-center">{{ log.action }}</td>
-              <td class="text-center details-cell" :title="log.details">{{ log.details }}</td>
-              <td class="text-center">
-                <span class="log-level-badge" :class="getLogLevelClass(log.level)">
-                  {{ log.level }}
+      <div ref="auditListRef" class="table-container virtual-list-container" style="flex: 1; min-height: 0; overflow-y: auto;">
+        <div class="virtual-list-header audit-list-header">
+          <span>Timestamp</span>
+          <span>User</span>
+          <span>Action</span>
+          <span>Details</span>
+          <span>Level</span>
+        </div>
+        <div v-if="loading" class="empty-message">Loading audit logs...</div>
+        <div v-else-if="filteredLogs.length === 0" class="empty-message">No audit logs found.</div>
+        <div
+          v-else
+          class="virtual-list-spacer"
+          :style="{ height: `${auditListVirtualizer.getTotalSize()}px` }"
+        >
+          <div
+            v-for="virtualRow in virtualAuditListItems"
+            :key="String(virtualRow.key)"
+            class="virtual-list-row audit-list-header"
+            :style="{ transform: `translateY(${virtualRow.start}px)`, height: `${virtualRow.size}px` }"
+          >
+            <template v-if="filteredLogs[virtualRow.index]">
+              <span class="font-medium text-slate-200">{{ formatDate(filteredLogs[virtualRow.index].timestamp) }} {{ formatTime(filteredLogs[virtualRow.index].timestamp) }}</span>
+              <span>{{ filteredLogs[virtualRow.index].user }}</span>
+              <span>{{ filteredLogs[virtualRow.index].action }}</span>
+              <span class="details-cell" :title="filteredLogs[virtualRow.index].details">{{ filteredLogs[virtualRow.index].details }}</span>
+              <span>
+                <span class="log-level-badge" :class="getLogLevelClass(filteredLogs[virtualRow.index].level)">
+                  {{ filteredLogs[virtualRow.index].level }}
                 </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </span>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -172,17 +188,6 @@ onMounted(load)
   color: var(--text-primary);
 }
 
-.scope-note {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: rgba(14, 165, 233, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  padding: 0.2rem 0.6rem;
-  border-radius: 9999px;
-}
 
 .header-controls {
   display: flex;
@@ -243,6 +248,68 @@ onMounted(load)
   min-height: 0;
   overflow-x: auto;
   overflow-y: auto;
+}
+
+.virtual-list-container {
+  position: relative;
+  background-color: var(--bg-sidebar);
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+}
+
+.virtual-list-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-list-header,
+.virtual-list-row {
+  display: grid;
+  align-items: center;
+}
+
+.audit-list-header {
+  grid-template-columns: minmax(150px, 1.3fr) minmax(110px, 1fr) minmax(140px, 1.2fr) minmax(260px, 2.5fr) minmax(90px, 0.8fr);
+  min-width: 750px;
+}
+
+.virtual-list-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: 38px;
+  background-color: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.virtual-list-header > span,
+.virtual-list-row > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: center;
+  font-size: 0.825rem;
+  white-space: nowrap;
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.virtual-list-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+.virtual-list-row:hover {
+  background-color: var(--bg-surface);
 }
 
 table {

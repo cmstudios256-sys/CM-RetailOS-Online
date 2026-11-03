@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Calendar, Download, Eye, Printer, Search, Share2, X } from '@lucide/vue'
 import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
 import MobileReceiptShare from './MobileReceiptShare.vue'
@@ -41,6 +42,30 @@ const filteredSales = computed(() =>
     const matchesDate = !selectedDate.value || formatISODate(sale.completedAt) === selectedDate.value
     return matchesSearch && matchesDate
   }),
+)
+
+const headerRef = ref<HTMLElement | null>(null)
+const salesListRef = ref<HTMLElement | null>(null)
+const salesListVirtualizer = useVirtualizer(computed(() => ({
+  count: filteredSales.value.length,
+  getScrollElement: () => salesListRef.value,
+  estimateSize: () => 44,
+  overscan: 8,
+})))
+const virtualSalesListItems = computed(() => salesListVirtualizer.value.getVirtualItems())
+
+function syncHeaderScroll(e: Event) {
+  const target = e.target as HTMLElement
+  if (headerRef.value) {
+    headerRef.value.scrollLeft = target.scrollLeft
+  }
+}
+
+watch(
+  () => [searchTerm.value, selectedDate.value, filteredSales.value.length],
+  () => {
+    salesListRef.value?.scrollTo({ top: 0 })
+  },
 )
 
 function getSaleItemsCount(sale: Sale) {
@@ -261,59 +286,70 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="table-container" style="flex: 1; min-height: 0; overflow-y: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th class="text-center">Sale ID</th>
-              <th class="text-center">Date</th>
-              <th class="text-center">Items</th>
-              <th class="text-center">Total</th>
-              <th class="text-center">Profit</th>
-              <th class="text-center">Status</th>
-              <th class="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="7" class="empty-message">Loading sales history...</td>
-            </tr>
-            <tr v-else-if="filteredSales.length === 0">
-              <td colspan="7" class="empty-message">No sales records found.</td>
-            </tr>
-            <tr v-for="sale in filteredSales" v-else :key="sale.id" style="height: 38px;">
-              <td class="text-center font-medium text-slate-200">#{{ shortSaleId(sale.id) }}</td>
-              <td class="text-center">{{ formatDate(sale.completedAt) }} {{ formatTime(sale.completedAt) }}</td>
-              <td class="text-center">{{ formatQuantity(getSaleItemsCount(sale)) }}</td>
-              <td class="text-center font-semibold">{{ formatMoney(sale.total, currency) }}</td>
-              <td
-                class="text-center font-semibold"
-                :class="calculateProfit(sale) >= 0 ? 'profit-positive' : 'profit-negative'"
-              >
-                {{ formatMoney(calculateProfit(sale), currency) }}
-              </td>
-              <td class="text-center">
-                <span class="status-badge status-completed">Completed</span>
-              </td>
-              <td class="text-center">
-                <button
-                  v-if="mobileTouch"
-                  type="button"
-                  class="action-btn mobile-sales-share"
-                  aria-label="Share receipt to WhatsApp"
-                  title="Share receipt to WhatsApp"
-                  @click.stop="shareSaleOnMobile(sale)"
+      <div class="virtual-list-container">
+        <div ref="headerRef" class="virtual-list-header-wrapper">
+          <div class="virtual-list-header sales-list-header">
+            <span>Sale ID</span>
+            <span>Date</span>
+            <span>Items</span>
+            <span>Total</span>
+            <span>Profit</span>
+            <span>Status</span>
+            <span>Actions</span>
+          </div>
+        </div>
+        <div v-if="loading" class="empty-message">Loading sales history...</div>
+        <div v-else-if="filteredSales.length === 0" class="empty-message">No sales records found.</div>
+        <div
+          v-else
+          ref="salesListRef"
+          class="virtual-list-scroll-body"
+          @scroll="syncHeaderScroll"
+        >
+          <div
+            class="virtual-list-spacer"
+            :style="{ height: `${salesListVirtualizer.getTotalSize()}px` }"
+          >
+            <div
+              v-for="virtualRow in virtualSalesListItems"
+              :key="String(virtualRow.key)"
+              class="virtual-list-row sales-list-header"
+              :style="{ transform: `translateY(${virtualRow.start}px)`, height: `${virtualRow.size}px` }"
+            >
+              <template v-if="filteredSales[virtualRow.index]">
+                <span class="font-medium text-slate-200">#{{ shortSaleId(filteredSales[virtualRow.index].id) }}</span>
+                <span>{{ formatDate(filteredSales[virtualRow.index].completedAt) }} {{ formatTime(filteredSales[virtualRow.index].completedAt) }}</span>
+                <span>{{ formatQuantity(getSaleItemsCount(filteredSales[virtualRow.index])) }}</span>
+                <span class="font-semibold">{{ formatMoney(filteredSales[virtualRow.index].total, currency) }}</span>
+                <span
+                  class="font-semibold"
+                  :class="calculateProfit(filteredSales[virtualRow.index]) >= 0 ? 'profit-positive' : 'profit-negative'"
                 >
-                  <Share2 :size="16" />
-                </button>
-                <button type="button" class="action-btn" @click="viewSaleDetails(sale)">
-                  <Eye :size="16" />
-                  View
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                  {{ formatMoney(calculateProfit(filteredSales[virtualRow.index]), currency) }}
+                </span>
+                <span>
+                  <span class="status-badge status-completed">Completed</span>
+                </span>
+                <span class="actions-cell">
+                  <button
+                    v-if="mobileTouch"
+                    type="button"
+                    class="action-btn mobile-sales-share"
+                    aria-label="Share receipt to WhatsApp"
+                    title="Share receipt to WhatsApp"
+                    @click.stop="shareSaleOnMobile(filteredSales[virtualRow.index])"
+                  >
+                    <Share2 :size="16" />
+                  </button>
+                  <button type="button" class="action-btn" @click="viewSaleDetails(filteredSales[virtualRow.index])">
+                    <Eye :size="16" />
+                    View
+                  </button>
+                </span>
+              </template>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -492,10 +528,12 @@ onMounted(() => {
 .search-bar input {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: 0.375rem;
-  padding: 0.4rem 0.75rem 0.4rem 2.25rem;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem 0.45rem 2.25rem;
   color: var(--text-primary);
-  width: min(220px, 32vw);
+  width: 230px;
+  height: 38px;
+  box-sizing: border-box;
   font-size: 0.825rem;
 }
 
@@ -507,22 +545,25 @@ onMounted(() => {
 .date-filter-wrapper {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .filter-btn,
 .export-btn {
   background-color: var(--bg-surface);
   color: var(--text-secondary);
-  padding: 0.4rem 0.85rem;
-  border-radius: 0.375rem;
+  padding: 0.45rem 0.9rem;
+  height: 38px;
+  box-sizing: border-box;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   font-weight: 500;
   font-size: 0.825rem;
+  white-space: nowrap;
   transition: all 0.2s;
 }
 
@@ -540,6 +581,7 @@ onMounted(() => {
 .date-picker-btn {
   position: relative;
   overflow: hidden;
+  white-space: nowrap;
 }
 
 .date-picker-btn.active-filter {
@@ -561,12 +603,16 @@ onMounted(() => {
   background-color: rgba(239, 68, 68, 0.1);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 0.375rem;
-  padding: 0.4rem;
+  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  box-sizing: border-box;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
 }
 
 .clear-date-btn:hover {
@@ -588,8 +634,122 @@ onMounted(() => {
 .table-container {
   flex-grow: 1;
   min-height: 0;
-  overflow-x: auto;
+}
+
+.virtual-list-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background-color: var(--bg-sidebar);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.virtual-list-header-wrapper {
+  overflow-x: hidden;
+  flex-shrink: 0;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.virtual-list-scroll-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+.virtual-list-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-list-header,
+.virtual-list-row {
+  display: grid;
+  align-items: center;
+}
+
+.sales-list-header {
+  grid-template-columns: minmax(110px, 1.1fr) minmax(175px, 1.6fr) minmax(65px, 0.6fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(105px, 1fr) minmax(95px, 0.9fr);
+  min-width: 770px;
+}
+
+.virtual-list-header {
+  min-height: 40px;
+  background-color: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.virtual-list-header > span,
+.virtual-list-row > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.65rem;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: center;
+  font-size: 0.825rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.virtual-list-header > span:last-child,
+.virtual-list-row > span:last-child {
+  border-right: none;
+}
+
+.virtual-list-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+.virtual-list-row:hover {
+  background-color: var(--bg-surface);
+}
+
+.actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.action-btn {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  color: #38bdf8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.action-btn:hover {
+  color: #ffffff;
+  background-color: var(--accent-color, #0ea5e9);
+  border-color: var(--accent-color, #0ea5e9);
 }
 
 table {
@@ -654,24 +814,6 @@ tbody tr:hover {
   border-color: #22c55e;
   color: #4ade80;
   background-color: rgba(34, 197, 94, 0.1);
-}
-
-.action-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.45rem;
-  border-radius: 0.25rem;
-  font-size: 0.825rem;
-}
-
-.action-btn:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-hover);
 }
 
 .empty-message {

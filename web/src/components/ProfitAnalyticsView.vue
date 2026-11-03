@@ -10,11 +10,12 @@ import {
   Download,
   FileSpreadsheet,
   Percent,
+  PieChart,
   Printer,
   TrendingUp,
   X,
 } from '@lucide/vue'
-import { apiRequest, formatAxisValue, formatDate, formatMoney, formatTime } from '../api'
+import { apiRequest, formatDate, formatMoney, formatTime } from '../api'
 import { downloadCsv, escapeHtml, openPrintDocument } from '../utils/reporting'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
 import { Bar, Line, Doughnut } from 'vue-chartjs'
@@ -47,6 +48,7 @@ ChartJS.register(
 )
 
 type Period = 'Daily' | 'Weekly' | 'Monthly'
+type TrendMode = 'profit' | 'comparison' | 'margin'
 
 type ChartPoint = {
   label: string
@@ -76,14 +78,14 @@ type Dashboard = {
 const props = defineProps<{ currency: string; shopName: string }>()
 const periods: Period[] = ['Daily', 'Weekly', 'Monthly']
 const selectedPeriod = ref<Period>('Daily')
+const trendMode = ref<TrendMode>('profit')
 const reportDate = ref('')
 const dashboard = ref<Dashboard | null>(null)
 const loading = ref(true)
 const error = ref('')
 const isExportDropdownOpen = ref(false)
-const hoveredIndex = ref<number | null>(null)
 
-const categoryColors = ['#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#eab308']
+const categoryPalette = ['#10b981', '#06b6d4', '#6366f1', '#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6']
 
 const activeCurrency = computed(() => dashboard.value?.currency || props.currency)
 
@@ -116,112 +118,161 @@ const marginTrend = computed(() =>
 )
 
 const chartPoints = computed(() => dashboard.value?.chart ?? [])
-const maxProfit = computed(() => Math.max(...chartPoints.value.map(point => Math.abs(point.profit || 0)), 0))
-const chartScale = computed(() => {
-  const max = maxProfit.value
-  if (max <= 0) return 100
-  const magnitude = 10 ** Math.floor(Math.log10(max))
-  const normalized = max / magnitude
-  if (normalized <= 1) return 1 * magnitude
-  if (normalized <= 2) return 2 * magnitude
-  if (normalized <= 5) return 5 * magnitude
-  return 10 * magnitude
-})
-
-const yAxisTicks = computed(() => [
-  chartScale.value,
-  chartScale.value * 0.75,
-  chartScale.value * 0.5,
-  chartScale.value * 0.25,
-  0,
-])
-
-const profitLinePoints = computed(() =>
-  chartPoints.value.map((point, index) => {
-    const total = Math.max(chartPoints.value.length - 1, 1)
-    const x = (index / total) * 100
-    const normalized = Math.min(Math.max((point.profit || 0) / chartScale.value, 0), 1)
-    const y = 100 - normalized * 84 - 8
-    return { x, y, ...point }
-  }),
-)
-
-const profitLinePath = computed(() =>
-  profitLinePoints.value
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-    .join(' '),
-)
-
-const profitAreaPath = computed(() => {
-  if (!profitLinePoints.value.length) return ''
-  const first = profitLinePoints.value[0]
-  const last = profitLinePoints.value[profitLinePoints.value.length - 1]
-  return `${profitLinePath.value} L ${last.x.toFixed(2)} 96 L ${first.x.toFixed(2)} 96 Z`
-})
-
 const categories = computed(() => dashboard.value?.profitByCategory ?? [])
+
 const totalCategoryProfit = computed(() =>
   categories.value.reduce((sum, category) => sum + Math.max(category.value, 0), 0),
 )
 
-const doughnutSegments = computed(() => {
-  const positiveTotal = totalCategoryProfit.value
-  if (positiveTotal <= 0) return []
-  const radius = 36
-  const circumference = 2 * Math.PI * radius
-  let cumulativeFraction = 0
+const categoryBreakdown = computed(() => {
+  const total = totalCategoryProfit.value
   return categories.value
-    .filter(item => item.value > 0)
-    .map((item, idx) => {
-      const fraction = item.value / positiveTotal
-      const dashLength = fraction * circumference
-      const dashOffset = -cumulativeFraction * circumference
-      cumulativeFraction += fraction
+    .filter(cat => cat.value > 0)
+    .map((cat, idx) => {
+      const val = Math.max(0, cat.value)
+      const percentage = total > 0 ? (val / total) * 100 : 0
       return {
-        name: item.name,
-        value: item.value,
-        color: categoryColors[idx % categoryColors.length],
-        dashArray: `${dashLength} ${circumference - dashLength}`,
-        dashOffset,
+        name: cat.name,
+        value: val,
+        percentage: Number(percentage.toFixed(1)),
+        color: categoryPalette[idx % categoryPalette.length],
       }
     })
 })
 
 const isLightMode = computed(() => document.documentElement.getAttribute('data-theme') === 'light')
-const currentAccentColor = computed(() => getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#0ea5e9')
 
 const profitTrendData = computed(() => {
   const points = chartPoints.value
   const labels = points.map(p => p.label)
-  const data = points.map(p => p.profit)
 
+  if (trendMode.value === 'margin') {
+    const data = points.map(p => (p.sales > 0 ? Number(((p.profit / p.sales) * 100).toFixed(1)) : 0))
+    return {
+      labels,
+      datasets: [{
+        type: 'line' as const,
+        label: 'Profit Margin (%)',
+        borderColor: '#a855f7',
+        backgroundColor: (context: any) => {
+          const chart = context.chart
+          const { ctx, chartArea } = chart
+          if (!chartArea) return 'rgba(168, 85, 247, 0.2)'
+          const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
+          gradient.addColorStop(0, 'rgba(168, 85, 247, 0.35)')
+          gradient.addColorStop(0.5, 'rgba(168, 85, 247, 0.1)')
+          gradient.addColorStop(1, 'rgba(168, 85, 247, 0.0)')
+          return gradient
+        },
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.35,
+        pointRadius: (ctx: any) => (Number(ctx.raw) > 0 ? 3.5 : 0),
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#a855f7',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 1.5,
+        data,
+      }],
+    }
+  }
+
+  if (trendMode.value === 'comparison') {
+    return {
+      labels,
+      datasets: [
+        {
+          type: 'line' as const,
+          label: 'Revenue',
+          borderColor: '#6366f1',
+          backgroundColor: (context: any) => {
+            const chart = context.chart
+            const { ctx, chartArea } = chart
+            if (!chartArea) return 'rgba(99, 102, 241, 0.15)'
+            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
+            gradient.addColorStop(0, 'rgba(99, 102, 241, 0.28)')
+            gradient.addColorStop(0.5, 'rgba(99, 102, 241, 0.08)')
+            gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)')
+            return gradient
+          },
+          borderWidth: 2,
+          fill: true,
+          tension: 0.35,
+          pointRadius: (ctx: any) => (Number(ctx.raw) > 0 ? 3 : 0),
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#6366f1',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          data: points.map(p => p.sales),
+        },
+        {
+          type: 'line' as const,
+          label: 'Net Profit',
+          borderColor: '#10b981',
+          backgroundColor: (context: any) => {
+            const chart = context.chart
+            const { ctx, chartArea } = chart
+            if (!chartArea) return 'rgba(16, 185, 129, 0.2)'
+            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.38)')
+            gradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.12)')
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)')
+            return gradient
+          },
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.35,
+          pointRadius: (ctx: any) => (Number(ctx.raw) > 0 ? 3.5 : 0),
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#10b981',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          data: points.map(p => p.profit),
+        },
+      ],
+    }
+  }
+
+  // Default: Net Profit
   return {
     labels,
     datasets: [{
       type: 'line' as const,
       label: 'Net Profit',
-      borderColor: currentAccentColor.value,
-      backgroundColor: currentAccentColor.value + '33',
-      borderWidth: 2,
+      borderColor: '#10b981',
+      backgroundColor: (context: any) => {
+        const chart = context.chart
+        const { ctx, chartArea } = chart
+        if (!chartArea) return 'rgba(16, 185, 129, 0.2)'
+        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)')
+        gradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.12)')
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)')
+        return gradient
+      },
+      borderWidth: 2.5,
       fill: true,
-      tension: 0.4,
-      pointRadius: 3,
+      tension: 0.35,
+      pointRadius: (ctx: any) => (Number(ctx.raw) > 0 ? 3.5 : 0),
       pointHoverRadius: 6,
-      data,
+      pointBackgroundColor: '#10b981',
+      pointBorderColor: '#ffffff',
+      pointBorderWidth: 1.5,
+      data: points.map(p => p.profit),
     }],
   }
 })
 
 const mobileProfitTrendData = computed(() => {
   const points = chartPoints.value.slice(-7)
-  const accent = currentAccentColor.value
+  const accent = '#10b981'
   return {
     labels: points.map(point => point.label),
     datasets: [{
       label: 'Net Profit',
       data: points.map(point => point.profit),
       borderColor: accent,
-      backgroundColor: selectedPeriod.value === 'Daily' ? accent : accent + '33',
+      backgroundColor: selectedPeriod.value === 'Daily' ? accent : 'rgba(16, 185, 129, 0.25)',
       borderWidth: 2,
       borderRadius: selectedPeriod.value === 'Daily' ? 4 : 0,
       fill: selectedPeriod.value !== 'Daily',
@@ -291,11 +342,14 @@ const mobileChartOptions = computed(() => ({
 }))
 
 const profitByCategoryData = computed(() => {
-  const cats = categories.value
+  const cats = categoryBreakdown.value
   return {
     labels: cats.map(c => c.name),
     datasets: [{
-      backgroundColor: ['#0ea5e9', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#eab308', '#06b6d4'],
+      backgroundColor: cats.map(c => c.color),
+      hoverBackgroundColor: cats.map(c => c.color),
+      borderWidth: 2,
+      borderColor: isLightMode.value ? '#ffffff' : '#0f172a',
       data: cats.map(c => c.value),
     }],
   }
@@ -304,15 +358,36 @@ const profitByCategoryData = computed(() => {
 const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  interaction: {
+    mode: 'index' as const,
+    intersect: false,
+  },
   plugins: {
-    legend: { display: false },
+    legend: {
+      display: trendMode.value === 'comparison',
+      position: 'top' as const,
+      align: 'end' as const,
+      labels: {
+        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        boxWidth: 8,
+        boxHeight: 8,
+        usePointStyle: true,
+        pointStyle: 'circle',
+        padding: 14,
+        font: { size: 11, weight: 'bold' as const },
+      },
+    },
     tooltip: {
       enabled: false,
       external: externalChartTooltipHandler,
       callbacks: {
         label: (context: any) => {
           const label = context.dataset.label || ''
-          return `${label}: ${activeCurrency.value} ${(context.parsed?.y ?? 0).toLocaleString()}`
+          const val = context.parsed?.y ?? 0
+          if (trendMode.value === 'margin') {
+            return `${label}: ${val.toFixed(1)}%`
+          }
+          return `${label}: ${activeCurrency.value} ${val.toLocaleString()}`
         },
       },
     },
@@ -320,31 +395,35 @@ const chartOptions = computed(() => ({
   scales: {
     x: {
       grid: {
-        color: isLightMode.value ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)',
+        display: false,
+        drawBorder: false,
       },
       ticks: {
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        color: isLightMode.value ? '#64748b' : '#94a3b8',
         autoSkip: true,
         maxTicksLimit: 12,
         maxRotation: 0,
-        minRotation: 0,
-        font: { size: 11 },
+        font: { size: 11, weight: 'normal' as const },
       },
     },
     y: {
+      beginAtZero: true,
       grid: {
-        color: isLightMode.value ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)',
+        color: isLightMode.value ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.05)',
+        borderDash: [3, 4],
+        drawTicks: false,
       },
+      border: { display: false },
       ticks: {
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
+        color: isLightMode.value ? '#64748b' : '#94a3b8',
         font: { size: 11 },
+        padding: 8,
         callback: (value: number | string) => {
-          if (typeof value === 'number') {
-            if (value >= 1000000) return `${activeCurrency.value} ${value / 1000000}M`
-            if (value >= 1000) return `${activeCurrency.value} ${value / 1000}k`
-            return `${activeCurrency.value} ${value}`
-          }
-          return value
+          const num = Number(value)
+          if (trendMode.value === 'margin') return `${num.toFixed(0)}%`
+          if (num >= 1000000) return `${num / 1000000}M`
+          if (num >= 1000) return `${num / 1000}k`
+          return `${num}`
         },
       },
     },
@@ -354,25 +433,25 @@ const chartOptions = computed(() => ({
 const doughnutOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
-  animation: {
-    animateScale: true,
-    animateRotate: true,
-    duration: 1000,
-  },
+  cutout: '74%',
   plugins: {
+    legend: { display: false },
     tooltip: {
       enabled: false,
       external: externalChartTooltipHandler,
-    },
-    legend: {
-      position: 'right' as const,
-      labels: {
-        color: isLightMode.value ? '#0f172a' : '#f8fafc',
-        boxWidth: 14,
-        padding: 12,
-        font: { size: 11 },
+      callbacks: {
+        label: (context: any) => {
+          const val = Number(context.raw || 0)
+          const pct = totalCategoryProfit.value > 0 ? ((val / totalCategoryProfit.value) * 100).toFixed(1) : '0'
+          return `${context.label}: ${activeCurrency.value} ${val.toLocaleString()} (${pct}%)`
+        },
       },
     },
+  },
+  animation: {
+    animateScale: true,
+    animateRotate: true,
+    duration: 800,
   },
 }))
 
@@ -385,11 +464,6 @@ function calculateTrend(current: number, previous: number) {
     text: `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`,
     isPositive: diff >= 0,
   }
-}
-
-function showXAxisLabel(index: number) {
-  if (selectedPeriod.value !== 'Daily' && !reportDate.value) return true
-  return index % 2 === 0
 }
 
 function toggleExportDropdown() {
@@ -416,8 +490,8 @@ function exportCsv() {
     ['Profit Trend Bucket', 'Sales Revenue', 'Profit'],
     ...chartPoints.value.map(point => [point.label, point.sales, point.profit]),
     [],
-    ['Category', 'Profit', ''],
-    ...categories.value.map(category => [category.name, category.value, '']),
+    ['Category', 'Profit', 'Share (%)'],
+    ...categoryBreakdown.value.map(cat => [cat.name, cat.value, `${cat.percentage}%`]),
   ]
   downloadCsv(`profit_analytics_${selectedPeriod.value.toLowerCase()}_${reportDate.value || 'current'}.csv`, ['Column 1', 'Column 2', 'Column 3', 'Column 4'], rows)
 }
@@ -432,10 +506,11 @@ function printReport() {
       <td class="num">${escapeHtml(formatMoney(point.profit, activeCurrency.value))}</td>
     </tr>
   `).join('')
-  const categoryRows = categories.value.map(category => `
+  const categoryRows = categoryBreakdown.value.map(category => `
     <tr>
       <td>${escapeHtml(category.name)}</td>
       <td class="num">${escapeHtml(formatMoney(category.value, activeCurrency.value))}</td>
+      <td class="num">${category.percentage}%</td>
     </tr>
   `).join('')
 
@@ -458,8 +533,8 @@ function printReport() {
     </table>
     <h2 style="margin-top:24px;">Profit by Category</h2>
     <table>
-      <thead><tr><th>Category</th><th class="num">Profit</th></tr></thead>
-      <tbody>${categoryRows || '<tr><td colspan="2">No category profit data for this period.</td></tr>'}</tbody>
+      <thead><tr><th>Category</th><th class="num">Profit</th><th class="num">Share</th></tr></thead>
+      <tbody>${categoryRows || '<tr><td colspan="3">No category profit data for this period.</td></tr>'}</tbody>
     </table>`,
   )
 }
@@ -492,72 +567,96 @@ onUnmounted(() => {
   <section class="analytics-section">
     <div v-if="error" class="inline-error" role="alert">{{ error }}</div>
 
-    <!-- KPI Cards -->
+    <!-- KPI Cards Grid -->
     <div class="kpi-grid">
-      <div class="kpi-card">
+      <!-- Gross Profit -->
+      <div class="kpi-card card-gross">
         <div class="kpi-header">
           <div>
-            <h3 class="kpi-title">Gross Profit</h3>
+            <div class="kpi-title-row">
+              <h3 class="kpi-title">Gross Profit</h3>
+              <span class="kpi-badge-hint">Before OPEX</span>
+            </div>
             <p class="kpi-value">{{ formatMoney(dashboard?.profit ?? 0, activeCurrency) }}</p>
           </div>
-          <div class="kpi-icon" style="background-color: rgba(34, 197, 94, 0.1); color: #22c55e;">
-            <DollarSign :size="24" />
+          <div class="kpi-icon icon-gross">
+            <DollarSign :size="20" />
           </div>
         </div>
-        <div class="kpi-change" :class="profitTrend.isPositive ? 'positive' : 'negative'">
-          <component :is="profitTrend.isPositive ? ArrowUpRight : ArrowDownRight" :size="16" class="change-icon" />
-          <span>{{ profitTrend.text }}</span>
+        <div class="kpi-footer">
+          <div class="kpi-change" :class="profitTrend.isPositive ? 'positive' : 'negative'">
+            <component :is="profitTrend.isPositive ? ArrowUpRight : ArrowDownRight" :size="15" class="change-icon" />
+            <span>{{ profitTrend.text }}</span>
+          </div>
           <span class="change-period">{{ periodComparisonText }}</span>
         </div>
       </div>
 
-      <div class="kpi-card">
+      <!-- Net Profit -->
+      <div class="kpi-card card-net">
         <div class="kpi-header">
           <div>
-            <h3 class="kpi-title">Net Profit</h3>
+            <div class="kpi-title-row">
+              <h3 class="kpi-title">Net Profit</h3>
+              <span class="kpi-badge-hint">After Discounts</span>
+            </div>
             <p class="kpi-value">{{ formatMoney(dashboard?.profit ?? 0, activeCurrency) }}</p>
           </div>
-          <div class="kpi-icon" style="background-color: rgba(14, 165, 233, 0.1); color: #0ea5e9;">
-            <TrendingUp :size="24" />
+          <div class="kpi-icon icon-net">
+            <TrendingUp :size="20" />
           </div>
         </div>
-        <div class="kpi-change" :class="profitTrend.isPositive ? 'positive' : 'negative'">
-          <component :is="profitTrend.isPositive ? ArrowUpRight : ArrowDownRight" :size="16" class="change-icon" />
-          <span>{{ profitTrend.text }}</span>
+        <div class="kpi-footer">
+          <div class="kpi-change" :class="profitTrend.isPositive ? 'positive' : 'negative'">
+            <component :is="profitTrend.isPositive ? ArrowUpRight : ArrowDownRight" :size="15" class="change-icon" />
+            <span>{{ profitTrend.text }}</span>
+          </div>
           <span class="change-period">{{ periodComparisonText }}</span>
         </div>
       </div>
 
-      <div class="kpi-card">
+      <!-- Profit Margin -->
+      <div class="kpi-card card-margin">
         <div class="kpi-header">
           <div>
-            <h3 class="kpi-title">Profit Margin</h3>
+            <div class="kpi-title-row">
+              <h3 class="kpi-title">Profit Margin</h3>
+              <span class="kpi-badge-hint">Efficiency</span>
+            </div>
             <p class="kpi-value">{{ margin.toFixed(1) }}%</p>
           </div>
-          <div class="kpi-icon" style="background-color: rgba(168, 85, 247, 0.1); color: #a855f7;">
-            <Percent :size="24" />
+          <div class="kpi-icon icon-margin">
+            <Percent :size="20" />
           </div>
         </div>
-        <div class="kpi-change" :class="marginTrend.isPositive ? 'positive' : 'negative'">
-          <component :is="marginTrend.isPositive ? ArrowUpRight : ArrowDownRight" :size="16" class="change-icon" />
-          <span>{{ marginTrend.text }}</span>
+        <div class="kpi-footer">
+          <div class="kpi-change" :class="marginTrend.isPositive ? 'positive' : 'negative'">
+            <component :is="marginTrend.isPositive ? ArrowUpRight : ArrowDownRight" :size="15" class="change-icon" />
+            <span>{{ marginTrend.text }}</span>
+          </div>
           <span class="change-period">{{ periodComparisonText }}</span>
         </div>
       </div>
 
-      <div class="kpi-card">
+      <!-- Total Revenue -->
+      <div class="kpi-card card-revenue">
         <div class="kpi-header">
           <div>
-            <h3 class="kpi-title">Total Revenue</h3>
+            <div class="kpi-title-row">
+              <h3 class="kpi-title">Total Revenue</h3>
+              <span class="kpi-badge-hint">Gross Volume</span>
+            </div>
             <p class="kpi-value">{{ formatMoney(dashboard?.revenue ?? 0, activeCurrency) }}</p>
           </div>
-          <div class="kpi-icon" style="background-color: rgba(249, 115, 22, 0.1); color: #f97316;">
-            <BarChart2 :size="24" />
+          <div class="kpi-icon icon-revenue">
+            <BarChart2 :size="20" />
           </div>
         </div>
-        <div class="kpi-change" :class="revenueTrend.isPositive ? 'positive' : 'negative'">
-          <component :is="revenueTrend.isPositive ? ArrowUpRight : ArrowDownRight" :size="16" class="change-icon" />
-          <span>{{ revenueTrend.text }}</span>
+        <div class="kpi-footer">
+          <div class="kpi-change" :class="revenueTrend.isPositive ? 'positive' : 'negative'">
+            <component :is="revenueTrend.isPositive ? ArrowUpRight : ArrowDownRight" :size="15" class="change-icon" />
+            <span>{{ revenueTrend.text }}</span>
+          </div>
           <span class="change-period">{{ periodComparisonText }}</span>
         </div>
       </div>
@@ -580,8 +679,8 @@ onUnmounted(() => {
 
         <div class="date-filter-wrapper">
           <label class="filter-btn date-picker-btn" :class="{ 'active-filter': reportDate }">
-            <Calendar :size="16" />
-            <span>{{ reportDate || 'Filter by Date' }}</span>
+            <Calendar :size="15" />
+            <span>{{ reportDate ? formatDate(reportDate) : 'Filter by Date' }}</span>
             <input v-model="reportDate" type="date" class="hidden-date-input" aria-label="Filter profit analytics by date" />
           </label>
           <button
@@ -598,7 +697,7 @@ onUnmounted(() => {
 
       <div class="export-dropdown-container">
         <button type="button" class="export-btn" @click.stop="toggleExportDropdown">
-          <Download :size="16" />
+          <Download :size="15" />
           <span>Export Report</span>
           <ChevronDown :size="14" :class="{ rotate: isExportDropdownOpen }" class="chevron-icon" />
         </button>
@@ -621,12 +720,12 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Charts Grid -->
+    <!-- Mobile View -->
     <div v-if="isPhone" class="mobile-chart-card">
       <h3 class="card-title">Profit Trend</h3>
       <div class="mobile-chart-container">
         <div v-if="!hasMobileProfitData" class="empty-chart-state">
-          No profit in this period
+          No profit recorded in this period
         </div>
         <Bar
           v-else-if="selectedPeriod === 'Daily'"
@@ -640,21 +739,105 @@ onUnmounted(() => {
         />
       </div>
     </div>
+
+    <!-- Desktop / Tablet Charts Grid -->
     <div v-else class="charts-grid">
-      <div class="chart-card">
-        <h3 class="card-title">Profit Trend</h3>
-        <div class="chart-container" style="position: relative; height: 100%; min-height: 240px;">
+      <!-- Profit & Dynamics Trend Card -->
+      <div class="chart-card trend-card">
+        <div class="card-header-row">
+          <div>
+            <h3 class="card-title">Profit & Revenue Dynamics</h3>
+            <p class="card-subtitle">{{ selectedPeriod }} profitability trajectory</p>
+          </div>
+
+          <div class="trend-mode-toggle">
+            <button
+              type="button"
+              class="mode-btn"
+              :class="{ active: trendMode === 'profit' }"
+              @click="trendMode = 'profit'"
+            >
+              Net Profit
+            </button>
+            <button
+              type="button"
+              class="mode-btn"
+              :class="{ active: trendMode === 'comparison' }"
+              @click="trendMode = 'comparison'"
+            >
+              Revenue vs Profit
+            </button>
+            <button
+              type="button"
+              class="mode-btn"
+              :class="{ active: trendMode === 'margin' }"
+              @click="trendMode = 'margin'"
+            >
+              Margin %
+            </button>
+          </div>
+        </div>
+
+        <div class="chart-container" style="position: relative; height: 100%; min-height: 280px;">
           <Line :data="profitTrendData" :options="chartOptions" />
         </div>
       </div>
 
-      <div class="chart-card">
-        <h3 class="card-title">Profit by Category</h3>
-        <div v-if="!categories.length || totalCategoryProfit <= 0" class="empty-category-chart">
-          No category profit data for this period.
+      <!-- Profit by Category Card -->
+      <div class="chart-card category-card">
+        <div class="card-header-row">
+          <div>
+            <h3 class="card-title">Profit by Category</h3>
+            <p class="card-subtitle">Contribution across catalog sectors</p>
+          </div>
+          <span v-if="categoryBreakdown.length" class="category-count-badge">
+            {{ categoryBreakdown.length }} {{ categoryBreakdown.length === 1 ? 'Category' : 'Categories' }}
+          </span>
         </div>
-        <div v-else class="chart-container doughnut-container" style="position: relative; height: 100%; min-height: 240px; display: flex; align-items: center; justify-content: center;">
-          <Doughnut :data="profitByCategoryData" :options="doughnutOptions" />
+
+        <div v-if="!categoryBreakdown.length || totalCategoryProfit <= 0" class="empty-category-chart">
+          <div class="empty-chart-icon-box">
+            <PieChart :size="32" />
+          </div>
+          <p class="empty-title">No category profit recorded</p>
+          <span class="empty-hint">Category metrics will reflect as sales are processed.</span>
+        </div>
+
+        <div v-else class="category-analytics-body">
+          <div class="doughnut-chart-wrapper">
+            <div class="doughnut-canvas-box">
+              <Doughnut :data="profitByCategoryData" :options="doughnutOptions" />
+              <div class="donut-center-stat">
+                <span class="donut-center-label">TOTAL PROFIT</span>
+                <span class="donut-center-val">{{ formatMoney(totalCategoryProfit, activeCurrency) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="category-list-wrapper">
+            <div
+              v-for="cat in categoryBreakdown"
+              :key="cat.name"
+              class="category-breakdown-row"
+            >
+              <div class="cat-row-top">
+                <div class="cat-name-col">
+                  <span class="cat-color-dot" :style="{ backgroundColor: cat.color }" />
+                  <span class="cat-name" :title="cat.name">{{ cat.name }}</span>
+                </div>
+                <div class="cat-val-col">
+                  <span class="cat-val">{{ formatMoney(cat.value, activeCurrency) }}</span>
+                  <span class="cat-pct">{{ cat.percentage }}%</span>
+                </div>
+              </div>
+              <div class="cat-progress-track">
+                <div
+                  class="cat-progress-fill"
+                  :style="{ width: `${cat.percentage}%`, backgroundColor: cat.color }"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -668,104 +851,191 @@ onUnmounted(() => {
   flex: 1;
   height: 100%;
   min-height: 0;
-  gap: 10px;
+  gap: 12px;
 }
 
+/* ==========================================================================
+   KPI Cards Grid
+   ========================================================================== */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
   flex-shrink: 0;
 }
 
 .kpi-card {
+  position: relative;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: 14px;
-  padding: 1rem 1.25rem;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  overflow: hidden;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.4);
+}
+
+/* Colored accent borders & gradients */
+.card-gross {
+  border-top: 2.5px solid #10b981;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.06) 0%, rgba(15, 23, 42, 0.4) 100%);
+}
+.card-net {
+  border-top: 2.5px solid #0ea5e9;
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.06) 0%, rgba(15, 23, 42, 0.4) 100%);
+}
+.card-margin {
+  border-top: 2.5px solid #a855f7;
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.06) 0%, rgba(15, 23, 42, 0.4) 100%);
+}
+.card-revenue {
+  border-top: 2.5px solid #f59e0b;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.06) 0%, rgba(15, 23, 42, 0.4) 100%);
 }
 
 .kpi-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.8rem;
+}
+
+.kpi-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
 .kpi-title {
-  margin: 0 0 0.4rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+  margin: 0;
+  font-size: 0.825rem;
+  font-weight: 600;
   color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.kpi-badge-hint {
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
 }
 
 .kpi-value {
   margin: 0;
-  font-size: 1.65rem;
-  font-weight: 700;
+  font-size: 1.55rem;
+  font-weight: 800;
   color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .kpi-icon {
-  padding: 0.7rem;
-  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.icon-gross { background-color: rgba(16, 185, 129, 0.12); color: #10b981; }
+.icon-net { background-color: rgba(14, 165, 233, 0.12); color: #0ea5e9; }
+.icon-margin { background-color: rgba(168, 85, 247, 0.12); color: #a855f7; }
+.icon-revenue { background-color: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+
+.kpi-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .kpi-change {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+  gap: 0.2rem;
+  font-size: 0.775rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
 }
 
-.kpi-change.positive { color: #22c55e; }
-.kpi-change.negative { color: #ef4444; }
+.kpi-change.positive {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.kpi-change.negative {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 .change-period {
   color: var(--text-muted);
+  font-size: 0.75rem;
   font-weight: 400;
-  margin-left: 0.2rem;
 }
 
+/* ==========================================================================
+   Controls Bar
+   ========================================================================== */
 .analytics-controls {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .controls-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
 .time-range-selector {
-  display: flex;
+  display: inline-flex;
   background-color: var(--bg-sidebar);
-  border-radius: 0.5rem;
+  border-radius: 8px;
   padding: 0.25rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
 }
 
 .time-range-selector button {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 0.45rem 1rem;
-  border-radius: 0.375rem;
-  font-weight: 500;
-  font-size: 0.85rem;
+  padding: 0.4rem 0.95rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.825rem;
   cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.time-range-selector button:hover {
+  color: var(--text-primary);
 }
 
 .time-range-selector button.active {
   background-color: var(--bg-surface);
-  color: var(--text-primary);
+  color: #38bdf8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .date-filter-wrapper {
@@ -778,22 +1048,28 @@ onUnmounted(() => {
   background-color: var(--bg-sidebar);
   color: var(--text-secondary);
   padding: 0.45rem 0.9rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   font-weight: 500;
-  font-size: 0.85rem;
+  font-size: 0.825rem;
   position: relative;
   overflow: hidden;
+  transition: all 0.18s ease;
+}
+
+.filter-btn:hover {
+  border-color: var(--border-color);
+  color: var(--text-primary);
 }
 
 .date-picker-btn.active-filter {
-  border-color: var(--accent-color);
+  border-color: rgba(14, 165, 233, 0.5);
   color: #38bdf8;
-  background-color: rgba(14, 165, 233, 0.1);
+  background-color: rgba(14, 165, 233, 0.08);
 }
 
 .hidden-date-input {
@@ -809,10 +1085,15 @@ onUnmounted(() => {
   background-color: rgba(239, 68, 68, 0.1);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 0.5rem;
-  padding: 0.45rem;
-  cursor: pointer;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
 }
 
 .clear-date-btn:hover {
@@ -825,21 +1106,24 @@ onUnmounted(() => {
 }
 
 .export-btn {
-  background-color: var(--accent-color);
+  background-color: var(--accent-color, #0ea5e9);
   color: #ffffff;
-  font-weight: 500;
-  font-size: 0.85rem;
-  padding: 0.55rem 1rem;
-  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.825rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+  transition: all 0.18s ease;
 }
 
 .export-btn:hover {
-  background-color: var(--accent-hover);
+  background-color: var(--accent-hover, #0284c7);
+  box-shadow: 0 6px 16px rgba(14, 165, 233, 0.35);
 }
 
 .chevron-icon {
@@ -852,13 +1136,13 @@ onUnmounted(() => {
 
 .export-dropdown-menu {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + 0.4rem);
   right: 0;
   width: 220px;
   background-color: var(--bg-sidebar);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
   padding: 0.4rem;
   z-index: 50;
   display: flex;
@@ -871,13 +1155,14 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: 6px;
   background: transparent;
   border: none;
   color: var(--text-primary);
   cursor: pointer;
   text-align: left;
   width: 100%;
+  transition: background-color 0.15s ease;
 }
 
 .dropdown-item:hover {
@@ -893,7 +1178,7 @@ onUnmounted(() => {
 }
 
 .item-title {
-  font-size: 0.85rem;
+  font-size: 0.825rem;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -903,17 +1188,267 @@ onUnmounted(() => {
   color: var(--text-muted);
 }
 
-.chart-phone-hint {
-  margin: 0;
-  min-height: 72px;
+/* ==========================================================================
+   Charts Grid & Cards
+   ========================================================================== */
+.charts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(360px, 1.2fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.chart-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 1.25rem;
   display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.card-subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.trend-mode-toggle {
+  display: inline-flex;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  padding: 0.2rem;
+  gap: 0.2rem;
+}
+
+.mode-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-btn:hover {
+  color: var(--text-primary);
+}
+
+.mode-btn.active {
+  background-color: var(--bg-surface);
+  color: #38bdf8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.chart-container {
+  flex: 1;
+  min-height: 240px;
+  position: relative;
+}
+
+/* ==========================================================================
+   Category Breakdown & Doughnut Layout
+   ========================================================================== */
+.category-count-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(14, 165, 233, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.2);
+}
+
+.category-analytics-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.doughnut-chart-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.5rem 0;
+}
+
+.doughnut-canvas-box {
+  position: relative;
+  width: 175px;
+  height: 175px;
+}
+
+.donut-center-stat {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
-  font-size: 0.875rem;
+  pointer-events: none;
   text-align: center;
 }
 
+.donut-center-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+.donut-center-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-top: 0.1rem;
+}
+
+.category-list-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.category-breakdown-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cat-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.775rem;
+}
+
+.cat-name-col {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cat-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cat-name {
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cat-val-col {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.cat-val {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cat-pct {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.cat-progress-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.12);
+  overflow: hidden;
+}
+
+.cat-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.empty-category-chart {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted);
+}
+
+.empty-chart-icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+}
+
+.empty-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.empty-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Mobile Chart Card
+   ========================================================================== */
 .mobile-chart-card {
   min-width: 0;
   background: var(--glass-bg);
@@ -929,7 +1464,35 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-@media (max-width: 639px) {
+.empty-chart-state {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   Responsive Breakpoints
+   ========================================================================== */
+@media (max-width: 1200px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
   .analytics-controls {
     align-items: flex-start;
   }
@@ -947,248 +1510,11 @@ onUnmounted(() => {
 
   .time-range-selector button {
     flex: 1;
-    min-height: 44px;
-  }
-
-  .date-filter-wrapper {
-    justify-self: start;
+    min-height: 40px;
   }
 
   .date-picker-btn {
-    width: 46px;
-    min-width: 46px;
-    height: 46px;
-    min-height: 46px;
-  }
-
-  .date-picker-btn > span {
-    display: none;
-  }
-}
-
-.charts-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
-  gap: 10px;
-  flex: 1;
-  min-height: 0;
-}
-
-.chart-card {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.card-title {
-  margin: 0 0 0.85rem;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  flex-shrink: 0;
-}
-
-.chart-container {
-  flex: 1;
-  min-height: 200px;
-  position: relative;
-}
-
-.sales-chart {
-  height: 100%;
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  gap: 0.65rem;
-}
-
-.chart-y-axis {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding-bottom: 24px;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  text-align: right;
-}
-
-.chart-canvas {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.chart-canvas svg {
-  width: 100%;
-  flex: 1;
-  overflow: visible;
-}
-
-.chart-grid-line {
-  stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 0.4;
-}
-
-.profit-line {
-  fill: none;
-  stroke: #22c55e;
-  stroke-width: 1.8;
-  vector-effect: non-scaling-stroke;
-}
-
-.chart-x-axis {
-  height: 24px;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  align-items: center;
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  text-align: center;
-}
-
-.chart-hover-zone {
-  position: absolute;
-  top: 0;
-  bottom: 24px;
-  width: 24px;
-  transform: translateX(-50%);
-  cursor: pointer;
-}
-
-.chart-dot {
-  position: absolute;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-  border: 2px solid #0f172a;
-  transform: translate(-50%, -50%) scale(0);
-  transition: transform 0.15s ease;
-  pointer-events: none;
-}
-
-.chart-dot.active {
-  transform: translate(-50%, -50%) scale(1.25);
-}
-
-.chart-floating-tooltip {
-  position: absolute;
-  transform: translate(-50%, -100%);
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 8px;
-  padding: 0.45rem 0.65rem;
-  pointer-events: none;
-  z-index: 20;
-  white-space: nowrap;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
-}
-
-.tooltip-label {
-  font-size: 0.72rem;
-  color: #94a3b8;
-  margin-bottom: 0.15rem;
-}
-
-.tooltip-value {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #4ade80;
-}
-
-.tooltip-sub {
-  font-size: 0.72rem;
-  color: #e2e8f0;
-}
-
-/* Doughnut Chart */
-.empty-category-chart {
-  flex: 1;
-  min-height: 180px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.doughnut-layout {
-  flex: 1;
-  min-height: 180px;
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-}
-
-.doughnut-svg-wrap {
-  width: 170px;
-  height: 170px;
-  flex-shrink: 0;
-}
-
-.doughnut-svg {
-  width: 100%;
-  height: 100%;
-}
-
-.doughnut-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  flex-grow: 1;
-  min-width: 0;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-}
-
-.legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.legend-name {
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex-grow: 1;
-}
-
-.legend-val {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-@media (max-width: 1024px) {
-  .kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .charts-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .kpi-grid {
-    grid-template-columns: 1fr;
+    width: 100%;
   }
 }
 </style>

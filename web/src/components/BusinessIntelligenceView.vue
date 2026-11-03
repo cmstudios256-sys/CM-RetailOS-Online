@@ -7,11 +7,12 @@ import {
   Clock,
   Download,
   FileSpreadsheet,
+  Plus,
   Printer,
   ShoppingBag,
   X,
 } from '@lucide/vue'
-import { apiRequest, formatAxisValue, formatDate, formatMoney, formatTime } from '../api'
+import { apiRequest, formatDate, formatMoney, formatTime } from '../api'
 import { downloadCsv, escapeHtml, openPrintDocument } from '../utils/reporting'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
 import { Bar } from 'vue-chartjs'
@@ -81,20 +82,21 @@ type BusinessIntelligence = {
 
 const props = defineProps<{ currency: string; shopName: string }>()
 const periods: Period[] = ['Daily', 'Weekly', 'Monthly']
-const hourLabels = [
-  '6-8am',
-  '8-10am',
-  '10-12pm',
-  '12-2pm',
-  '2-4pm',
-  '4-6pm',
-  '6-8pm',
-  '8-10pm',
-  '10-12am',
-  '12-2am',
-  '2-4am',
-  '4-6am',
+const hourIntervals = [
+  { axisLabel: '6 AM', range: '6:00 AM – 8:00 AM', shortRange: '6–8 AM' },
+  { axisLabel: '8 AM', range: '8:00 AM – 10:00 AM', shortRange: '8–10 AM' },
+  { axisLabel: '10 AM', range: '10:00 AM – 12:00 PM', shortRange: '10–12 PM' },
+  { axisLabel: '12 PM', range: '12:00 PM – 2:00 PM', shortRange: '12–2 PM' },
+  { axisLabel: '2 PM', range: '2:00 PM – 4:00 PM', shortRange: '2–4 PM' },
+  { axisLabel: '4 PM', range: '4:00 PM – 6:00 PM', shortRange: '4–6 PM' },
+  { axisLabel: '6 PM', range: '6:00 PM – 8:00 PM', shortRange: '6–8 PM' },
+  { axisLabel: '8 PM', range: '8:00 PM – 10:00 PM', shortRange: '8–10 PM' },
+  { axisLabel: '10 PM', range: '10:00 PM – 12:00 AM', shortRange: '10 PM–12 AM' },
+  { axisLabel: '12 AM', range: '12:00 AM – 2:00 AM', shortRange: '12–2 AM' },
+  { axisLabel: '2 AM', range: '2:00 AM – 4:00 AM', shortRange: '2–4 AM' },
+  { axisLabel: '4 AM', range: '4:00 AM – 6:00 AM', shortRange: '4–6 AM' },
 ]
+
 const selectedPeriod = ref<Period>('Daily')
 const selectedDate = ref('')
 const insights = ref<BusinessIntelligence | null>(null)
@@ -104,49 +106,46 @@ const isExportDropdownOpen = ref(false)
 
 const hourBars = computed(() => {
   const counts = insights.value?.peakSalesHours ?? Array.from({ length: 12 }, () => 0)
-  return hourLabels.map((label, index) => ({
-    label,
+  return hourIntervals.map((interval, index) => ({
+    label: interval.axisLabel,
+    range: interval.range,
+    shortRange: interval.shortRange,
     count: counts[index] ?? 0,
   }))
 })
 
-const maxHourSales = computed(() => Math.max(...hourBars.value.map(item => item.count), 0))
-const hourScale = computed(() => {
-  const max = maxHourSales.value
-  if (max <= 4) return 4
-  return Math.ceil(max / 4) * 4
+const peakHourIndex = computed(() => {
+  let bestIdx = -1
+  let maxCount = 0
+  hourBars.value.forEach((item, idx) => {
+    if (item.count > maxCount) {
+      maxCount = item.count
+      bestIdx = idx
+    }
+  })
+  return bestIdx
 })
-const hourTicks = computed(() => [
-  hourScale.value,
-  hourScale.value * 0.75,
-  hourScale.value * 0.5,
-  hourScale.value * 0.25,
-  0,
-])
+
+const peakHourInfo = computed(() => {
+  if (peakHourIndex.value === -1) return null
+  return hourBars.value[peakHourIndex.value]
+})
 
 const profitableProducts = computed(() => insights.value?.mostProfitableProducts ?? [])
-const maxProductProfit = computed(() =>
-  Math.max(...profitableProducts.value.map(item => Math.max(item.profit, 0)), 0),
-)
-const profitScale = computed(() => {
-  const max = maxProductProfit.value
-  if (max <= 0) return 100
-  const magnitude = 10 ** Math.floor(Math.log10(max))
-  const normalized = max / magnitude
-  if (normalized <= 1) return 1 * magnitude
-  if (normalized <= 2) return 2 * magnitude
-  if (normalized <= 5) return 5 * magnitude
-  return 10 * magnitude
+
+const topProfitableProducts = computed(() => {
+  return profitableProducts.value
+    .slice()
+    .sort((a, b) => b.profit - a.profit)
+    .slice(0, 8)
 })
-const profitTicks = computed(() => [
-  profitScale.value,
-  profitScale.value * 0.75,
-  profitScale.value * 0.5,
-  profitScale.value * 0.25,
-  0,
-])
 
 const basketPairs = computed(() => insights.value?.marketBasket ?? [])
+
+const maxBasketFrequency = computed(() => {
+  if (!basketPairs.value.length) return 1
+  return Math.max(...basketPairs.value.map(item => item.frequency), 1)
+})
 
 const mobilePeakHours = computed(() =>
   hourBars.value
@@ -168,47 +167,194 @@ const mobileProductMax = computed(() =>
 )
 
 const isLightMode = computed(() => document.documentElement.getAttribute('data-theme') === 'light')
-const currentAccentColor = computed(() => getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#0ea5e9')
 
 const salesByHourData = computed(() => ({
-  labels: hourLabels,
+  labels: hourIntervals.map(i => i.axisLabel),
   datasets: [
     {
       label: 'Sales Count',
-      backgroundColor: currentAccentColor.value,
-      borderColor: currentAccentColor.value,
+      backgroundColor: (context: any) => {
+        const chart = context.chart
+        const { ctx, chartArea } = chart
+        if (!chartArea) return '#0ea5e9'
+        const count = context.raw ?? 0
+        const isPeak = context.dataIndex === peakHourIndex.value && count > 0
+        if (isPeak) {
+          const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top)
+          gradient.addColorStop(0, 'rgba(217, 119, 6, 0.4)')
+          gradient.addColorStop(1, '#f59e0b')
+          return gradient
+        }
+        const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top)
+        gradient.addColorStop(0, 'rgba(14, 165, 233, 0.25)')
+        gradient.addColorStop(1, '#38bdf8')
+        return gradient
+      },
+      hoverBackgroundColor: (context: any) => {
+        const count = context.raw ?? 0
+        return context.dataIndex === peakHourIndex.value && count > 0 ? '#fbbf24' : '#0ea5e9'
+      },
+      borderColor: (context: any) => {
+        const count = context.raw ?? 0
+        return context.dataIndex === peakHourIndex.value && count > 0 ? '#f59e0b' : '#38bdf8'
+      },
       borderWidth: 1,
-      borderRadius: 4,
+      borderRadius: { topLeft: 6, topRight: 6 },
+      borderSkipped: 'bottom' as const,
+      barPercentage: 0.6,
+      categoryPercentage: 0.75,
       data: hourBars.value.map(item => item.count),
     },
   ],
 }))
 
 const mostProfitableProductsData = computed(() => {
-  const data = profitableProducts.value.map(p => p.profit)
-  const labels = profitableProducts.value.map(p => p.name)
+  const list = topProfitableProducts.value
   return {
-    labels,
+    labels: list.map(p => p.name),
     datasets: [
       {
         label: 'Total Profit',
-        backgroundColor: currentAccentColor.value + 'B3',
-        borderColor: currentAccentColor.value,
+        backgroundColor: (context: any) => {
+          const chart = context.chart
+          const { ctx, chartArea } = chart
+          if (!chartArea) return '#10b981'
+          const gradient = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0)
+          gradient.addColorStop(0, 'rgba(16, 185, 129, 0.45)')
+          gradient.addColorStop(1, '#10b981')
+          return gradient
+        },
+        hoverBackgroundColor: '#10b981',
+        borderColor: '#10b981',
         borderWidth: 1,
-        borderRadius: 4,
-        data,
+        borderRadius: { topRight: 6, bottomRight: 6 },
+        borderSkipped: 'left' as const,
+        barPercentage: 0.65,
+        categoryPercentage: 0.8,
+        data: list.map(p => p.profit),
       },
     ],
   }
 })
 
+const salesCountChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  layout: {
+    padding: {
+      top: 10,
+      bottom: 4,
+      left: 4,
+      right: 4,
+    },
+  },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      enabled: false,
+      external: externalChartTooltipHandler,
+      callbacks: {
+        title: (items: any) => {
+          const idx = items[0]?.dataIndex ?? 0
+          return hourIntervals[idx]?.range ?? items[0]?.label
+        },
+        label: (context: any) => {
+          const count = Number(context.parsed?.y ?? 0)
+          const isPeak = context.dataIndex === peakHourIndex.value && count > 0
+          return `Sales: ${count.toLocaleString()} transactions${isPeak ? ' (🔥 Peak Rush)' : ''}`
+        },
+      },
+    },
+  },
+  scales: {
+    x: {
+      grid: { display: false },
+      border: { display: false },
+      ticks: {
+        color: isLightMode.value ? '#64748b' : '#94a3b8',
+        font: { size: 10.5, weight: 'normal' as const },
+        maxRotation: 0,
+        minRotation: 0,
+        autoSkip: true,
+        maxTicksLimit: 12,
+        padding: 8,
+      },
+    },
+    y: {
+      beginAtZero: true,
+      grid: {
+        color: isLightMode.value ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
+        borderDash: [3, 4],
+        drawTicks: false,
+      },
+      border: { display: false },
+      ticks: {
+        color: isLightMode.value ? '#64748b' : '#94a3b8',
+        font: { size: 11 },
+        padding: 6,
+        callback: (value: number | string) => {
+          const num = Number(value)
+          if (num % 1 !== 0) return ''
+          return `${num}`
+        },
+      },
+    },
+  },
+}))
+
+const profitBarChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  indexAxis: 'y' as const,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      enabled: false,
+      external: externalChartTooltipHandler,
+      callbacks: {
+        label: (context: any) => `Profit: ${props.currency} ${(context.parsed?.x ?? 0).toLocaleString()}`,
+      },
+    },
+  },
+  scales: {
+    y: {
+      grid: { display: false },
+      border: { display: false },
+      ticks: {
+        color: isLightMode.value ? '#334155' : '#cbd5e1',
+        font: { size: 11, weight: 500 },
+        autoSkip: false,
+      },
+    },
+    x: {
+      beginAtZero: true,
+      grid: {
+        color: isLightMode.value ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
+        borderDash: [3, 4],
+        drawTicks: false,
+      },
+      border: { display: false },
+      ticks: {
+        color: isLightMode.value ? '#64748b' : '#94a3b8',
+        font: { size: 10 },
+        callback: (value: number | string) => {
+          const num = Number(value)
+          if (num >= 1000000) return `${props.currency} ${num / 1000000}M`
+          if (num >= 1000) return `${props.currency} ${num / 1000}k`
+          return `${num}`
+        },
+      },
+    },
+  },
+}))
+
 const mobileSalesByHourData = computed(() => ({
-  labels: mobilePeakHours.value.map(item => item.label),
+  labels: mobilePeakHours.value.map(item => item.shortRange || item.label),
   datasets: [{
     label: 'Sales',
     data: mobilePeakHours.value.map(item => item.count),
-    backgroundColor: currentAccentColor.value,
-    borderColor: currentAccentColor.value,
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0ea5e9',
     borderRadius: 4,
     borderSkipped: false,
     barThickness: 22,
@@ -222,8 +368,8 @@ const mobileProfitableProductsData = computed(() => ({
   datasets: [{
     label: 'Profit',
     data: mobileProfitableProducts.value.map(item => item.profit),
-    backgroundColor: currentAccentColor.value,
-    borderColor: currentAccentColor.value,
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
     borderRadius: 4,
     borderSkipped: false,
     barThickness: 22,
@@ -283,85 +429,6 @@ const mobilePeakChartOptions = computed(() => {
   }
 })
 
-const salesCountChartOptions = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      enabled: false,
-      external: externalChartTooltipHandler,
-      callbacks: {
-        label: (context: any) => `Sales: ${context.parsed?.y ?? 0}`,
-      },
-    },
-  },
-  scales: {
-    x: {
-      grid: { color: isLightMode.value ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)' },
-      ticks: {
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
-        font: { size: 10 },
-      },
-    },
-    y: {
-      grid: { color: isLightMode.value ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)' },
-      ticks: {
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
-        font: { size: 11 },
-        callback: (value: number | string) => {
-          if (typeof value === 'number') {
-            if (value % 1 !== 0) return ''
-            if (value >= 1000000) return `${value / 1000000}M`
-            if (value >= 1000) return `${value / 1000}k`
-            return `${value}`
-          }
-          return value
-        },
-      },
-    },
-  },
-}))
-
-const profitBarChartOptions = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      enabled: false,
-      external: externalChartTooltipHandler,
-      callbacks: {
-        label: (context: any) => `Profit: ${props.currency} ${(context.parsed?.y ?? 0).toLocaleString()}`,
-      },
-    },
-  },
-  scales: {
-    x: {
-      grid: { color: isLightMode.value ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)' },
-      ticks: {
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
-        font: { size: 10 },
-      },
-    },
-    y: {
-      grid: { color: isLightMode.value ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)' },
-      ticks: {
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
-        font: { size: 11 },
-        callback: (value: number | string) => {
-          if (typeof value === 'number') {
-            if (value >= 1000000) return `${props.currency} ${value / 1000000}M`
-            if (value >= 1000) return `${props.currency} ${value / 1000}k`
-            return `${props.currency} ${value}`
-          }
-          return value
-        },
-      },
-    },
-  },
-}))
-
 function toggleExportDropdown() {
   isExportDropdownOpen.value = !isExportDropdownOpen.value
 }
@@ -378,7 +445,7 @@ function exportCsv() {
   isExportDropdownOpen.value = false
   const rows: Array<Array<string | number>> = [
     ['Peak Sales Window', 'Number of Sales', 'Period'],
-    ...hourBars.value.map(item => [item.label, item.count, selectedPeriod.value]),
+    ...hourBars.value.map(item => [item.range || item.label, item.count, selectedPeriod.value]),
     [],
     ['Most Profitable Product', `Total Profit (${props.currency})`, 'Period'],
     ...profitableProducts.value.map(item => [item.name, item.profit, selectedPeriod.value]),
@@ -393,7 +460,7 @@ function printReport() {
   if (!insights.value) return
   isExportDropdownOpen.value = false
   const hourRows = hourBars.value.map(item => `
-    <tr><td>${escapeHtml(item.label)}</td><td class="num">${item.count}</td></tr>
+    <tr><td>${escapeHtml(item.range || item.label)}</td><td class="num">${item.count}</td></tr>
   `).join('')
   const productRows = profitableProducts.value.map(item => `
     <tr><td>${escapeHtml(item.name)}</td><td class="num">${escapeHtml(formatMoney(item.profit, props.currency))}</td></tr>
@@ -452,12 +519,13 @@ onUnmounted(() => {
 
     <!-- Header Controls -->
     <div class="section-header">
-      <div class="header-left">
+      <div class="header-left-title">
         <h2 class="section-title">Business Intelligence Overview</h2>
+        <p class="section-subtitle">Cross-sectional transaction density, margin leadership & affinity analytics</p>
       </div>
       <div class="export-dropdown-container">
         <button type="button" class="export-btn" @click.stop="toggleExportDropdown">
-          <Download :size="16" />
+          <Download :size="15" />
           <span>Export Report</span>
           <ChevronDown :size="14" :class="{ rotate: isExportDropdownOpen }" class="chevron-icon" />
         </button>
@@ -480,14 +548,25 @@ onUnmounted(() => {
       </div>
     </div>
 
+
     <!-- Main Grid -->
     <div class="bi-grid">
       <!-- Peak Sales Hours -->
-      <div class="card">
+      <div class="card bi-chart-card">
         <div class="card-header">
           <div class="header-left">
-            <Clock :size="20" class="card-icon" style="color: #0ea5e9;" />
-            <h3 class="card-title">Peak Sales Hours</h3>
+            <div class="card-icon-box icon-cyan">
+              <Clock :size="18" />
+            </div>
+            <div>
+              <div class="card-title-row">
+                <h3 class="card-title">Peak Sales Hours</h3>
+                <span v-if="peakHourInfo && peakHourInfo.count > 0" class="peak-badge">
+                  <span class="peak-dot"></span> Peak: {{ peakHourInfo.shortRange }}
+                </span>
+              </div>
+              <p class="card-subtitle">Transaction distribution across 2-hour intervals</p>
+            </div>
           </div>
           <div class="bi-controls-right">
             <div class="time-range-selector">
@@ -523,7 +602,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="chart-container" style="position: relative; height: 100%; min-height: 240px;">
+        <div class="chart-container" style="position: relative; height: 100%; min-height: 250px;">
           <Bar v-if="!isPhone" :data="salesByHourData" :options="salesCountChartOptions" />
           <Bar
             v-else-if="mobilePeakHours.length"
@@ -534,16 +613,24 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Most Profitable Products -->
-      <div class="card">
+      <!-- Most Profitable Products (Horizontal Bar Chart) -->
+      <div class="card bi-chart-card">
         <div class="card-header">
           <div class="header-left">
-            <Award :size="20" class="card-icon" style="color: #22c55e;" />
-            <h3 class="card-title">Most Profitable Products</h3>
+            <div class="card-icon-box icon-green">
+              <Award :size="18" />
+            </div>
+            <div>
+              <h3 class="card-title">Most Profitable Products</h3>
+              <p class="card-subtitle">Margin leadership ranked across catalog</p>
+            </div>
           </div>
+          <span v-if="topProfitableProducts.length" class="bi-pill-badge">
+            Top {{ topProfitableProducts.length }} Leaders
+          </span>
         </div>
 
-        <div class="chart-container" style="position: relative; height: 100%; min-height: 240px;">
+        <div class="chart-container" style="position: relative; height: 100%; min-height: 250px;">
           <div v-if="isPhone && !mobileProfitableProducts.length" class="empty-chart-state">
             No profitable product sales recorded for this period.
           </div>
@@ -565,41 +652,77 @@ onUnmounted(() => {
               </div>
             </div>
           </div>
-          <div v-else-if="!profitableProducts.length" class="empty-chart-state">
+          <div v-else-if="!topProfitableProducts.length" class="empty-chart-state">
             No profitable product sales recorded for this period.
           </div>
           <Bar v-else :data="mostProfitableProductsData" :options="profitBarChartOptions" />
         </div>
       </div>
 
-      <!-- Frequently Bought Together -->
-      <div v-if="!isPhone" class="card full-width">
+      <!-- Frequently Bought Together (Market Basket) -->
+      <div v-if="!isPhone" class="card full-width market-basket-card">
         <div class="card-header">
           <div class="header-left">
-            <ShoppingBag :size="20" class="card-icon" style="color: #a855f7;" />
-            <h3 class="card-title">Frequently Bought Together (Market Basket)</h3>
+            <div class="card-icon-box icon-purple">
+              <ShoppingBag :size="18" />
+            </div>
+            <div>
+              <h3 class="card-title">Frequently Bought Together (Market Basket)</h3>
+              <p class="card-subtitle">Product affinity pairings discovered through multi-item transaction co-occurrence</p>
+            </div>
           </div>
+          <span v-if="basketPairs.length" class="bi-pill-badge">
+            {{ basketPairs.length }} High Affinity Pairs
+          </span>
         </div>
-        <div class="table-container" style="flex: 1; min-height: 0; overflow-y: auto;">
-          <table>
-            <thead>
-              <tr>
-                <th class="text-center">Product Pair</th>
-                <th class="text-center">Purchase Frequency</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="!basketPairs.length">
-                <td colspan="2" class="empty-message">Not enough multi-item sales data to determine pairs yet.</td>
-              </tr>
-              <tr v-for="(item, index) in basketPairs" :key="index" style="height: 38px;">
-                <td class="text-center font-medium text-slate-200">
-                  <span class="product-pair-badge">{{ item.pair[0] }}</span> + <span class="product-pair-badge">{{ item.pair[1] }}</span>
-                </td>
-                <td class="text-center font-semibold">{{ item.frequency }} times</td>
-              </tr>
-            </tbody>
-          </table>
+
+        <div class="basket-table-wrapper">
+          <div v-if="!basketPairs.length" class="empty-basket-state">
+            <ShoppingBag :size="32" class="empty-icon" />
+            <p class="empty-title">Not enough multi-item transaction data yet</p>
+            <span class="empty-sub">Affinity pairings appear automatically when customers purchase 2 or more items in the same sale.</span>
+          </div>
+
+          <div v-else class="basket-pairs-list">
+            <div
+              v-for="(item, index) in basketPairs"
+              :key="index"
+              class="basket-pair-row"
+            >
+              <div class="basket-rank">
+                <span class="rank-badge" :class="`rank-${index + 1}`">#{{ index + 1 }}</span>
+              </div>
+
+              <div class="basket-combo-col">
+                <span class="product-item-badge">{{ item.pair[0] }}</span>
+                <div class="combo-connector">
+                  <Plus :size="13" />
+                </div>
+                <span class="product-item-badge">{{ item.pair[1] }}</span>
+              </div>
+
+              <div class="basket-strength-col">
+                <div class="strength-track">
+                  <div
+                    class="strength-fill"
+                    :style="{ width: `${(item.frequency / maxBasketFrequency) * 100}%` }"
+                  />
+                </div>
+              </div>
+
+              <div class="basket-frequency-col">
+                <span class="frequency-pill">
+                  <strong>{{ item.frequency }}</strong> co-purchases
+                </span>
+              </div>
+
+              <div class="basket-action-col">
+                <span class="affinity-tag" :class="index < 2 ? 'tag-strong' : 'tag-moderate'">
+                  {{ index < 2 ? 'Strong Affinity' : 'Frequent Combo' }}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -613,9 +736,12 @@ onUnmounted(() => {
   flex: 1;
   height: 100%;
   min-height: 0;
-  gap: 0.75rem;
+  gap: 12px;
 }
 
+/* ==========================================================================
+   Header Row
+   ========================================================================== */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -625,11 +751,23 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.header-left-title {
+  display: flex;
+  flex-direction: column;
+}
+
 .section-title {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.section-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.775rem;
+  color: var(--text-muted);
 }
 
 .export-dropdown-container {
@@ -637,21 +775,24 @@ onUnmounted(() => {
 }
 
 .export-btn {
-  background-color: var(--accent-color);
+  background-color: var(--accent-color, #0ea5e9);
   color: #ffffff;
-  font-weight: 500;
-  font-size: 0.85rem;
-  padding: 0.55rem 1rem;
-  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.825rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+  transition: all 0.18s ease;
 }
 
 .export-btn:hover {
-  background-color: var(--accent-hover);
+  background-color: var(--accent-hover, #0284c7);
+  box-shadow: 0 6px 16px rgba(14, 165, 233, 0.35);
 }
 
 .chevron-icon {
@@ -664,13 +805,13 @@ onUnmounted(() => {
 
 .export-dropdown-menu {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + 0.4rem);
   right: 0;
   width: 220px;
   background-color: var(--bg-sidebar);
   border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
   padding: 0.4rem;
   z-index: 50;
   display: flex;
@@ -683,13 +824,14 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: 6px;
   background: transparent;
   border: none;
   color: var(--text-primary);
   cursor: pointer;
   text-align: left;
   width: 100%;
+  transition: background-color 0.15s ease;
 }
 
 .dropdown-item:hover {
@@ -705,7 +847,7 @@ onUnmounted(() => {
 }
 
 .item-title {
-  font-size: 0.85rem;
+  font-size: 0.825rem;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -715,11 +857,58 @@ onUnmounted(() => {
   color: var(--text-muted);
 }
 
+.card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.peak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  letter-spacing: 0.02em;
+}
+
+.peak-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+}
+
+.icon-cyan {
+  background-color: rgba(14, 165, 233, 0.12);
+  color: #38bdf8;
+}
+
+.icon-green {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.icon-purple {
+  background-color: rgba(168, 85, 247, 0.12);
+  color: #c084fc;
+}
+
+/* ==========================================================================
+   BI Grid
+   ========================================================================== */
 .bi-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: minmax(220px, 1.15fr) minmax(170px, 0.85fr);
-  gap: 0.75rem;
+  grid-template-rows: minmax(280px, 1.2fr) minmax(220px, 1fr);
+  gap: 12px;
   flex: 1;
   min-height: 0;
 }
@@ -756,11 +945,37 @@ onUnmounted(() => {
   gap: 0.75rem;
 }
 
+.card-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .card-title {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 0.975rem;
+  font-weight: 700;
   color: var(--text-primary);
+}
+
+.card-subtitle {
+  margin: 1px 0 0;
+  font-size: 0.725rem;
+  color: var(--text-muted);
+}
+
+.bi-pill-badge {
+  font-size: 0.725rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(14, 165, 233, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.2);
 }
 
 .bi-controls-right {
@@ -772,9 +987,9 @@ onUnmounted(() => {
 .time-range-selector {
   display: flex;
   background-color: var(--bg-sidebar);
-  border-radius: 0.4rem;
-  padding: 0.15rem;
-  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.2rem;
+  border: 1px solid var(--border-subtle);
 }
 
 .time-range-selector button {
@@ -782,15 +997,21 @@ onUnmounted(() => {
   border: none;
   color: var(--text-muted);
   padding: 0.25rem 0.65rem;
-  border-radius: 0.25rem;
-  font-weight: 500;
-  font-size: 0.75rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.775rem;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.time-range-selector button:hover {
+  color: var(--text-primary);
 }
 
 .time-range-selector button.active {
   background-color: var(--bg-surface);
-  color: var(--text-primary);
+  color: #38bdf8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .date-filter-wrapper {
@@ -802,19 +1023,25 @@ onUnmounted(() => {
 .filter-btn {
   background-color: var(--bg-sidebar);
   color: var(--text-secondary);
-  padding: 0.35rem;
-  border-radius: 0.4rem;
-  border: 1px solid var(--border-color);
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
+  transition: all 0.15s ease;
+}
+
+.filter-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-color);
 }
 
 .date-picker-btn.active-filter {
-  border-color: var(--accent-color);
+  border-color: rgba(14, 165, 233, 0.5);
   color: #38bdf8;
   background-color: rgba(14, 165, 233, 0.1);
 }
@@ -832,10 +1059,12 @@ onUnmounted(() => {
   background-color: rgba(239, 68, 68, 0.1);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 0.4rem;
-  padding: 0.35rem;
+  border-radius: 6px;
+  padding: 0.4rem;
   cursor: pointer;
   display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .clear-date-btn:hover {
@@ -843,21 +1072,9 @@ onUnmounted(() => {
   color: #ffffff;
 }
 
-/* Vertical Bar Chart */
-.chart-phone-hint {
-  margin: 0;
-  width: 100%;
-  min-height: 240px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  text-align: center;
-}
 .chart-container {
   flex: 1;
-  min-height: 160px;
+  min-height: 200px;
   position: relative;
 }
 
@@ -867,173 +1084,219 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
 }
 
-.vbar-chart {
-  height: 100%;
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 0.65rem;
-}
-
-.vbar-y-axis {
+/* ==========================================================================
+   Market Basket Pairs List
+   ========================================================================== */
+.market-basket-card {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding-bottom: 26px;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  text-align: right;
 }
 
-.vbar-canvas {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+.basket-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.vbar-grid-lines {
-  position: absolute;
-  inset: 0 0 26px 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  pointer-events: none;
-}
-
-.vbar-grid-line {
-  width: 100%;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-}
-
-.vbar-columns {
-  position: relative;
-  z-index: 1;
-  flex-grow: 1;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  gap: 0.45rem;
-  align-items: stretch;
-}
-
-.vbar-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100%;
-  min-width: 0;
-}
-
-.vbar-track {
-  flex-grow: 1;
-  width: 100%;
-  max-width: 34px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.vbar-fill {
-  width: 100%;
-  border-radius: 4px 4px 0 0;
-  transition: height 0.25s ease;
-}
-
-.vbar-fill.sky {
-  background-color: #0ea5e9;
-}
-
-.vbar-fill.green {
-  background-color: #22c55e;
-}
-
-.vbar-label {
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.68rem;
-  color: var(--text-muted);
+.empty-basket-state {
+  padding: 2.5rem;
   text-align: center;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
 }
 
-.truncate-label {
+.empty-icon {
+  margin-bottom: 0.75rem;
+  opacity: 0.4;
+}
+
+.empty-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 0.25rem;
+}
+
+.empty-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.basket-pairs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.basket-pair-row {
+  display: grid;
+  grid-template-columns: 44px minmax(280px, 1.8fr) minmax(120px, 1fr) 140px 140px;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.03);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.15s ease;
+}
+
+.basket-pair-row:hover {
+  background: rgba(148, 163, 184, 0.07);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.basket-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rank-badge {
+  font-size: 0.725rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-muted);
+}
+
+.rank-badge.rank-1 {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.rank-badge.rank-2 {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.rank-badge.rank-3 {
+  background: rgba(14, 165, 233, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.3);
+}
+
+.basket-combo-col {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.product-item-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  display: block;
-  line-height: 26px;
 }
 
-/* Table */
-.table-container {
-  overflow-x: auto;
+.combo-connector {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-table {
+.basket-strength-col {
+  display: flex;
+  align-items: center;
+}
+
+.strength-track {
   width: 100%;
-  min-width: 520px;
-  border-collapse: separate;
-  border-spacing: 0;
-  color: var(--text-secondary);
-  background-color: var(--bg-sidebar);
-  border-top: 1px solid var(--border-subtle);
-  border-left: 1px solid var(--border-subtle);
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.12);
+  overflow: hidden;
 }
 
-th,
-td {
-  padding: 0.45rem 0.75rem;
+.strength-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #0ea5e9, #a855f7);
+  transition: width 0.5s ease;
+}
+
+.basket-frequency-col {
   text-align: center;
-  border-bottom: 1px solid var(--border-subtle);
-  border-right: 1px solid var(--border-subtle);
-  white-space: nowrap;
-  vertical-align: middle;
-  font-size: 0.825rem;
 }
 
-th {
-  position: sticky;
-  top: 0;
-  background-color: var(--bg-surface);
-  z-index: 10;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-tbody tr:hover {
-  background-color: var(--bg-surface);
-}
-
-.font-medium { font-weight: 500; }
-.font-semibold { font-weight: 600; }
-.text-slate-200 { color: var(--text-primary); }
-.text-center { text-align: center; }
-
-.product-pair-badge {
-  background-color: var(--bg-surface);
-  padding: 0.25rem 0.6rem;
-  border-radius: 0.375rem;
-  font-size: 0.825rem;
-  border: 1px solid var(--border-color);
+.frequency-pill {
+  font-size: 0.775rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  padding: 0.2rem 0.6rem;
+  border-radius: 5px;
+  border: 1px solid var(--border-subtle);
   display: inline-block;
 }
 
-.empty-message {
-  text-align: center;
-  padding: 1.5rem;
-  color: var(--text-muted);
+.frequency-pill strong {
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
+.basket-action-col {
+  text-align: right;
+}
+
+.affinity-tag {
+  font-size: 0.725rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.tag-strong {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.tag-moderate {
+  background: rgba(14, 165, 233, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.2);
+}
+
+/* ==========================================================================
+   Responsive Breakpoints
+   ========================================================================== */
 @media (max-width: 1024px) {
   .bi-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .basket-pair-row {
+    grid-template-columns: 36px 1fr auto;
+    gap: 0.5rem;
+  }
+
+  .basket-strength-col,
+  .basket-action-col {
+    display: none;
   }
 }
 
@@ -1058,12 +1321,12 @@ tbody tr:hover {
 
   .time-range-selector button {
     flex: 1;
-    min-height: 44px;
+    min-height: 40px;
   }
 
   .date-picker-btn {
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 40px;
   }
 
   .mobile-profit-bar-list {
@@ -1113,29 +1376,6 @@ tbody tr:hover {
     max-width: 100%;
     border-radius: 5px;
     background: var(--accent-color, #0ea5e9);
-  }
-
-  .full-width,
-  .full-width .table-container {
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .full-width .table-container {
-    overflow-x: hidden;
-  }
-
-  .full-width table {
-    width: 100%;
-    table-layout: fixed;
-  }
-
-  .full-width th,
-  .full-width td {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
   }
 }
 </style>

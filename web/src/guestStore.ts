@@ -402,6 +402,7 @@ function dashboardFor(state: GuestState, url: URL) {
     return { label, sales: 0, profit: 0 }
   })
   const productTotals = new Map<number, { name: string; quantitySold: number; revenue: number }>()
+  const categoryTotals = new Map<string, number>()
   for (const sale of selected) {
     const completed = new Date(sale.completedAt)
     const index = period === 'Daily'
@@ -415,6 +416,11 @@ function dashboardFor(state: GuestState, url: URL) {
       current.quantitySold += item.quantity
       current.revenue += item.lineTotal
       productTotals.set(item.productId, current)
+
+      const prod = productById(state, item.productId)
+      const cat = prod?.category?.trim() || 'General'
+      const itemProfit = item.lineTotal - item.quantity * item.unitCost - (sale.subtotal > 0 ? (sale.discount * item.lineTotal) / sale.subtotal : 0)
+      categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + itemProfit)
     }
   }
   const todayStart = new Date(now)
@@ -437,7 +443,10 @@ function dashboardFor(state: GuestState, url: URL) {
     unitsSold: selected.reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0),
     chart,
     topProducts: [...productTotals.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5),
-    profitByCategory: [],
+    profitByCategory: [...categoryTotals.entries()]
+      .map(([name, value]) => ({ name, value: Math.max(0, Math.round(value)) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6),
   }
 }
 

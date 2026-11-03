@@ -15,3 +15,8 @@ coverage/
 Thumbs.db
 go.work
 go.work.sum
+
+.agents/
+.claude/
+agent/
+skills-lock.json
