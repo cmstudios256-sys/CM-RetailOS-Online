@@ -2223,5 +2223,42 @@ onUnmounted(() => {
   .view-switcher {
     display: none;
   }
+
+  .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .product-card {
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .product-card .product-name {
+    font-size: 12px;
+  }
+
+  .product-card .product-category {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .product-card-body {
+    gap: 6px;
+  }
+
+  .product-image-small {
+    width: 64px;
+    height: 64px;
+    flex-basis: 64px;
+  }
+
+  .fallback-icon {
+    width: 36px;
+    height: 36px;
+  }
 }
 </style>
