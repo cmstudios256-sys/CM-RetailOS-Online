@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { MessageCircle, Share2, X } from '@lucide/vue'
+import { MessageCircle, Share2, X, Printer, Bluetooth } from '@lucide/vue'
 import { formatDate, formatMoney, formatQuantity, formatTime, type Sale } from '../api'
 import { receiptNumber } from '../utils/reporting'
+import {
+  getDefaultBluetoothPrinter,
+  buildEscPosReceipt,
+  sendToBluetoothPrinter,
+} from '../utils/bluetoothPrinter'
 
 const props = defineProps<{
   sale: Sale | null
@@ -12,6 +17,8 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 const phone = ref('')
 const error = ref('')
+const isPrintingBt = ref(false)
+const btSuccessMsg = ref('')
 
 const receiptText = computed(() => {
   const sale = props.sale
@@ -53,7 +60,36 @@ const canUseNativeShare = computed(() =>
 watch(() => props.sale, () => {
   phone.value = ''
   error.value = ''
+  btSuccessMsg.value = ''
 })
+
+async function printWithBluetooth() {
+  if (!props.sale) return
+  error.value = ''
+  btSuccessMsg.value = ''
+  const printer = getDefaultBluetoothPrinter()
+  if (!printer) {
+    error.value = 'No Bluetooth thermal printer configured. Connect your 58mm/80mm printer in More > Settings > Receipt & Printing.'
+    return
+  }
+  isPrintingBt.value = true
+  try {
+    const bytes = buildEscPosReceipt(props.sale, {
+      shopName: props.shopName,
+      currency: props.currency,
+      paperWidth: printer.paperWidth || '58mm',
+    })
+    const res = await sendToBluetoothPrinter(printer, bytes)
+    btSuccessMsg.value = res.message || `Receipt sent to ${printer.name}!`
+    window.setTimeout(() => {
+      emit('close')
+    }, 1500)
+  } catch (err: any) {
+    error.value = err.message || 'Failed to print to Bluetooth printer.'
+  } finally {
+    isPrintingBt.value = false
+  }
+}
 
 function openWhatsApp() {
   if (!validPhone.value || !whatsappUrl.value) {
@@ -112,6 +148,21 @@ async function shareWithDevice() {
         Used only to open WhatsApp for this receipt; the number is not saved.
       </p>
       <p v-if="error" class="mobile-share-error" role="alert">{{ error }}</p>
+      <p v-if="btSuccessMsg" class="mobile-share-success" role="status">{{ btSuccessMsg }}</p>
+
+      <button
+        type="button"
+        class="mobile-share-bluetooth"
+        :disabled="isPrintingBt"
+        @click="printWithBluetooth"
+      >
+        <Printer :size="18" />
+        {{ isPrintingBt ? 'Printing via Bluetooth...' : 'Print (Bluetooth Thermal)' }}
+      </button>
+
+      <div class="mobile-share-divider">
+        <span>OR SHARE</span>
+      </div>
 
       <button type="button" class="mobile-share-primary" :disabled="!validPhone" @click="openWhatsApp">
         <MessageCircle :size="18" />
@@ -247,6 +298,70 @@ async function shareWithDevice() {
   font-size: 13px;
 }
 
+.mobile-share-success {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  color: #86efac;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.mobile-share-bluetooth {
+  width: 100%;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  box-sizing: border-box;
+  background: #0284c7;
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+  transition: all 0.15s ease-out;
+}
+
+.mobile-share-bluetooth:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.mobile-share-bluetooth:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mobile-share-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 16px 0 12px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.mobile-share-divider::before,
+.mobile-share-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.mobile-share-divider span {
+  padding: 0 10px;
+}
+
 .mobile-share-primary,
 .mobile-share-secondary {
   width: 100%;
@@ -345,6 +460,33 @@ async function shareWithDevice() {
 [data-theme='light'] .mobile-share-error {
   color: #dc2626;
   font-weight: 600;
+}
+
+[data-theme='light'] .mobile-share-success {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+[data-theme='light'] .mobile-share-bluetooth {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border: 1px solid #0284c7;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+}
+
+[data-theme='light'] .mobile-share-bluetooth:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
+}
+
+[data-theme='light'] .mobile-share-divider {
+  color: #64748b;
+}
+
+[data-theme='light'] .mobile-share-divider::before,
+[data-theme='light'] .mobile-share-divider::after {
+  border-bottom: 1px solid #e2e8f0;
 }
 
 [data-theme='light'] .mobile-share-primary {

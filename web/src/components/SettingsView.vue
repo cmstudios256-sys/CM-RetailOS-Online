@@ -4,6 +4,7 @@ import {
   Building,
   Palette,
   Printer,
+  Bluetooth,
   ShoppingCart,
   Info,
   Search,
@@ -33,6 +34,12 @@ import {
 } from '@lucide/vue'
 import { apiRequest, formatTime, getComplementaryColor, syncOnlinePrefsFromServer } from '../api'
 import { openPrintDocument, escapeHtml } from '../utils/reporting'
+import {
+  requestWebBluetoothDevice,
+  buildEscPosTestPrint,
+  sendToBluetoothPrinter,
+  isWebBluetoothSupported,
+} from '../utils/bluetoothPrinter'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import CustomSelect from './CustomSelect.vue'
 
@@ -516,8 +523,36 @@ const printerToDelete = ref<PrinterConfig | null>(null)
 
 const selectedPaperWidth = computed(() => {
   const defaultPrinter = configuredPrinters.value.find(p => p.isDefault) || configuredPrinters.value[0]
-  return defaultPrinter?.paperWidth || appSettings.value.receiptsSettings.paperWidth || '80mm'
+  return defaultPrinter?.paperWidth || appSettings.value.receiptsSettings.paperWidth || (isPhone.value ? '58mm' : '80mm')
 })
+
+const displayedPrinters = computed(() => {
+  if (isPhone.value) {
+    return configuredPrinters.value.filter(p => p.connectionType === 'bluetooth')
+  }
+  return configuredPrinters.value
+})
+
+const isPairingBluetooth = ref(false)
+
+async function handlePairBluetooth() {
+  isPairingBluetooth.value = true
+  try {
+    const dev = await requestWebBluetoothDevice()
+    if (dev) {
+      printerForm.value.name = dev.name
+      printerForm.value.address = dev.id || dev.name
+      printerForm.value.connectionType = 'bluetooth'
+      printerForm.value.paperWidth = '58mm'
+      printerForm.value.characterWidth = 32
+      showToast('success', `Connected to ${dev.name}.`)
+    }
+  } catch (err: any) {
+    showToast('error', err.message || 'Bluetooth connection failed.')
+  } finally {
+    isPairingBluetooth.value = false
+  }
+}
 
 const printerForm = ref<PrinterConfig>({
   id: '',
@@ -559,6 +594,7 @@ function savePrintersToStorage() {
   try {
     localStorage.setItem(LOCAL_PRINTERS_KEY, JSON.stringify(configuredPrinters.value))
     localStorage.setItem(LOCAL_JOBS_KEY, JSON.stringify(printJobs.value))
+    window.dispatchEvent(new CustomEvent('online-printers-updated'))
   } catch {
     // ignore storage errors
   }
@@ -584,15 +620,17 @@ function selectDiscoveredPrinter(dp: { name: string; port: string; connectionTyp
 
 function openAddPrinter() {
   isEditingPrinter.value = false
+  const defaultConn = isPhone.value ? 'bluetooth' : 'winraw'
+  const defaultWidth = isPhone.value ? '58mm' : '80mm'
   printerForm.value = {
     id: `prn-${Date.now()}`,
-    name: '',
+    name: isPhone.value ? 'POS-58 Bluetooth Thermal Printer' : '',
     protocol: 'escpos',
-    connectionType: 'winraw',
-    address: '',
-    paperWidth: '80mm',
-    characterWidth: 48,
-    isDefault: configuredPrinters.value.length === 0,
+    connectionType: defaultConn,
+    address: isPhone.value ? 'POS-58' : '',
+    paperWidth: defaultWidth,
+    characterWidth: defaultWidth === '58mm' ? 32 : 48,
+    isDefault: configuredPrinters.value.length === 0 || isPhone.value,
     capabilities: {
       supportsCut: true,
       supportsQRCode: true,
@@ -670,8 +708,24 @@ function confirmDeletePrinter() {
   showToast('success', `Removed ${removedName}.`)
 }
 
-function handleTestPrinterCard(printer: PrinterConfig) {
+async function handleTestPrinterCard(printer: PrinterConfig) {
   isTestingPrinterId.value = printer.id
+  if (printer.connectionType === 'bluetooth' || isPhone.value) {
+    const width = (printer.paperWidth === '80mm' ? '80mm' : '58mm') as '58mm' | '80mm'
+    const bytes = buildEscPosTestPrint(printer.name, width)
+    const res = await sendToBluetoothPrinter(printer as any, bytes)
+    printJobs.value.unshift({
+      id: `job-${Date.now()}`,
+      receiptId: 'TEST-BT',
+      printerName: printer.name,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+    })
+    savePrintersToStorage()
+    showToast('success', res.message || `Test receipt printed to ${printer.name}!`)
+    isTestingPrinterId.value = null
+    return
+  }
   const widthMm = printer.paperWidth === '58mm' ? '58mm' : '80mm'
   const shopTitle = escapeHtml(appSettings.value.shopDetails.name || 'MY STORE')
   const address = escapeHtml(appSettings.value.shopDetails.address || 'Store Address')
@@ -1198,15 +1252,15 @@ onMounted(() => {
               <div style="min-width: 200px; flex: 1 1 260px;">
                 <h3 style="margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                   <Printer :size="18" style="color: var(--accent-color); flex-shrink: 0;" />
-                  <span>POS Receipt Printers</span>
+                  <span>{{ isPhone ? 'Bluetooth Thermal Printers' : 'POS Receipt Printers' }}</span>
                   <span
                     style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(14, 165, 233, 0.15); color: var(--accent-color); font-weight: 600; white-space: nowrap;"
                   >
-                    {{ configuredPrinters.length }} configured
+                    {{ displayedPrinters.length }} configured
                   </span>
                 </h3>
                 <span style="font-size: 12px; color: var(--text-muted); display: block; margin-top: 2px;">
-                  ESC/POS direct printing via Windows RAW Spooler, Network TCP/IP, or USB
+                  {{ isPhone ? 'Wireless 58mm / 80mm ESC/POS thermal printers for mobile phones' : 'ESC/POS direct printing via Windows RAW Spooler, Network TCP/IP, or USB' }}
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -1221,6 +1275,7 @@ onMounted(() => {
                   <span>Queue &amp; Logs</span>
                 </button>
                 <button
+                  v-if="!isPhone"
                   type="button"
                   class="btn btn-outline"
                   style="padding: 6px 10px; font-size: 12px; display: flex; align-items: center; gap: 5px; white-space: nowrap;"
@@ -1237,7 +1292,7 @@ onMounted(() => {
                   @click="openAddPrinter"
                 >
                   <Plus :size="14" />
-                  <span>Add Printer</span>
+                  <span>{{ isPhone ? 'Connect Bluetooth' : 'Add Printer' }}</span>
                 </button>
               </div>
             </div>
@@ -1245,17 +1300,19 @@ onMounted(() => {
             <div class="card-body" style="padding: 16px; display: block;">
               <!-- Empty State -->
               <div
-                v-if="configuredPrinters.length === 0"
+                v-if="displayedPrinters.length === 0"
                 style="padding: 24px 16px; text-align: center; background: var(--bg-surface); border-radius: 10px; border: 1px dashed var(--border-color);"
               >
                 <Printer :size="32" style="color: var(--text-muted); margin: 0 auto 10px auto; opacity: 0.7;" />
-                <h4 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 600; color: var(--text-primary);">No POS Printers Configured</h4>
+                <h4 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 600; color: var(--text-primary);">
+                  {{ isPhone ? 'No Bluetooth Thermal Printer Connected' : 'No POS Printers Configured' }}
+                </h4>
                 <p style="margin: 0 0 14px 0; font-size: 12px; color: var(--text-muted); max-width: 400px; margin-inline: auto;">
-                  Add your Windows named receipt printer or Ethernet/WiFi thermal printer to enable high-speed direct printing.
+                  {{ isPhone ? 'Connect a portable 58mm or 80mm wireless Bluetooth thermal printer to print receipts directly from your phone.' : 'Add your Windows named receipt printer or Ethernet/WiFi thermal printer to enable high-speed direct printing.' }}
                 </p>
                 <div style="display: flex; justify-content: center; gap: 10px;">
                   <button type="button" class="btn btn-primary" style="padding: 8px 18px; font-size: 12px;" @click="openAddPrinter">
-                    <Plus :size="14" style="margin-right: 4px;" /> Add Your First Printer
+                    <Plus :size="14" style="margin-right: 4px;" /> {{ isPhone ? 'Pair Bluetooth Printer' : 'Add Your First Printer' }}
                   </button>
                 </div>
               </div>
@@ -1263,7 +1320,7 @@ onMounted(() => {
               <!-- Configured Printers List -->
               <div v-else style="display: flex; flex-direction: column; gap: 10px;">
                 <div
-                  v-for="printer in configuredPrinters"
+                  v-for="printer in displayedPrinters"
                   :key="printer.id"
                   style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s;"
                   :style="printer.isDefault ? 'border-color: var(--accent-color); background: rgba(14, 165, 233, 0.03);' : ''"
@@ -1289,12 +1346,21 @@ onMounted(() => {
                           </span>
                         </div>
                         <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap;">
-                          <span style="text-transform: uppercase; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-secondary); white-space: nowrap;">
+                          <span
+                            v-if="printer.connectionType === 'bluetooth'"
+                            style="text-transform: uppercase; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(14, 165, 233, 0.15); color: #38bdf8; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 10px;"
+                          >
+                            <Bluetooth :size="12" /> BLUETOOTH
+                          </span>
+                          <span
+                            v-else
+                            style="text-transform: uppercase; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-secondary); white-space: nowrap;"
+                          >
                             {{ printer.connectionType }}
                           </span>
                           <span style="word-break: break-all;">{{ printer.address || printer.name }}</span>
                           <span aria-hidden="true">|</span>
-                          <span style="font-weight: 600; color: var(--accent-color); white-space: nowrap;">{{ printer.paperWidth || '80mm' }}</span>
+                          <span style="font-weight: 600; color: var(--accent-color); white-space: nowrap;">{{ printer.paperWidth || '58mm' }}</span>
                         </div>
                       </div>
                     </div>
@@ -1499,16 +1565,17 @@ onMounted(() => {
         <div v-if="showAddPrinterModal" class="modal-overlay" @click.self="showAddPrinterModal = false">
           <div class="modal-content" style="max-width: 580px;">
             <div class="modal-header">
-              <h3>{{ isEditingPrinter ? 'Edit POS Printer' : 'Add ESC/POS Thermal Printer' }}</h3>
+              <h3>{{ isPhone ? (isEditingPrinter ? 'Edit Bluetooth Printer' : 'Connect Bluetooth Thermal Printer') : (isEditingPrinter ? 'Edit POS Printer' : 'Add ESC/POS Thermal Printer') }}</h3>
               <button @click="showAddPrinterModal = false" class="close-btn"><X :size="20" /></button>
             </div>
             <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1;">
               <div class="input-group full-width">
                 <label>Printer Display Name *</label>
-                <input type="text" v-model="printerForm.name" placeholder="e.g. Main Counter POS-80" />
+                <input type="text" v-model="printerForm.name" :placeholder="isPhone ? 'e.g. POS-58 Portable Bluetooth' : 'e.g. Main Counter POS-80'" />
               </div>
 
-              <div class="input-group full-width">
+              <!-- Connection Protocol / Transport (Desktop Only) -->
+              <div v-if="!isPhone" class="input-group full-width">
                 <label>Connection Protocol / Transport</label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
                   <button
@@ -1523,11 +1590,11 @@ onMounted(() => {
                   <button
                     type="button"
                     class="btn"
-                    :class="printerForm.connectionType === 'serial' ? 'btn-primary' : 'btn-outline'"
+                    :class="printerForm.connectionType === 'bluetooth' || printerForm.connectionType === 'serial' ? 'btn-primary' : 'btn-outline'"
                     style="padding: 8px 10px; font-size: 12px;"
-                    @click="printerForm.connectionType = 'serial'"
+                    @click="printerForm.connectionType = 'bluetooth'"
                   >
-                    Bluetooth / COM Port
+                    Bluetooth Wireless
                   </button>
                   <button
                     type="button"
@@ -1550,8 +1617,61 @@ onMounted(() => {
                 </div>
               </div>
 
+              <!-- Bluetooth Thermal Printer Section (Always on mobile, or when Bluetooth chosen) -->
               <div
-                v-if="printerForm.connectionType === 'winraw'"
+                v-if="isPhone || printerForm.connectionType === 'bluetooth'"
+                style="background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px;"
+              >
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                  <div>
+                    <label style="font-size: 13px; font-weight: 700; color: var(--accent-color); margin: 0; display: flex; align-items: center; gap: 6px;">
+                      <Bluetooth :size="16" />
+                      <span>Bluetooth Thermal Pairing</span>
+                    </label>
+                    <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">
+                      Portable mini printers (MPT-II, POS-58, MTP-2, RPP02N, ZJ-5802)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    style="padding: 6px 12px; font-size: 12px; display: flex; align-items: center; gap: 6px;"
+                    @click="handlePairBluetooth"
+                    :disabled="isPairingBluetooth"
+                  >
+                    <RefreshCw :size="13" :class="{ 'spin-icon': isPairingBluetooth }" />
+                    <span>{{ isPairingBluetooth ? 'Pairing...' : 'Scan Bluetooth' }}</span>
+                  </button>
+                </div>
+
+                <div class="input-group full-width" style="margin-top: 4px;">
+                  <label style="font-size: 12px;">Bluetooth Device Name / Address *</label>
+                  <input
+                    type="text"
+                    v-model="printerForm.address"
+                    placeholder="e.g. POS-58, MPT-II, or paired printer name"
+                  />
+                </div>
+
+                <div>
+                  <span style="font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 6px;">Quick Presets:</span>
+                  <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button
+                      v-for="quickName in ['POS-58', 'MPT-II', 'MTP-2', 'Thermal Printer', 'RPP02N', 'ZJ-5802']"
+                      :key="quickName"
+                      type="button"
+                      class="btn btn-outline"
+                      style="padding: 3px 8px; font-size: 11px; border-radius: 9999px;"
+                      @click="printerForm.name = quickName + ' Bluetooth Printer'; printerForm.address = quickName; printerForm.connectionType = 'bluetooth'; printerForm.paperWidth = '58mm'; printerForm.characterWidth = 32"
+                    >
+                      {{ quickName }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-else-if="printerForm.connectionType === 'winraw'"
                 style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px;"
               >
                 <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -1681,8 +1801,8 @@ onMounted(() => {
               </div>
 
               <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
-                <button type="button" class="btn btn-outline" @click="showAddPrinterModal = false">Cancel</button>
-                <button type="button" class="btn btn-primary" @click="handleSavePrinterForm">
+                <button type="button" class="btn btn-outline cancel-printer-btn" @click="showAddPrinterModal = false">Cancel</button>
+                <button type="button" class="btn btn-primary save-printer-btn" @click="handleSavePrinterForm">
                   {{ isEditingPrinter ? 'Update Printer' : 'Save Printer' }}
                 </button>
               </div>

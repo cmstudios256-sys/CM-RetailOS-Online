@@ -28,6 +28,11 @@ import { isTouchDevice } from '../utils/device'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import { escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 import { useBottomSheetDrag } from '../utils/useBottomSheetDrag'
+import {
+  getDefaultBluetoothPrinter,
+  buildEscPosReceipt,
+  sendToBluetoothPrinter,
+} from '../utils/bluetoothPrinter'
 
 type CartItem = {
   product: Product
@@ -525,6 +530,30 @@ function clearCart() {
 
 function printCompletedReceipt(sale: Sale) {
   const settings = shopSettings.value
+  const storeTitle = settings?.shopName || props.shopName
+
+  if (isPhone.value) {
+    const btPrinter = getDefaultBluetoothPrinter()
+    if (btPrinter) {
+      const bytes = buildEscPosReceipt(sale, {
+        shopName: storeTitle,
+        currency: props.currency,
+        paperWidth: btPrinter.paperWidth || '58mm',
+      })
+      sendToBluetoothPrinter(btPrinter, bytes)
+        .then(res => {
+          triggerSuccessToast(res.message || `Receipt printed to ${btPrinter.name}`)
+        })
+        .catch(err => {
+          triggerSuccessToast(err.message || 'Bluetooth printer error')
+        })
+      return
+    } else {
+      shareSale.value = sale
+      return
+    }
+  }
+
   const prefs = readOnlinePrefs()
   const showLogo = prefs.receiptsSettings?.showLogo !== false
   const showCashier = prefs.receiptsSettings?.showCashier !== false
@@ -532,7 +561,6 @@ function printCompletedReceipt(sale: Sale) {
   const logoHtml = showLogo && prefs.logo
     ? `<div style="display:flex;justify-content:center;margin-bottom:8px;"><img src="${escapeHtml(prefs.logo)}" style="width:48px;height:48px;object-fit:contain;filter:brightness(0);" /></div>`
     : ''
-  const storeTitle = settings?.shopName || props.shopName
   const rows = sale.items.map(item => `
     <div style="margin-bottom: 6px;">
       <div style="font-weight: 700;">${escapeHtml(item.productName)}</div>

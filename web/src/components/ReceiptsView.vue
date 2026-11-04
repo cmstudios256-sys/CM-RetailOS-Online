@@ -8,6 +8,11 @@ import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
+import {
+  getDefaultBluetoothPrinter,
+  buildEscPosReceipt,
+  sendToBluetoothPrinter,
+} from '../utils/bluetoothPrinter'
 
 type ReceiptSettings = {
   shopName: string
@@ -165,6 +170,23 @@ const onlinePrefs = computed(() => {
 
 function printSingleReceipt(sale: Sale) {
   const storeTitle = settings.value?.shopName || props.shopName
+
+  if (isPhone.value) {
+    const btPrinter = getDefaultBluetoothPrinter()
+    if (btPrinter) {
+      const bytes = buildEscPosReceipt(sale, {
+        shopName: storeTitle,
+        currency: props.currency,
+        paperWidth: btPrinter.paperWidth || '58mm',
+      })
+      sendToBluetoothPrinter(btPrinter, bytes)
+      return
+    } else {
+      receiptToShare.value = sale
+      return
+    }
+  }
+
   const prefs = readOnlinePrefs()
   const showLogo = prefs.receiptsSettings?.showLogo !== false
   const showCashier = prefs.receiptsSettings?.showCashier !== false

@@ -350,6 +350,7 @@ onMounted(() => {
   }
   void loadNotifications()
   clockTimer = window.setInterval(() => { now.value = new Date() }, 1000)
+  ;(window as any).__navigate = (pageId: string) => { activePage.value = pageId }
   document.addEventListener('pointerdown', handleOutsidePointer)
   window.addEventListener('keydown', handleEscape)
   window.addEventListener('online-prefs-updated', handlePrefsUpdated)
