@@ -1784,6 +1784,10 @@ input[type=number] {
     padding-left: 0;
   }
 
+  .workspace-content:has(.view-section) {
+    padding-bottom: calc(74px + env(safe-area-inset-bottom));
+  }
+
   .workspace-content:has(.products-view-section) {
     width: 100%;
     max-width: 100%;

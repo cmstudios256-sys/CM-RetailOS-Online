@@ -414,9 +414,34 @@ onUnmounted(() => {
       <!-- Sales Overview -->
       <div class="card sales-overview-card">
         <div class="tab-header">
-          <div>
-            <h3 class="card-title">Sales Overview</h3>
-            <p class="card-subtitle">{{ selectedPeriod }} revenue & profitability timeline</p>
+          <div class="tab-header-title-group">
+            <div>
+              <h3 class="card-title">Sales Overview</h3>
+              <p class="card-subtitle">{{ selectedPeriod }} revenue & profitability timeline</p>
+            </div>
+            <div
+              v-if="isPhone"
+              class="date-picker-btn"
+              :class="{ 'active-date': reportDate !== '' }"
+              title="Filter chart by date"
+            >
+              <Calendar :size="15" />
+              <input
+                v-model="reportDate"
+                type="date"
+                class="invisible-date-picker"
+                aria-label="Filter Sales Overview by date"
+              />
+              <button
+                v-if="reportDate"
+                type="button"
+                class="clear-date-btn"
+                title="Clear Date"
+                @click.stop="reportDate = ''"
+              >
+                <X :size="12" />
+              </button>
+            </div>
           </div>
           <div class="tab-controls-right">
             <div class="chart-mode-nav">
@@ -454,10 +479,26 @@ onUnmounted(() => {
                 {{ period }}
               </button>
             </div>
-            <div class="date-picker-btn" :class="{ 'active-date': reportDate !== '' }" title="Filter chart by date">
+            <div
+              v-if="!isPhone"
+              class="date-picker-btn"
+              :class="{ 'active-date': reportDate !== '' }"
+              title="Filter chart by date"
+            >
               <Calendar :size="15" />
-              <input v-model="reportDate" type="date" class="invisible-date-picker" aria-label="Filter Sales Overview by date" />
-              <button v-if="reportDate" type="button" class="clear-date-btn" title="Clear Date" @click.stop="reportDate = ''">
+              <input
+                v-model="reportDate"
+                type="date"
+                class="invisible-date-picker"
+                aria-label="Filter Sales Overview by date"
+              />
+              <button
+                v-if="reportDate"
+                type="button"
+                class="clear-date-btn"
+                title="Clear Date"
+                @click.stop="reportDate = ''"
+              >
                 <X :size="12" />
               </button>
             </div>
@@ -832,6 +873,12 @@ onUnmounted(() => {
   margin-bottom: 16px;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.tab-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .card-subtitle {
@@ -1397,9 +1444,10 @@ onUnmounted(() => {
 
   .view-section {
     flex: 1 1 auto;
-    height: auto;
-    min-height: 0;
-    gap: 12px;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .stat-card {
@@ -1496,21 +1544,41 @@ onUnmounted(() => {
   .dashboard-cards-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 10px;
     min-width: 0;
+  }
+
+  .sales-overview-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 12px 12px 10px;
   }
 
   .tab-header {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .tab-header-title-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
   }
 
   .tab-controls-right {
     width: 100%;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
+    justify-content: space-between;
     gap: 6px;
   }
 
@@ -1538,7 +1606,7 @@ onUnmounted(() => {
     font-size: 11px;
   }
 
-  .tab-controls-right .date-picker-btn {
+  .date-picker-btn {
     width: 32px;
     height: 32px;
     min-width: 32px;
@@ -1548,21 +1616,25 @@ onUnmounted(() => {
     flex: 0 0 auto;
   }
 
-  .tab-controls-right .date-picker-btn span {
+  .date-picker-btn span {
     display: none;
   }
 
   .sales-chart-container {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 8px;
+    justify-content: space-between;
   }
 
   .sales-chart-plot {
     position: relative;
     inset: auto;
-    flex: 0 0 230px;
-    height: 230px;
+    flex: 1 1 0;
+    min-height: 200px;
+    height: 100%;
     width: 100%;
   }
 
@@ -1571,6 +1643,7 @@ onUnmounted(() => {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
+    flex: 0 0 auto;
   }
 
   .chart-stat {
