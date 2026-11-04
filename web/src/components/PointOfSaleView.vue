@@ -2301,6 +2301,57 @@ onUnmounted(() => {
   color: var(--accent-color);
 }
 
+[data-theme='light'] .cart-panel {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme='light'] .cart-panel-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .cart-title-badge {
+  background: color-mix(in srgb, var(--accent-color) 12%, transparent) !important;
+  color: var(--accent-color) !important;
+  border-color: color-mix(in srgb, var(--accent-color) 25%, transparent) !important;
+}
+
+[data-theme='light'] .cart-count-pill {
+  background: color-mix(in srgb, var(--accent-color) 12%, transparent) !important;
+  color: var(--accent-color) !important;
+  border-color: color-mix(in srgb, var(--accent-color) 25%, transparent) !important;
+}
+
+[data-theme='light'] .empty-cart-icon-wrap {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #94a3b8 !important;
+}
+
+[data-theme='light'] .empty-cart-title {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .empty-cart-subtitle {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .mobile-cart-close {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+[data-theme='light'] .mobile-cart-close:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .mobile-sheet-drag-handle {
+  background: #cbd5e1 !important;
+}
+
 .total-text-group {
   display: flex;
   flex-direction: column;
