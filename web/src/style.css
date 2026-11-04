@@ -2798,7 +2798,7 @@ body:has(.workspace-shell) {
   left: 0;
   right: 0;
   width: 100%;
-  padding-bottom: 10px;
+  padding-bottom: 12px;
   box-sizing: border-box;
 }
 
@@ -2808,8 +2808,9 @@ body:has(.workspace-shell) {
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
-  height: 100%;
-  padding: 12px 14px;
+  height: auto;
+  min-height: fit-content;
+  padding: 12px 14px 14px;
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   background: var(--bg-surface);

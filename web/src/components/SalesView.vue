@@ -62,7 +62,7 @@ const mobileSalesListRef = ref<HTMLElement | null>(null)
 const mobileSalesVirtualizer = useVirtualizer(computed(() => ({
   count: filteredSales.value.length,
   getScrollElement: () => mobileSalesListRef.value,
-  estimateSize: () => 212,
+  estimateSize: () => 240,
   overscan: 4,
 })))
 const virtualMobileSales = computed(() => mobileSalesVirtualizer.value.getVirtualItems())
@@ -331,10 +331,11 @@ onMounted(() => {
           <div
             v-for="virtualRow in virtualMobileSales"
             :key="String(virtualRow.key)"
+            :ref="el => mobileSalesVirtualizer.measureElement(el as HTMLElement)"
+            :data-index="virtualRow.index"
             class="virtual-cards-row"
             :style="{
               transform: `translateY(${virtualRow.start}px)`,
-              height: `${virtualRow.size}px`,
             }"
           >
             <article

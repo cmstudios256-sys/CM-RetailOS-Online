@@ -63,7 +63,7 @@ const mobileReceiptsListRef = ref<HTMLElement | null>(null)
 const mobileReceiptsVirtualizer = useVirtualizer(computed(() => ({
   count: filteredReceipts.value.length,
   getScrollElement: () => mobileReceiptsListRef.value,
-  estimateSize: () => 220,
+  estimateSize: () => 240,
   overscan: 4,
 })))
 const virtualMobileReceipts = computed(() => mobileReceiptsVirtualizer.value.getVirtualItems())
@@ -342,10 +342,11 @@ onUnmounted(() => {
           <div
             v-for="virtualRow in virtualMobileReceipts"
             :key="String(virtualRow.key)"
+            :ref="el => mobileReceiptsVirtualizer.measureElement(el as HTMLElement)"
+            :data-index="virtualRow.index"
             class="virtual-cards-row"
             :style="{
               transform: `translateY(${virtualRow.start}px)`,
-              height: `${virtualRow.size}px`,
             }"
           >
             <article
