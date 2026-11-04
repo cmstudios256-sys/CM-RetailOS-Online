@@ -146,8 +146,6 @@ const editedCategoryName = ref('')
 const productToDelete = ref<Product | null>(null)
 const deleting = ref(false)
 
-const defaultUnits = ['pcs', 'kg', 'L', 'g', 'ml', 'pack', 'box']
-
 const canManage = computed(() => props.role === 'owner' || props.role === 'manager')
 
 const categories = computed(() => {
@@ -158,16 +156,6 @@ const categories = computed(() => {
     ].filter(Boolean),
   )
   return Array.from(names).sort((first, second) => first.localeCompare(second))
-})
-
-const availableUnits = computed(() => {
-  const units = new Set(defaultUnits)
-  for (const product of products.value) {
-    if (product.unit && product.unit.trim()) {
-      units.add(product.unit.trim())
-    }
-  }
-  return Array.from(units)
 })
 
 const filteredProducts = computed(() => {
@@ -963,22 +951,7 @@ onUnmounted(() => {
                 </div>
                 <div class="form-group">
                   <label>Unit</label>
-                  <input v-model.trim="form.unit" type="text" placeholder="pcs, kg..." required />
-                </div>
-              </div>
-              <div class="unit-selector">
-                <span class="unit-selector-label">Select Unit:</span>
-                <div class="unit-pills">
-                  <button
-                    v-for="unit in availableUnits"
-                    :key="unit"
-                    type="button"
-                    class="unit-pill"
-                    :class="{ active: form.unit === unit }"
-                    @click="form.unit = unit"
-                  >
-                    {{ unit }}
-                  </button>
+                  <input v-model.trim="form.unit" type="text" placeholder="e.g. piece, kg, box" required />
                 </div>
               </div>
             </div>
@@ -1998,28 +1971,6 @@ tbody tr:hover {
   color: #64748b !important;
 }
 
-[data-theme='light'] .unit-selector-label {
-  color: #64748b !important;
-}
-
-[data-theme='light'] .unit-pill {
-  background-color: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  color: #475569 !important;
-}
-
-[data-theme='light'] .unit-pill:hover {
-  background-color: #f1f5f9 !important;
-  border-color: #94a3b8 !important;
-  color: #0f172a !important;
-}
-
-[data-theme='light'] .unit-pill.active {
-  background-color: color-mix(in srgb, var(--accent-color) 15%, transparent) !important;
-  border-color: var(--accent-color) !important;
-  color: var(--accent-color) !important;
-  font-weight: 700 !important;
-}
 
 [data-theme='light'] .image-upload-square {
   background-color: #f8fafc !important;
@@ -2191,44 +2142,6 @@ tbody tr:hover {
   box-shadow: 0 0 6px #22c55e;
 }
 
-.unit-selector {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px dashed var(--border-color);
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.unit-selector-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.unit-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.unit-pill {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  color: #cbd5e1;
-  padding: 0.25rem 0.65rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.unit-pill.active {
-  background-color: rgba(14, 165, 233, 0.2);
-  border-color: var(--accent-color);
-  color: #38bdf8;
-  font-weight: 600;
-}
 
 .modal-actions {
   display: flex;
