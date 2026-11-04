@@ -3103,8 +3103,9 @@ body:has(.workspace-shell) {
   .workspace-content .stock-levels-view .header-controls {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: 1.15fr 0.92fr 0.93fr;
+    gap: 6px;
+    align-items: stretch;
     margin: 0;
   }
   .workspace-content .products-view .search-bar,
@@ -3121,16 +3122,25 @@ body:has(.workspace-shell) {
   .workspace-content .products-view .filter-select,
   .workspace-content .stock-levels-view .filter-select {
     width: 100%;
-    min-height: 42px;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 4px 0 8px !important;
+    font-size: 12px !important;
+    text-overflow: ellipsis;
   }
   .workspace-content .products-view .filter-select:first-of-type,
   .workspace-content .stock-levels-view .filter-select:first-of-type {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
   .workspace-content .products-view .action-dropdown-container,
   .workspace-content .products-view .action-dropdown-btn,
   .workspace-content .stock-levels-view .export-btn {
     width: 100%;
-    min-height: 42px;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 6px !important;
+    font-size: 12px !important;
+    justify-content: center;
+    gap: 4px;
   }
 }

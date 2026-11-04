@@ -2520,8 +2520,9 @@ tbody tr:hover {
   .header-controls {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: 1.15fr 0.92fr 0.93fr;
+    gap: 6px;
+    align-items: stretch;
   }
 
   .search-bar,
@@ -2540,16 +2541,26 @@ tbody tr:hover {
 
   .filter-select {
     width: 100%;
-    height: 42px;
+    min-width: 0;
+    height: 40px;
+    font-size: 12px;
+    padding: 0 4px 0 8px;
+    text-overflow: ellipsis;
   }
 
   .filter-select[aria-label="Filter by category"] {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   .action-dropdown-container,
   .action-dropdown-btn {
     width: 100%;
+    min-width: 0;
+    height: 40px;
+    font-size: 12px;
+    padding: 0 6px;
+    justify-content: center;
+    gap: 4px;
   }
 
 
