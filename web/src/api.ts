@@ -311,6 +311,13 @@ export function applyOnlinePrefsToDom(): void {
       : `'${font}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
     root.style.setProperty('--app-font-family', stack)
   }
+
+  const isLight = root.getAttribute('data-theme') === 'light'
+  const headerColor = isLight ? '#ffffff' : '#0f172a'
+  const defaultThemeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]:not([media])')
+  if (defaultThemeMeta) {
+    defaultThemeMeta.setAttribute('content', headerColor)
+  }
 }
 
 export function formatDate(value: Date | string): string {

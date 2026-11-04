@@ -2,12 +2,16 @@
   "name": "CM RetailOS",
   "short_name": "CM RetailOS",
   "description": "A guest-first retail workspace for your business.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
   "background_color": "#020617",
-  "theme_color": "#0b1220",
+  "theme_color": "#0f172a",
   "icons": [
     {
       "src": "/icons/cm-retailos-192.png",
@@ -20,6 +24,38 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icons/cm-retailos-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Sale",
+      "short_name": "New Sale",
+      "description": "Start a new point of sale checkout",
+      "url": "/?page=pos",
+      "icons": [
+        {
+          "src": "/icons/cm-retailos-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "short_name": "Products",
+      "description": "View inventory and products",
+      "url": "/?page=products",
+      "icons": [
+        {
+          "src": "/icons/cm-retailos-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

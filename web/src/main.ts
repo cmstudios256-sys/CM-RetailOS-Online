@@ -7,8 +7,10 @@ applyOnlinePrefsToDom()
 
 createApp(App).mount('#app')
 
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  void navigator.serviceWorker.register('/service-worker.js').catch(error => {
-    console.error('CM RetailOS offline support could not be enabled.', error)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/service-worker.js').catch(error => {
+      console.error('CM RetailOS offline support could not be enabled.', error)
+    })
   })
 }

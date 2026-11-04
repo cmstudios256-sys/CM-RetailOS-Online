@@ -2,8 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useDesktopBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import {
-  BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, FileClock, History, LayoutDashboard,
-  LockKeyhole, LogOut, Menu, Package, PackageCheck, ReceiptText, Settings as SettingsIcon, ShieldCheck, ShoppingCart,
+  BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, Download, FileClock, History, LayoutDashboard,
+  LockKeyhole, LogOut, Menu, Package, PackageCheck, PlusSquare, ReceiptText, Settings as SettingsIcon, Share, ShieldCheck, ShoppingCart,
   Store, Tag, LineChart, Monitor, X, Zap,
 } from '@lucide/vue'
 import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPermissions, syncOnlinePrefsFromServer } from '../api'
@@ -50,6 +50,56 @@ const notificationError = ref('')
 const notificationLoaded = ref(false)
 const notifications = ref<{ productId: number; name: string; quantity: number; unit: string; outOfStock: boolean; read: boolean }[]>([])
 const unreadNotificationCount = computed(() => notifications.value.filter(item => !item.read).length)
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
+
+const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null)
+const isStandalone = ref(false)
+const isInstalled = ref(false)
+const showIosInstallSheet = ref(false)
+const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true)
+
+function updateOnlineStatus() {
+  isOnline.value = typeof navigator !== 'undefined' ? navigator.onLine : true
+}
+
+const isIos = computed(() => {
+  if (typeof navigator === 'undefined') return false
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !(window as any).MSStream
+})
+
+const canShowInstallRow = computed(() => {
+  if (isStandalone.value || isInstalled.value) return false
+  if (isIos.value) return true
+  return deferredInstallPrompt.value !== null
+})
+
+function checkStandalone() {
+  if (typeof window === 'undefined') return
+  const isDisplayStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    (navigator as any).standalone === true
+  isStandalone.value = isDisplayStandalone
+}
+
+async function handleInstallClick() {
+  mobileMoreOpen.value = false
+  if (isIos.value) {
+    showIosInstallSheet.value = true
+    return
+  }
+  if (!deferredInstallPrompt.value) return
+  const promptEvent = deferredInstallPrompt.value
+  await promptEvent.prompt()
+  const choice = await promptEvent.userChoice
+  if (choice.outcome === 'accepted') {
+    isInstalled.value = true
+  }
+  deferredInstallPrompt.value = null
+}
 
 const navigationGroups = [
   { category: 'MAIN', items: [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
@@ -221,7 +271,34 @@ watch(activePage, () => {
   void loadNotifications()
 })
 
+let displayModeQuery: MediaQueryList | null = null
+
+function handleDisplayModeChange(e: MediaQueryListEvent) {
+  isStandalone.value = e.matches
+}
+
+function handleBeforeInstallPrompt(e: Event) {
+  e.preventDefault()
+  deferredInstallPrompt.value = e as BeforeInstallPromptEvent
+}
+
+function handleAppInstalled() {
+  isInstalled.value = true
+  deferredInstallPrompt.value = null
+  showIosInstallSheet.value = false
+}
+
 onMounted(() => {
+  checkStandalone()
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    displayModeQuery = window.matchMedia('(display-mode: standalone)')
+    displayModeQuery.addEventListener('change', handleDisplayModeChange)
+  }
+  window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+  window.addEventListener('appinstalled', handleAppInstalled)
+  window.addEventListener('online', updateOnlineStatus)
+  window.addEventListener('offline', updateOnlineStatus)
+
   const params = new URLSearchParams(window.location.search)
   const requestedPage = params.get('page')
   if (requestedPage && (
@@ -254,6 +331,13 @@ onUnmounted(() => {
   document.removeEventListener('pointerdown', handleOutsidePointer)
   window.removeEventListener('keydown', handleEscape)
   window.removeEventListener('online-prefs-updated', handlePrefsUpdated)
+  window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+  window.removeEventListener('appinstalled', handleAppInstalled)
+  window.removeEventListener('online', updateOnlineStatus)
+  window.removeEventListener('offline', updateOnlineStatus)
+  if (displayModeQuery) {
+    displayModeQuery.removeEventListener('change', handleDisplayModeChange)
+  }
 })
 </script>
 
@@ -313,10 +397,16 @@ onUnmounted(() => {
           <span class="mobile-shop-mark"><Store :size="18" /></span>
           <button class="desktop-shop-icon" type="button" aria-label="Toggle sidebar" @click="sidebarCollapsed = !sidebarCollapsed"><Store :size="25" /></button>
           <div><h1>{{ pageTitle }}</h1></div>
+          <span v-if="!isOnline" class="offline-chip" role="status" aria-label="Offline mode">
+            <span></span> Offline
+          </span>
         </div>
         <div ref="topbarActions" class="topbar-actions">
           <span v-if="demoMode" class="demo-badge"><span></span> Demo</span>
-          <span class="connection-chip" :class="{ connected: !isGuest }">
+          <span v-if="!isOnline" class="connection-chip offline">
+            <span></span>Offline
+          </span>
+          <span v-else class="connection-chip" :class="{ connected: !isGuest }">
             <span></span>{{ isGuest ? 'Not connected' : `Connected as ${user.googleEmail || user.email}` }}
           </span>
           <button v-if="isGuest" type="button" class="connect-google-button" @click="emit('connect-google', activePage)">Connect Google</button>
@@ -447,8 +537,63 @@ onUnmounted(() => {
             <component :is="item.icon" :size="18" />
             <span>{{ item.label }}</span>
           </button>
+          <button
+            v-if="canShowInstallRow"
+            type="button"
+            role="menuitem"
+            class="install-app-menu-item"
+            @click="handleInstallClick"
+          >
+            <Download :size="18" />
+            <span>Install app</span>
+          </button>
         </div>
       </nav>
+
+      <!-- iOS Install Instructions Sheet -->
+      <div
+        v-if="showIosInstallSheet"
+        class="ios-install-backdrop"
+        @click.self="showIosInstallSheet = false"
+      >
+        <div class="ios-install-sheet" role="dialog" aria-modal="true" aria-label="Install CM RetailOS">
+          <div class="ios-sheet-handle"></div>
+          <div class="ios-sheet-header">
+            <div class="ios-sheet-app-icon">
+              <img src="/icons/cm-retailos-192.png" alt="CM RetailOS" />
+            </div>
+            <div>
+              <h3>Install CM RetailOS</h3>
+              <p>Add to your home screen for fast offline access</p>
+            </div>
+            <button
+              type="button"
+              class="ios-sheet-close"
+              aria-label="Close"
+              @click="showIosInstallSheet = false"
+            >
+              <X :size="16" />
+            </button>
+          </div>
+          <div class="ios-sheet-steps">
+            <div class="ios-sheet-step">
+              <span class="step-num">1</span>
+              <p>Tap the <strong>Share</strong> button <Share :size="15" class="inline-sheet-icon" /> in Safari's toolbar.</p>
+            </div>
+            <div class="ios-sheet-step">
+              <span class="step-num">2</span>
+              <p>Scroll down and tap <strong>Add to Home Screen</strong> <PlusSquare :size="15" class="inline-sheet-icon" />.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="ios-sheet-action"
+            @click="showIosInstallSheet = false"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
