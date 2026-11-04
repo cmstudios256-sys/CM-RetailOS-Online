@@ -1515,35 +1515,37 @@ onUnmounted(() => {
   }
 
   .chart-mode-nav {
+    display: inline-flex;
     flex: 0 0 auto;
-  }
-
-  .tab-nav {
-    flex: 1 1 auto;
-    min-width: 140px;
-  }
-
-  .tab-nav button {
-    flex: 1;
-    min-height: 34px;
-    padding: 3px 8px;
-    font-size: 11px;
+    padding: 2px;
   }
 
   .chart-mode-nav button {
-    min-height: 34px;
-    padding: 3px 8px;
+    min-height: 30px;
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+
+  .tab-nav {
+    display: inline-flex;
+    flex: 0 0 auto;
+    padding: 2px;
+  }
+
+  .tab-nav button {
+    min-height: 30px;
+    padding: 2px 8px;
     font-size: 11px;
   }
 
   .tab-controls-right .date-picker-btn {
-    justify-self: auto;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
     padding: 0;
     justify-content: center;
+    flex: 0 0 auto;
   }
 
   .tab-controls-right .date-picker-btn span {
@@ -1559,8 +1561,9 @@ onUnmounted(() => {
   .sales-chart-plot {
     position: relative;
     inset: auto;
-    flex: 0 0 210px;
-    height: 210px;
+    flex: 0 0 230px;
+    height: 230px;
+    width: 100%;
   }
 
   .chart-stats {
@@ -1571,15 +1574,26 @@ onUnmounted(() => {
   }
 
   .chart-stat {
-    padding: 7px 9px;
+    padding: 6px 6px;
+    min-width: 0;
   }
 
   .chart-stat-value {
-    font-size: 12px;
+    font-size: clamp(9px, 2.7vw, 12px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .chart-stat-label {
-    font-size: 10px;
+    font-size: 9px;
+  }
+
+  .stat-badge {
+    font-size: 8px;
+    padding: 1px 3px;
   }
 }
 </style>

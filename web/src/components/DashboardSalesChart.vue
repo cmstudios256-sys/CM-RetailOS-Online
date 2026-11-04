@@ -78,11 +78,11 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
       ticks: {
         color: isLightMode.value ? '#64748b' : '#94a3b8',
         autoSkip: true,
-        maxTicksLimit: 12,
+        maxTicksLimit: props.isPhone ? 8 : 12,
         maxRotation: 0,
         minRotation: 0,
         font: {
-          size: 11,
+          size: props.isPhone ? 10 : 11,
           weight: 'normal',
         },
       },
@@ -100,9 +100,9 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
       ticks: {
         color: isLightMode.value ? '#64748b' : '#94a3b8',
         font: {
-          size: 11,
+          size: props.isPhone ? 10 : 11,
         },
-        padding: 8,
+        padding: props.isPhone ? 4 : 8,
         callback: (value) => {
           if (typeof value === 'number') {
             if (value === 0) return '0'
@@ -123,94 +123,10 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
       tension: 0.3,
     },
     point: {
-      radius: (ctx) => (Number(ctx.raw) > 0 ? 3 : 0),
-      hoverRadius: 6,
+      radius: (ctx) => (Number(ctx.raw) > 0 ? (props.isPhone ? 2.5 : 3) : 0),
+      hoverRadius: props.isPhone ? 5 : 6,
       hoverBackgroundColor: '#ffffff',
       hoverBorderWidth: 2,
-    },
-  },
-}))
-
-const mobileChartData = computed<ChartData<'bar', number[], string>>(() => {
-  const source = props.chartData.labels?.slice(-7) ?? []
-  const salesDataset = props.chartData.datasets.find(dataset => dataset.label?.toLowerCase().includes('sales'))
-  const sourceData = salesDataset?.data
-  const labels = source.map(label => String(label))
-  const values = Array.isArray(sourceData)
-    ? sourceData.slice(-7).map(value => Number(value) || 0)
-    : []
-  const { accent } = getThemeColors()
-
-  return {
-    labels,
-    datasets: [{
-      label: 'Sales',
-      backgroundColor: accent,
-      borderColor: accent,
-      borderRadius: 4,
-      borderSkipped: false,
-      data: values,
-      barPercentage: 0.72,
-      categoryPercentage: 0.72,
-    }],
-  }
-})
-
-const hasMobileSales = computed(() =>
-  mobileChartData.value.datasets.some(dataset =>
-    dataset.data.some(value => Number(value) > 0),
-  ),
-)
-
-const mobileChartOptions = computed<ChartOptions<'bar'>>(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: {
-    mode: 'nearest' as const,
-    intersect: true,
-  },
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      enabled: true,
-      displayColors: false,
-      callbacks: {
-        label: context => `${cur.value} ${Number(context.parsed.y || 0).toLocaleString()}`,
-      },
-    },
-  },
-  scales: {
-    x: {
-      grid: { display: false },
-      border: { display: false },
-      ticks: {
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
-        autoSkip: true,
-        maxTicksLimit: 4,
-        maxRotation: 0,
-        font: { size: 10 },
-      },
-    },
-    y: {
-      beginAtZero: true,
-      grid: {
-        display: true,
-        color: isLightMode.value ? 'rgba(15, 23, 42, 0.06)' : 'rgba(148, 163, 184, 0.08)',
-        drawTicks: false,
-      },
-      border: { display: false },
-      ticks: {
-        display: true,
-        color: isLightMode.value ? '#0f172a' : '#94a3b8',
-        maxTicksLimit: 4,
-        font: { size: 10 },
-        callback: value => {
-          const amount = Number(value)
-          if (amount >= 1000000) return `${amount / 1000000}M`
-          if (amount >= 1000) return `${amount / 1000}k`
-          return `${amount}`
-        },
-      },
     },
   },
 }))
@@ -225,7 +141,7 @@ const gradientPlugin = {
       if (!chartArea) return
       const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
       const border = String(lineDataset.borderColor || '').toLowerCase()
-      const { complement, accent } = getThemeColors()
+      const { complement } = getThemeColors()
 
       // If this dataset represents the sales revenue line/fill, use complementary color with alpha gradient
       const isProfit = border.includes('10b981') || border.includes('16, 185, 129')
@@ -246,17 +162,7 @@ const gradientPlugin = {
 </script>
 
 <template>
-  <div v-if="props.isPhone && !hasMobileSales" class="empty-chart-state">
-    No sales in this period
-  </div>
   <Chart
-    v-else-if="props.isPhone"
-    type="bar"
-    :data="mobileChartData as any"
-    :options="mobileChartOptions as any"
-  />
-  <Chart
-    v-else
     type="bar"
     :data="props.chartData"
     :options="chartOptions"
