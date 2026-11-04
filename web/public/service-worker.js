@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cm-retailos-shell-v2'
+const CACHE_NAME = 'cm-retailos-shell-v3'
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -90,27 +90,20 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // Navigation mode: Stale-While-Revalidate (load shell from cache instantly then sync)
+  // Navigation mode: Network-first when online (guarantees fresh deployed HTML/JS hashes), falls back to cached shell when offline
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME)
-      const cached = (await cache.match(request)) || (await cache.match('/')) || (await cache.match('/index.html'))
-
-      const networkFetch = fetch(request).then(async networkResponse => {
+      try {
+        const networkResponse = await fetch(request)
         if (networkResponse && networkResponse.ok && isCacheSafeResponse(networkResponse)) {
           await cache.put('/', networkResponse.clone())
+          await cache.put('/index.html', networkResponse.clone())
         }
         return networkResponse
-      }).catch(() => null)
-
-      if (cached) {
-        event.waitUntil(networkFetch)
-        return cached
+      } catch {
+        return (await cache.match(request)) || (await cache.match('/')) || (await cache.match('/index.html')) || Response.error()
       }
-
-      const response = await networkFetch
-      if (response) return response
-      return (await cache.match('/')) || (await cache.match('/index.html')) || Response.error()
     })())
     return
   }

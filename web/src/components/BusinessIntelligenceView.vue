@@ -949,7 +949,6 @@ onUnmounted(() => {
 .bi-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: minmax(280px, 1.2fr) minmax(220px, 1fr);
   gap: 12px;
   flex: 1;
   min-height: 0;
@@ -1325,10 +1324,9 @@ onUnmounted(() => {
 /* ==========================================================================
    Responsive Breakpoints
    ========================================================================== */
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .bi-grid {
     grid-template-columns: 1fr;
-    grid-template-rows: auto;
   }
 
   .basket-pair-row {

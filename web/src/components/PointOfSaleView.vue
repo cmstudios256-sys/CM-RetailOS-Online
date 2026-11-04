@@ -34,8 +34,6 @@ type CartItem = {
   quantity: number
 }
 
-const mobileCartOpen = ref(false)
-
 const {
   sheetRef: mobileCartSheetRef,
   sheetStyle: mobileCartSheetStyle,
@@ -60,6 +58,7 @@ type ShopReceiptSettings = {
 const props = defineProps<{ currency: string; shopName: string; role: string }>()
 const products = ref<Product[]>([])
 const cart = ref<CartItem[]>([])
+const mobileCartOpen = ref(false)
 const mobileTouch = ref(false)
 const cameraSupported = ref(false)
 const cameraOpen = ref(false)

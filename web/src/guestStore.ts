@@ -21,7 +21,7 @@ export type GuestSettings = {
 }
 
 export type GuestBundle = {
-  schemaVersion: 1 | 2 | 3 | 4
+  schemaVersion: 1 | 2 | 3 | 4 | 5
   guestDeviceId: string
   idempotencyKey: string
   products: Product[]
@@ -230,7 +230,7 @@ function seedState(): GuestState {
   if (productSeeds.length < 200) throw new Error('Demo catalog is too small.')
   const sales: Sale[] = []
   const paymentMethods: Sale['paymentMethod'][] = ['cash', 'mobile_money', 'card']
-  const peakHours = [7, 7, 8, 12, 12, 13, 14, 17, 18, 18, 19, 18, 19, 10, 15, 20, 1]
+  const peakHours = [7, 7, 8, 12, 12, 13, 14, 17, 18, 18, 19, 18, 19, 10, 15, 20, 13]
   const addSale = (index: number, date: Date) => {
     const itemCount = index % 17 === 0 ? 6 : integer(1, 6)
     const selectedItems: SaleItem[] = []
@@ -270,7 +270,7 @@ function seedState(): GuestState {
   for (let index = 0; index < 2000; index++) {
     let date: Date
     if (index < 36) {
-      const hour = index === 0 ? 1 : index % 2 === 0 ? 18 : peakHours[index % peakHours.length]
+      const hour = index === 0 ? 13 : index % 2 === 0 ? 18 : peakHours[index % peakHours.length]
       date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, integer(0, 59), 0)
     } else {
       const daysAgo = 2 + integer(0, 87)
@@ -289,7 +289,7 @@ function seedState(): GuestState {
     createdAt: now.toISOString(),
   }))
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     guestDeviceId: getGuestDeviceId(),
     idempotencyKey: uuid(),
     demoData: true,
@@ -326,13 +326,13 @@ function readState(): GuestState {
     || !Array.isArray(state.categories)) {
     throw new Error('Guest data could not be read. Clear this browser’s CM RetailOS guest data and reload.')
   }
-  if (state.demoData && state.schemaVersion !== 4) {
+  if (state.demoData && state.schemaVersion !== 5) {
     const refreshed = seedState()
     writeState(refreshed)
     return refreshed
   }
-  if (state.schemaVersion !== 4) {
-    state.schemaVersion = 4
+  if (state.schemaVersion !== 5) {
+    state.schemaVersion = 5
     writeState(state)
   }
   return state

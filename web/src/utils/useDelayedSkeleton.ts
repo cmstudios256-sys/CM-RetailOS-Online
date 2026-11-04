@@ -29,3 +29,4 @@ export function useDelayedSkeleton(loading: Ref<boolean>, delay = 200) {
 
   return showSkeleton
 }
+

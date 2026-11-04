@@ -173,13 +173,13 @@ func main() {
 		}
 	}
 
-	peakHours := []int{7, 7, 8, 12, 12, 13, 14, 17, 18, 18, 19, 18, 19, 10, 15, 20, 1}
+	peakHours := []int{7, 7, 8, 12, 12, 13, 14, 17, 18, 18, 19, 18, 19, 10, 15, 20, 13}
 	for saleIndex := 0; saleIndex < 2000; saleIndex++ {
 		var completed time.Time
 		if saleIndex < 36 {
 			hour := peakHours[saleIndex%len(peakHours)]
 			if saleIndex == 0 {
-				hour = 1
+				hour = 13
 			}
 			completed = time.Date(now.Year(), now.Month(), now.Day(), hour, rng.Intn(60), 0, 0, now.Location())
 		} else {

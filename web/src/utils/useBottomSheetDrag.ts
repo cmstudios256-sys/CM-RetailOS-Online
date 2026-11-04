@@ -1,4 +1,4 @@
-import { ref, computed, onUnmounted, type Ref } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 
 export function useBottomSheetDrag(onClose: () => void) {
   const sheetRef = ref<HTMLElement | null>(null)
@@ -9,6 +9,27 @@ export function useBottomSheetDrag(onClose: () => void) {
   let startY = 0
   let startTime = 0
   let activePointerId: number | null = null
+
+  function onPointerDown(e: PointerEvent) {
+    // Only accept primary button for mouse
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+
+    // Do not initiate drag if tapping on interactive buttons or inputs (e.g. close button, clear cart)
+    const target = e.target as HTMLElement
+    if (target.closest('button, input, select, textarea, a')) return
+
+    startY = e.clientY
+    startTime = Date.now()
+    activePointerId = e.pointerId
+    isDragging.value = true
+    isAnimating.value = false
+
+    try {
+      target.setPointerCapture(e.pointerId)
+    } catch {
+      // safe fallback
+    }
+  }
 
   function onPointerMove(e: PointerEvent) {
     if (!isDragging.value || e.pointerId !== activePointerId) return
@@ -24,10 +45,6 @@ export function useBottomSheetDrag(onClose: () => void) {
     if (!isDragging.value || e.pointerId !== activePointerId) return
     isDragging.value = false
     activePointerId = null
-
-    window.removeEventListener('pointermove', onPointerMove)
-    window.removeEventListener('pointerup', finishDrag)
-    window.removeEventListener('pointercancel', finishDrag)
 
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId)
@@ -61,36 +78,13 @@ export function useBottomSheetDrag(onClose: () => void) {
     }
   }
 
-  function onPointerDown(e: PointerEvent) {
-    // Only accept primary button for mouse
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-
-    // Do not initiate drag if tapping on interactive buttons or inputs (e.g. close button, clear cart)
-    const target = e.target as HTMLElement
-    if (target.closest('button, input, select, textarea, a')) return
-
-    startY = e.clientY
-    startTime = Date.now()
-    activePointerId = e.pointerId
-    isDragging.value = true
-    isAnimating.value = false
-
-    window.addEventListener('pointermove', onPointerMove, { passive: true })
-    window.addEventListener('pointerup', finishDrag)
-    window.addEventListener('pointercancel', finishDrag)
-
-    try {
-      target.setPointerCapture(e.pointerId)
-    } catch {
-      // safe fallback
-    }
+  function onPointerUp(e: PointerEvent) {
+    finishDrag(e)
   }
 
-  onUnmounted(() => {
-    window.removeEventListener('pointermove', onPointerMove)
-    window.removeEventListener('pointerup', finishDrag)
-    window.removeEventListener('pointercancel', finishDrag)
-  })
+  function onPointerCancel(e: PointerEvent) {
+    finishDrag(e)
+  }
 
   const sheetStyle = computed(() => {
     if (translateY.value === 0 && !isAnimating.value) return {}
@@ -100,14 +94,6 @@ export function useBottomSheetDrag(onClose: () => void) {
       touchAction: 'none',
     }
   })
-
-  function onPointerUp(e: PointerEvent) {
-    finishDrag(e)
-  }
-
-  function onPointerCancel(e: PointerEvent) {
-    finishDrag(e)
-  }
 
   return {
     sheetRef,
@@ -119,3 +105,4 @@ export function useBottomSheetDrag(onClose: () => void) {
     onPointerCancel,
   }
 }
+
