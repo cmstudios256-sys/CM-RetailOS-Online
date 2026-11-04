@@ -1,6 +1,6 @@
 <template>
   <div class="dropdown-container custom-select-container" :class="{ 'w-full': fullWidth }" ref="containerRef">
-    <button class="export-btn filter-select" :class="{ 'w-full': fullWidth, 'text-muted': !modelValue }" @click="toggleDropdown" type="button">
+    <button class="custom-select-trigger filter-select" :class="{ 'w-full': fullWidth, 'text-muted': !modelValue }" @click="toggleDropdown" type="button">
       {{ selectedLabel }}
     </button>
     <div v-if="isOpen" class="dropdown-menu custom-select-menu" :class="{ 'drop-up': dropUp }">
@@ -79,6 +79,7 @@ onUnmounted(() => {
   display: block;
   width: 100%;
 }
+.custom-select-trigger.filter-select,
 .export-btn.filter-select {
   display: flex;
   align-items: center;
@@ -102,6 +103,7 @@ onUnmounted(() => {
   background-position: right 0.5rem center;
   background-size: 16px;
 }
+.custom-select-trigger.filter-select:hover,
 .export-btn.filter-select:hover {
   background-color: color-mix(in srgb, var(--accent-color) 15%, var(--bg-surface));
   border-color: var(--accent-color);

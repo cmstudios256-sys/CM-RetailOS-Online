@@ -1047,7 +1047,7 @@ onMounted(() => {
       <template v-if="activeTab === 'business-info'">
         <div class="form-grid business-info-grid">
           <div class="form-card full-width business-unified-card">
-            <div class="card-header">
+            <div class="card-header business-card-header">
               <h3>Company Profile</h3>
               <p>Manage your business identity, contact details, and location.</p>
             </div>
@@ -1067,28 +1067,38 @@ onMounted(() => {
                 />
                 <div
                   class="current-logo"
+                  @click="logoInput?.click()"
+                  role="button"
+                  tabindex="0"
+                  title="Upload store logo"
                   style="display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-muted); font-size: 1.2rem; letter-spacing: 0.1em; overflow: hidden;"
                 >
                   <img
                     v-if="appSettings.shopDetails.logo"
                     :src="appSettings.shopDetails.logo"
+                    alt="Store Logo"
                     style="width: 100%; height: 100%; object-fit: contain;"
                   />
-                  <span v-else>LOGO</span>
+                  <div v-else class="empty-logo-box">
+                    <Building :size="24" class="empty-logo-icon" />
+                    <span>LOGO</span>
+                  </div>
                 </div>
                 <div class="upload-actions">
-                  <button type="button" class="btn btn-outline" @click="logoInput?.click()">
-                    <Folder :size="14" /> Browse Files
-                  </button>
-                  <button
-                    v-if="appSettings.shopDetails.logo"
-                    type="button"
-                    class="btn btn-outline"
-                    style="border-color: #ef4444; color: #ef4444;"
-                    @click="appSettings.shopDetails.logo = ''; persistLocalPrefs()"
-                  >
-                    <X :size="14" /> Remove
-                  </button>
+                  <div class="upload-btn-row">
+                    <button type="button" class="btn btn-outline upload-trigger-btn" @click="logoInput?.click()">
+                      <Folder :size="14" /> {{ appSettings.shopDetails.logo ? 'Change' : 'Browse Files' }}
+                    </button>
+                    <button
+                      v-if="appSettings.shopDetails.logo"
+                      type="button"
+                      class="btn btn-outline remove-logo-btn"
+                      style="border-color: #ef4444; color: #ef4444;"
+                      @click="appSettings.shopDetails.logo = ''; persistLocalPrefs()"
+                    >
+                      <X :size="14" /> Remove
+                    </button>
+                  </div>
                   <span class="upload-hint">Recommended size: 256x256px. PNG or JPG.</span>
                 </div>
               </div>
@@ -1135,7 +1145,14 @@ onMounted(() => {
                 <div class="card-body">
                   <div class="input-group full-width">
                     <label>Country</label>
-                    <CustomSelect v-model="selectedCountry" :options="countryOptions" :fullWidth="true" />
+                    <select v-if="isPhone" v-model="selectedCountry" class="mobile-country-select">
+                      <option v-for="c in countryOptions" :key="c.value" :value="c.value">{{ c.label }}</option>
+                    </select>
+                    <CustomSelect v-else v-model="selectedCountry" :options="countryOptions" :fullWidth="true" />
+                    <div class="currency-hint-pill">
+                      <span>Operating Currency:</span>
+                      <strong>{{ appSettings.shopDetails.currency || 'UGX' }}</strong>
+                    </div>
                   </div>
 
                   <div class="input-group full-width">
@@ -1148,6 +1165,22 @@ onMounted(() => {
                   </div>
                 </div>
               </section>
+            </div>
+
+            <!-- Mobile Action Bar -->
+            <div v-if="isPhone" class="mobile-save-section">
+              <button
+                type="button"
+                class="btn btn-primary mobile-save-btn"
+                @click="saveConfigurations"
+                :disabled="isSavingConfig || settingsLoading"
+              >
+                <Check v-if="!isSavingConfig" :size="16" />
+                <span>{{ isSavingConfig ? 'Saving Changes...' : 'Save Changes' }}</span>
+              </button>
+              <div v-if="saveFeedback" class="mobile-save-toast" :class="saveFeedback.type">
+                {{ saveFeedback.message }}
+              </div>
             </div>
           </div>
         </div>
@@ -3835,7 +3868,306 @@ input:checked + .slider:before {
     min-height: 0;
     flex: 1 1 auto;
     overflow-y: auto;
+    padding: 10px 10px 32px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
   }
+
+  /* Business Information Unified Mobile Card */
+  .business-info-grid {
+    padding-bottom: 24px;
+    gap: 0;
+  }
+
+  .business-unified-card {
+    border-radius: 14px !important;
+    border: 1px solid var(--border-subtle) !important;
+    background: var(--bg-surface) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+
+  .business-unified-card .business-card-header {
+    padding: 14px 16px 12px !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+  }
+
+  .business-unified-card .business-card-header h3 {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: var(--text-primary);
+  }
+
+  .business-unified-card .business-card-header p {
+    font-size: 12px !important;
+    color: var(--text-muted);
+    margin-top: 2px !important;
+  }
+
+  /* Hide intermediate redundant section headers on mobile */
+  .business-unified-section.logo-section .card-section-header,
+  .business-details-section .card-section-header {
+    display: none !important;
+  }
+
+  /* Mobile Logo Upload Section */
+  .business-unified-section.logo-section {
+    padding: 14px 16px !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+  }
+
+  .business-unified-section.logo-section .logo-upload-area {
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 14px !important;
+  }
+
+  .business-unified-section.logo-section .current-logo {
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    border-radius: 12px !important;
+    border: 1.5px dashed var(--border-color) !important;
+    background: var(--bg-surface-hover, rgba(255, 255, 255, 0.04)) !important;
+    cursor: pointer;
+  }
+
+  .empty-logo-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .empty-logo-box span {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+
+  .empty-logo-icon {
+    color: var(--text-muted);
+    opacity: 0.7;
+  }
+
+  .upload-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .upload-btn-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .upload-trigger-btn,
+  .remove-logo-btn {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    min-height: 34px !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+  }
+
+  .upload-hint {
+    font-size: 11px !important;
+    color: var(--text-muted);
+    line-height: 1.3;
+  }
+
+  /* Form Fields & Sections */
+  .business-details-columns {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+  }
+
+  .business-details-section {
+    border: none !important;
+  }
+
+  .business-details-section .card-body {
+    padding: 12px 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .location-details-section {
+    border-top: none !important;
+    border-left: none !important;
+  }
+
+  .location-details-section .card-body {
+    padding-top: 0 !important;
+  }
+
+  .input-group {
+    gap: 5px !important;
+  }
+
+  .input-group label {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+
+  .input-group input,
+  .mobile-country-select {
+    width: 100% !important;
+    min-height: 42px !important;
+    font-size: 14px !important;
+    border-radius: 8px !important;
+    padding: 9px 12px !important;
+    box-sizing: border-box !important;
+    border: 1px solid var(--border-color) !important;
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .input-group input:focus,
+  .mobile-country-select:focus {
+    outline: none !important;
+    border-color: var(--accent-color) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 18%, transparent) !important;
+  }
+
+  .currency-hint-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .currency-hint-pill strong {
+    color: var(--accent-color);
+    font-weight: 700;
+  }
+
+  /* Mobile Save Bar */
+  .mobile-save-section {
+    padding: 14px 16px 18px !important;
+    margin-top: 4px;
+    border-top: 1px solid var(--border-subtle) !important;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-card-subtle, rgba(0, 0, 0, 0.08));
+  }
+
+  .mobile-save-btn {
+    width: 100% !important;
+    min-height: 44px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-color) 30%, transparent);
+  }
+
+  .mobile-save-toast {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .mobile-save-toast.success {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #10b981;
+  }
+
+  .mobile-save-toast.error {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #ef4444;
+  }
+}
+
+/* Light Mode Enhancements for Mobile Settings */
+[data-theme='light'] .settings-sidebar {
+  background: #ffffff !important;
+}
+
+[data-theme='light'] .sidebar-menu {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .menu-item {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .menu-item.active {
+  color: var(--accent-color) !important;
+  border-bottom-color: var(--accent-color) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme='light'] .menu-item.active .item-icon {
+  color: var(--accent-color) !important;
+}
+
+[data-theme='light'] .business-unified-card {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme='light'] .business-unified-card .business-card-header {
+  border-bottom-color: #f1f5f9 !important;
+}
+
+[data-theme='light'] .business-unified-section.logo-section {
+  border-bottom-color: #f1f5f9 !important;
+}
+
+[data-theme='light'] .current-logo {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme='light'] .input-group label {
+  color: #475569 !important;
+}
+
+[data-theme='light'] .input-group input,
+[data-theme='light'] .mobile-country-select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .input-group input::placeholder {
+  color: #94a3b8 !important;
+}
+
+[data-theme='light'] .mobile-save-section {
+  background: #f8fafc !important;
+  border-top-color: #e2e8f0 !important;
 }
 
 
