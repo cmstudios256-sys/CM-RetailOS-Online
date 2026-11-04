@@ -7,6 +7,7 @@ import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
+import { usePhoneBreakpoint } from '../utils/breakpoints'
 
 type ReceiptSettings = {
   shopName: string
@@ -47,6 +48,7 @@ const filteredReceipts = computed(() =>
   }),
 )
 
+const { isPhone } = usePhoneBreakpoint()
 const headerRef = ref<HTMLElement | null>(null)
 const receiptsListRef = ref<HTMLElement | null>(null)
 const receiptsListVirtualizer = useVirtualizer(computed(() => ({
@@ -56,6 +58,15 @@ const receiptsListVirtualizer = useVirtualizer(computed(() => ({
   overscan: 8,
 })))
 const virtualReceiptsListItems = computed(() => receiptsListVirtualizer.value.getVirtualItems())
+
+const mobileReceiptsListRef = ref<HTMLElement | null>(null)
+const mobileReceiptsVirtualizer = useVirtualizer(computed(() => ({
+  count: filteredReceipts.value.length,
+  getScrollElement: () => mobileReceiptsListRef.value,
+  estimateSize: () => 220,
+  overscan: 4,
+})))
+const virtualMobileReceipts = computed(() => mobileReceiptsVirtualizer.value.getVirtualItems())
 
 function syncHeaderScroll(e: Event) {
   const target = e.target as HTMLElement
@@ -68,6 +79,7 @@ watch(
   () => [searchTerm.value, selectedDate.value, filteredReceipts.value.length],
   () => {
     receiptsListRef.value?.scrollTo({ top: 0 })
+    mobileReceiptsListRef.value?.scrollTo({ top: 0 })
   },
 )
 
@@ -90,7 +102,7 @@ function closeModal() {
 }
 
 function shareReceiptOnMobile(sale: Sale) {
-  if (mobileTouch.value) receiptToShare.value = sale
+  if (mobileTouch.value || isPhone.value) receiptToShare.value = sale
 }
 
 function exportReceipts() {
@@ -299,7 +311,111 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="virtual-list-container">
+      <!-- Mobile Card Layout (<640px) -->
+      <div v-if="isPhone" ref="mobileReceiptsListRef" class="mobile-cards-scroll-body">
+        <div v-if="showSkeleton" class="mobile-skeleton-cards">
+          <div v-for="i in 4" :key="i" class="mobile-skeleton-card">
+            <div class="mobile-skel-header">
+              <div class="skeleton-box skeleton-shimmer" style="height: 18px; width: 45%;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="height: 14px; width: 35%;"></div>
+            </div>
+            <div class="mobile-skel-badges">
+              <div class="skeleton-box skeleton-shimmer" style="height: 20px; width: 60px; border-radius: 999px;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="height: 20px; width: 70px; border-radius: 999px;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="height: 20px; width: 50px; border-radius: 999px;"></div>
+            </div>
+            <div class="mobile-skel-grid">
+              <div v-for="j in 4" :key="j" class="skeleton-box skeleton-shimmer" style="height: 38px; border-radius: 6px;"></div>
+            </div>
+            <div class="mobile-skel-actions">
+              <div class="skeleton-box skeleton-shimmer" style="height: 44px; width: 100%; border-radius: 8px;"></div>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="loading && !showSkeleton" class="empty-message"></div>
+        <div v-else-if="filteredReceipts.length === 0" class="empty-message">No receipts found.</div>
+        <div
+          v-else
+          class="virtual-cards-spacer"
+          :style="{ height: `${mobileReceiptsVirtualizer.getTotalSize()}px` }"
+        >
+          <div
+            v-for="virtualRow in virtualMobileReceipts"
+            :key="String(virtualRow.key)"
+            class="virtual-cards-row"
+            :style="{
+              transform: `translateY(${virtualRow.start}px)`,
+              height: `${virtualRow.size}px`,
+            }"
+          >
+            <article
+              v-if="filteredReceipts[virtualRow.index]"
+              class="mobile-ui-card"
+              tabindex="0"
+              role="button"
+              :aria-label="`Receipt ${receiptNumber(filteredReceipts[virtualRow.index])}`"
+              @click="viewReceipt(filteredReceipts[virtualRow.index])"
+              @keydown.enter="viewReceipt(filteredReceipts[virtualRow.index])"
+            >
+              <div class="mobile-card-header mobile-card-header-stacked">
+                <span class="mobile-card-id" :title="receiptNumber(filteredReceipts[virtualRow.index])">
+                  {{ receiptNumber(filteredReceipts[virtualRow.index]) }}
+                </span>
+                <span class="mobile-card-date">
+                  {{ formatDate(filteredReceipts[virtualRow.index].completedAt) }} · {{ formatTime(filteredReceipts[virtualRow.index].completedAt) }}
+                </span>
+              </div>
+              <div class="mobile-card-badges">
+                <span class="mobile-card-pill">#{{ shortSaleId(filteredReceipts[virtualRow.index].id) }}</span>
+                <span class="status-badge status-completed">Completed</span>
+                <span class="mobile-card-pill mobile-card-payment">{{ filteredReceipts[virtualRow.index].paymentMethod }}</span>
+              </div>
+              <dl class="mobile-card-grid">
+                <div>
+                  <dt>Total</dt>
+                  <dd class="mobile-card-total-val">{{ formatMoney(filteredReceipts[virtualRow.index].total, currency) }}</dd>
+                </div>
+                <div>
+                  <dt>Profit</dt>
+                  <dd :class="calculateProfit(filteredReceipts[virtualRow.index]) >= 0 ? 'profit-positive' : 'profit-negative'">
+                    {{ formatMoney(calculateProfit(filteredReceipts[virtualRow.index]), currency) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Payment</dt>
+                  <dd>{{ filteredReceipts[virtualRow.index].paymentMethod }}</dd>
+                </div>
+                <div>
+                  <dt>Cashier</dt>
+                  <dd>{{ filteredReceipts[virtualRow.index].cashierName || 'Admin' }}</dd>
+                </div>
+              </dl>
+              <div class="mobile-card-actions">
+                <button
+                  type="button"
+                  class="mobile-card-btn primary-action"
+                  @click.stop="viewReceipt(filteredReceipts[virtualRow.index])"
+                >
+                  <Eye :size="15" />
+                  View
+                </button>
+                <button
+                  type="button"
+                  class="mobile-card-btn share-action"
+                  aria-label="Share receipt to WhatsApp"
+                  @click.stop="shareReceiptOnMobile(filteredReceipts[virtualRow.index])"
+                >
+                  <Share2 :size="15" />
+                  Share
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop / Tablet Table Layout (>=640px) -->
+      <div v-else class="virtual-list-container">
         <div ref="headerRef" class="virtual-list-header-wrapper">
           <div class="virtual-list-header receipts-list-header">
             <span>Receipt ID</span>

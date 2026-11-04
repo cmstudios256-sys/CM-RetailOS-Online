@@ -2772,3 +2772,302 @@ body:has(.workspace-shell) {
 .mobile-sheet-drag-area:active .mobile-sheet-drag-handle {
   opacity: 0.85;
 }
+
+/* ==========================================================================
+   Mobile Card Lists (Sales History & Receipts <640px)
+   ========================================================================== */
+.mobile-cards-scroll-body {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.virtual-cards-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-cards-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  padding-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.mobile-ui-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  height: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  box-sizing: border-box;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mobile-ui-card:hover,
+.mobile-ui-card:focus-visible {
+  border-color: var(--accent-color, #0284c7);
+  outline: none;
+}
+
+.mobile-ui-card:active {
+  transform: scale(0.985);
+}
+
+[data-theme='light'] .mobile-ui-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='light'] .mobile-ui-card:hover {
+  border-color: #cbd5e1;
+}
+
+.mobile-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mobile-card-header-stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.mobile-card-header-stacked .mobile-card-id {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-card-id {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.mobile-card-date {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.mobile-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.mobile-card-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--bg-sidebar);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+[data-theme='light'] .mobile-card-pill {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.mobile-card-payment {
+  text-transform: capitalize;
+}
+
+.mobile-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 2px 0 4px;
+  padding: 0;
+}
+
+.mobile-card-grid > div {
+  min-width: 0;
+}
+
+.mobile-card-grid dt {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.mobile-card-grid dd {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-card-total-val {
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  color: var(--accent-color, #0284c7) !important;
+}
+
+[data-theme='light'] .mobile-card-total-val {
+  color: #0284c7 !important;
+}
+
+.mobile-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.mobile-card-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1 1 0;
+  min-height: 44px;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: var(--bg-sidebar);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-card-btn:active {
+  transform: scale(0.97);
+}
+
+.mobile-card-btn.primary-action {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.25);
+  color: #38bdf8;
+}
+
+[data-theme='light'] .mobile-card-btn.primary-action {
+  background: #e0f2fe;
+  border-color: #bae6fd;
+  color: #0284c7;
+}
+
+.mobile-card-btn.share-action {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+[data-theme='light'] .mobile-card-btn.share-action {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #16a34a;
+}
+
+/* Mobile Skeletons for Sales & Receipts */
+.mobile-skeleton-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0 16px;
+}
+
+.mobile-skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  box-sizing: border-box;
+}
+
+[data-theme='light'] .mobile-skeleton-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.mobile-skel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mobile-skel-badges {
+  display: flex;
+  gap: 6px;
+}
+
+.mobile-skel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.mobile-skel-actions {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 639px) {
+  .workspace-content .card {
+    padding: 12px 10px;
+    border-radius: 12px;
+  }
+  .workspace-content .card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+  }
+  .workspace-content .header-controls {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .workspace-content .search-bar {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .workspace-content .search-bar input {
+    width: 100% !important;
+  }
+}

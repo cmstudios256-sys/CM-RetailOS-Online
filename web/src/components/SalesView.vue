@@ -7,6 +7,7 @@ import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
+import { usePhoneBreakpoint } from '../utils/breakpoints'
 
 type ShopReceiptSettings = {
   shopName: string
@@ -46,6 +47,7 @@ const filteredSales = computed(() =>
   }),
 )
 
+const { isPhone } = usePhoneBreakpoint()
 const headerRef = ref<HTMLElement | null>(null)
 const salesListRef = ref<HTMLElement | null>(null)
 const salesListVirtualizer = useVirtualizer(computed(() => ({
@@ -55,6 +57,15 @@ const salesListVirtualizer = useVirtualizer(computed(() => ({
   overscan: 8,
 })))
 const virtualSalesListItems = computed(() => salesListVirtualizer.value.getVirtualItems())
+
+const mobileSalesListRef = ref<HTMLElement | null>(null)
+const mobileSalesVirtualizer = useVirtualizer(computed(() => ({
+  count: filteredSales.value.length,
+  getScrollElement: () => mobileSalesListRef.value,
+  estimateSize: () => 212,
+  overscan: 4,
+})))
+const virtualMobileSales = computed(() => mobileSalesVirtualizer.value.getVirtualItems())
 
 function syncHeaderScroll(e: Event) {
   const target = e.target as HTMLElement
@@ -67,6 +78,7 @@ watch(
   () => [searchTerm.value, selectedDate.value, filteredSales.value.length],
   () => {
     salesListRef.value?.scrollTo({ top: 0 })
+    mobileSalesListRef.value?.scrollTo({ top: 0 })
   },
 )
 
@@ -93,7 +105,7 @@ function closeDetailModal() {
 }
 
 function shareSaleOnMobile(sale: Sale) {
-  if (mobileTouch.value) saleToShare.value = sale
+  if (mobileTouch.value || isPhone.value) saleToShare.value = sale
 }
 
 function exportSalesHistory() {
@@ -288,7 +300,109 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="virtual-list-container">
+      <!-- Mobile Card Layout (<640px) -->
+      <div v-if="isPhone" ref="mobileSalesListRef" class="mobile-cards-scroll-body">
+        <div v-if="showSkeleton" class="mobile-skeleton-cards">
+          <div v-for="i in 4" :key="i" class="mobile-skeleton-card">
+            <div class="mobile-skel-header">
+              <div class="skeleton-box skeleton-shimmer" style="height: 18px; width: 35%;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="height: 14px; width: 40%;"></div>
+            </div>
+            <div class="mobile-skel-badges">
+              <div class="skeleton-box skeleton-shimmer" style="height: 20px; width: 60px; border-radius: 999px;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="height: 20px; width: 70px; border-radius: 999px;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="height: 20px; width: 50px; border-radius: 999px;"></div>
+            </div>
+            <div class="mobile-skel-grid">
+              <div v-for="j in 4" :key="j" class="skeleton-box skeleton-shimmer" style="height: 38px; border-radius: 6px;"></div>
+            </div>
+            <div class="mobile-skel-actions">
+              <div class="skeleton-box skeleton-shimmer" style="height: 44px; width: 100%; border-radius: 8px;"></div>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="loading && !showSkeleton" class="empty-message"></div>
+        <div v-else-if="filteredSales.length === 0" class="empty-message">No sales records found.</div>
+        <div
+          v-else
+          class="virtual-cards-spacer"
+          :style="{ height: `${mobileSalesVirtualizer.getTotalSize()}px` }"
+        >
+          <div
+            v-for="virtualRow in virtualMobileSales"
+            :key="String(virtualRow.key)"
+            class="virtual-cards-row"
+            :style="{
+              transform: `translateY(${virtualRow.start}px)`,
+              height: `${virtualRow.size}px`,
+            }"
+          >
+            <article
+              v-if="filteredSales[virtualRow.index]"
+              class="mobile-ui-card"
+              tabindex="0"
+              role="button"
+              :aria-label="`Sale #${shortSaleId(filteredSales[virtualRow.index].id)}`"
+              @click="viewSaleDetails(filteredSales[virtualRow.index])"
+              @keydown.enter="viewSaleDetails(filteredSales[virtualRow.index])"
+            >
+              <div class="mobile-card-header">
+                <span class="mobile-card-id">#{{ shortSaleId(filteredSales[virtualRow.index].id) }}</span>
+                <span class="mobile-card-date">
+                  {{ formatDate(filteredSales[virtualRow.index].completedAt) }} · {{ formatTime(filteredSales[virtualRow.index].completedAt) }}
+                </span>
+              </div>
+              <div class="mobile-card-badges">
+                <span class="mobile-card-pill">{{ formatQuantity(getSaleItemsCount(filteredSales[virtualRow.index])) }} items</span>
+                <span class="status-badge status-completed">Completed</span>
+                <span class="mobile-card-pill mobile-card-payment">{{ filteredSales[virtualRow.index].paymentMethod }}</span>
+              </div>
+              <dl class="mobile-card-grid">
+                <div>
+                  <dt>Total</dt>
+                  <dd class="mobile-card-total-val">{{ formatMoney(filteredSales[virtualRow.index].total, currency) }}</dd>
+                </div>
+                <div>
+                  <dt>Profit</dt>
+                  <dd :class="calculateProfit(filteredSales[virtualRow.index]) >= 0 ? 'profit-positive' : 'profit-negative'">
+                    {{ formatMoney(calculateProfit(filteredSales[virtualRow.index]), currency) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Customer</dt>
+                  <dd>{{ filteredSales[virtualRow.index].customerName || 'Walk-in' }}</dd>
+                </div>
+                <div>
+                  <dt>Cashier</dt>
+                  <dd>{{ filteredSales[virtualRow.index].cashierName || 'Admin' }}</dd>
+                </div>
+              </dl>
+              <div class="mobile-card-actions">
+                <button
+                  type="button"
+                  class="mobile-card-btn primary-action"
+                  @click.stop="viewSaleDetails(filteredSales[virtualRow.index])"
+                >
+                  <Eye :size="15" />
+                  View Receipt
+                </button>
+                <button
+                  type="button"
+                  class="mobile-card-btn share-action"
+                  aria-label="Share receipt to WhatsApp"
+                  @click.stop="shareSaleOnMobile(filteredSales[virtualRow.index])"
+                >
+                  <Share2 :size="15" />
+                  Share
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop / Tablet Table Layout (>=640px) -->
+      <div v-else class="virtual-list-container">
         <div ref="headerRef" class="virtual-list-header-wrapper">
           <div class="virtual-list-header sales-list-header">
             <span>Sale ID</span>
