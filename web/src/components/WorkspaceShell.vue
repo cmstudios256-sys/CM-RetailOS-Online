@@ -1,22 +1,39 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useDesktopBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
+import { useBottomSheetDrag } from '../utils/useBottomSheetDrag'
 import {
   BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, Download, FileClock, History, LayoutDashboard,
   LockKeyhole, LogOut, Menu, Package, PackageCheck, PlusSquare, ReceiptText, Settings as SettingsIcon, Share, ShieldCheck, ShoppingCart,
   Store, Tag, LineChart, Monitor, X, Zap,
 } from '@lucide/vue'
 import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPermissions, syncOnlinePrefsFromServer } from '../api'
-import AuditLogsView from './AuditLogsView.vue'
+import AsyncViewLoading from './AsyncViewLoading.vue'
 import DashboardView from './DashboardView.vue'
-import BusinessIntelligenceView from './BusinessIntelligenceView.vue'
 import PointOfSaleView from './PointOfSaleView.vue'
-import ProfitAnalyticsView from './ProfitAnalyticsView.vue'
 import ProductsView from './ProductsView.vue'
 import ReceiptsView from './ReceiptsView.vue'
 import SalesView from './SalesView.vue'
 import StockLevelsView from './StockLevelsView.vue'
 import SettingsView from './SettingsView.vue'
+
+const ProfitAnalyticsView = defineAsyncComponent({
+  loader: () => import('./ProfitAnalyticsView.vue'),
+  loadingComponent: AsyncViewLoading,
+  delay: 150,
+})
+
+const BusinessIntelligenceView = defineAsyncComponent({
+  loader: () => import('./BusinessIntelligenceView.vue'),
+  loadingComponent: AsyncViewLoading,
+  delay: 150,
+})
+
+const AuditLogsView = defineAsyncComponent({
+  loader: () => import('./AuditLogsView.vue'),
+  loadingComponent: AsyncViewLoading,
+  delay: 150,
+})
 
 type User = {
   id: string
@@ -69,6 +86,17 @@ function updateOnlineStatus() {
 const isIos = computed(() => {
   if (typeof navigator === 'undefined') return false
   return /iphone|ipad|ipod/i.test(navigator.userAgent) && !(window as any).MSStream
+})
+
+const {
+  sheetRef: iosSheetRef,
+  sheetStyle: iosSheetStyle,
+  onPointerDown: onIosSheetPointerDown,
+  onPointerMove: onIosSheetPointerMove,
+  onPointerUp: onIosSheetPointerUp,
+  onPointerCancel: onIosSheetPointerCancel,
+} = useBottomSheetDrag(() => {
+  showIosInstallSheet.value = false
 })
 
 const canShowInstallRow = computed(() => {
@@ -472,26 +500,28 @@ onUnmounted(() => {
       </div>
 
       <main class="workspace-content">
-        <section v-if="isPhoneLockedStockLevels" class="desktop-only-state" role="status" aria-live="polite">
-          <div class="desktop-only-icon"><Boxes :size="30" /></div>
-          <h2>Stock Levels</h2>
-          <p>Stock Levels is available from the Products page on mobile — use product stock controls instead.</p>
-        </section>
-        <section v-else-if="isDesktopLockedPage" class="desktop-only-state" role="status" aria-live="polite">
-          <div class="desktop-only-icon"><Monitor :size="30" /></div>
-          <h2>{{ desktopLockedPageName }}</h2>
-          <p>{{ desktopLockedPageName }} is available on desktop — open CM RetailOS on a computer.</p>
-        </section>
-        <DashboardView v-else-if="activePage === 'dashboard'" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
-        <PointOfSaleView v-else-if="activePage === 'pos'" :currency="user.currency" :shop-name="user.shopName" :role="user.role" />
-        <ProductsView v-else-if="activePage === 'products'" :currency="user.currency" :role="user.role" :user-email="user.email" :google-connected="user.googleConnected" @navigate-settings="activePage = 'settings'" />
-        <StockLevelsView v-else-if="activePage === 'stock-levels'" :currency="user.currency" :role="user.role" />
-        <ReceiptsView v-else-if="activePage === 'receipts'" :shop-name="user.shopName" :currency="user.currency" />
-        <SalesView v-else-if="activePage === 'sales'" :shop-name="user.shopName" :currency="user.currency" />
-        <ProfitAnalyticsView v-else-if="activePage === 'profit-analytics'" :shop-name="user.shopName" :currency="user.currency" />
-        <BusinessIntelligenceView v-else-if="activePage === 'business-intelligence'" :shop-name="user.shopName" :currency="user.currency" />
-        <AuditLogsView v-else-if="activePage === 'audit-logs'" />
-        <SettingsView v-else-if="activePage === 'settings'" :shop-name="user.shopName" :currency="user.currency" :role="user.role" :user-id="user.id" :user-name="user.fullName" :user-email="user.email" @user-updated="emit('user-updated', $event)" />
+        <Transition name="view-fade" mode="out-in">
+          <section v-if="isPhoneLockedStockLevels" key="phone-locked" class="desktop-only-state" role="status" aria-live="polite">
+            <div class="desktop-only-icon"><Boxes :size="30" /></div>
+            <h2>Stock Levels</h2>
+            <p>Stock Levels is available from the Products page on mobile — use product stock controls instead.</p>
+          </section>
+          <section v-else-if="isDesktopLockedPage" key="desktop-locked" class="desktop-only-state" role="status" aria-live="polite">
+            <div class="desktop-only-icon"><Monitor :size="30" /></div>
+            <h2>{{ desktopLockedPageName }}</h2>
+            <p>{{ desktopLockedPageName }} is available on desktop — open CM RetailOS on a computer.</p>
+          </section>
+          <DashboardView v-else-if="activePage === 'dashboard'" key="dashboard" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
+          <PointOfSaleView v-else-if="activePage === 'pos'" key="pos" :currency="user.currency" :shop-name="user.shopName" :role="user.role" />
+          <ProductsView v-else-if="activePage === 'products'" key="products" :currency="user.currency" :role="user.role" :user-email="user.email" :google-connected="user.googleConnected" @navigate-settings="activePage = 'settings'" />
+          <StockLevelsView v-else-if="activePage === 'stock-levels'" key="stock-levels" :currency="user.currency" :role="user.role" />
+          <ReceiptsView v-else-if="activePage === 'receipts'" key="receipts" :shop-name="user.shopName" :currency="user.currency" />
+          <SalesView v-else-if="activePage === 'sales'" key="sales" :shop-name="user.shopName" :currency="user.currency" />
+          <ProfitAnalyticsView v-else-if="activePage === 'profit-analytics'" key="profit-analytics" :shop-name="user.shopName" :currency="user.currency" />
+          <BusinessIntelligenceView v-else-if="activePage === 'business-intelligence'" key="business-intelligence" :shop-name="user.shopName" :currency="user.currency" />
+          <AuditLogsView v-else-if="activePage === 'audit-logs'" key="audit-logs" />
+          <SettingsView v-else-if="activePage === 'settings'" key="settings" :shop-name="user.shopName" :currency="user.currency" :role="user.role" :user-id="user.id" :user-name="user.fullName" :user-email="user.email" @user-updated="emit('user-updated', $event)" />
+        </Transition>
       </main>
 
       <nav class="mobile-bottom-nav" aria-label="Mobile main navigation">
@@ -556,9 +586,30 @@ onUnmounted(() => {
         class="ios-install-backdrop"
         @click.self="showIosInstallSheet = false"
       >
-        <div class="ios-install-sheet" role="dialog" aria-modal="true" aria-label="Install CM RetailOS">
-          <div class="ios-sheet-handle"></div>
-          <div class="ios-sheet-header">
+        <div
+          ref="iosSheetRef"
+          class="ios-install-sheet"
+          :style="iosSheetStyle"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Install CM RetailOS"
+        >
+          <div
+            class="ios-sheet-handle-area"
+            @pointerdown="onIosSheetPointerDown"
+            @pointermove="onIosSheetPointerMove"
+            @pointerup="onIosSheetPointerUp"
+            @pointercancel="onIosSheetPointerCancel"
+          >
+            <div class="ios-sheet-handle"></div>
+          </div>
+          <div
+            class="ios-sheet-header"
+            @pointerdown="onIosSheetPointerDown"
+            @pointermove="onIosSheetPointerMove"
+            @pointerup="onIosSheetPointerUp"
+            @pointercancel="onIosSheetPointerCancel"
+          >
             <div class="ios-sheet-app-icon">
               <img src="/icons/cm-retailos-192.png" alt="CM RetailOS" />
             </div>

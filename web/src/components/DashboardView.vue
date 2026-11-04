@@ -12,6 +12,7 @@ import { apiRequest, formatAxisValue, formatQuantity, type Product } from '../ap
 import { getThemeColors, hexToRgba } from '../utils/chartColors'
 import DashboardSalesChart from './DashboardSalesChart.vue'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
+import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 
 type Period = 'Daily' | 'Weekly' | 'Monthly'
 
@@ -60,6 +61,7 @@ const rotatingDashboardCard = ref<'top-selling' | 'stock-alerts'>('top-selling')
 const dashboard = ref<DashboardResponse | null>(null)
 const products = ref<DashboardProduct[]>([])
 const loading = ref(true)
+const showSkeleton = useDelayedSkeleton(loading, 200)
 const error = ref('')
 const hoveredIndex = ref<number | null>(null)
 
@@ -368,8 +370,53 @@ onUnmounted(() => {
   <section class="view-section">
     <div v-if="error" class="inline-error" role="alert">{{ error }}</div>
 
-    <!-- Stats Grid -->
-    <div class="stats-grid">
+    <!-- Skeleton Loading State (Shown only when loading >200ms) -->
+    <template v-if="showSkeleton">
+      <div class="stats-grid">
+        <div v-for="i in 4" :key="i" class="stat-card skeleton-stat-card">
+          <div class="skeleton-box skeleton-shimmer stat-icon-skeleton"></div>
+          <div class="stat-content" style="gap: 8px;">
+            <div class="skeleton-box skeleton-shimmer" style="width: 55%; height: 14px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 75%; height: 26px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 40%; height: 12px;"></div>
+            <div v-if="isPhone" class="skeleton-box skeleton-shimmer" style="width: 100%; height: 20px; margin-top: 4px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="dashboard-cards-wrapper">
+        <div class="card sales-overview-card">
+          <div class="tab-header" style="justify-content: space-between;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div class="skeleton-box skeleton-shimmer" style="width: 140px; height: 20px;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="width: 200px; height: 12px;"></div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <div class="skeleton-box skeleton-shimmer" style="width: 100px; height: 32px; border-radius: 999px;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="width: 130px; height: 32px; border-radius: 999px;"></div>
+            </div>
+          </div>
+          <div class="skeleton-box skeleton-shimmer" style="width: 100%; height: 260px; margin: 16px 0; border-radius: 12px;"></div>
+          <div class="chart-stats-grid">
+            <div v-for="j in 3" :key="j" class="skeleton-box skeleton-shimmer" style="height: 64px; border-radius: 10px;"></div>
+          </div>
+        </div>
+        <div v-if="!isPhone" class="rotating-card-slot">
+          <div class="card rotating-dashboard-card" style="height: 100%; min-height: 380px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <div class="skeleton-box skeleton-shimmer" style="width: 150px; height: 20px;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="width: 32px; height: 32px; border-radius: 8px;"></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div v-for="k in 5" :key="k" class="skeleton-box skeleton-shimmer" style="width: 100%; height: 48px; border-radius: 8px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template v-else>
+      <!-- Stats Grid -->
+      <div class="stats-grid">
       <div v-for="stat in statCards" :key="stat.label" class="stat-card">
         <div class="stat-icon">
           <component :is="stat.icon" :class="stat.color" :size="24" />
@@ -614,6 +661,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+    </template>
 
     <!-- Restock Modal -->
     <div v-if="isRestockModalOpen && productToRestock" class="modal-backdrop" @click.self="closeRestockModal">

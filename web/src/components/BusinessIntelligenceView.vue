@@ -18,6 +18,7 @@ import { externalChartTooltipHandler } from '../utils/chartTooltip'
 import { getThemeColors, hexToComplementaryHsla, hexToRgba } from '../utils/chartColors'
 import { Bar } from 'vue-chartjs'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
+import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 import {
   Chart as ChartJS,
   Title,
@@ -102,6 +103,7 @@ const selectedPeriod = ref<Period>('Daily')
 const selectedDate = ref('')
 const insights = ref<BusinessIntelligence | null>(null)
 const loading = ref(true)
+const showSkeleton = useDelayedSkeleton(loading, 200)
 const error = ref('')
 const isExportDropdownOpen = ref(false)
 
@@ -546,8 +548,18 @@ onUnmounted(() => {
   <section class="bi-section">
     <div v-if="error" class="inline-error" role="alert">{{ error }}</div>
 
-    <!-- Header Controls -->
-    <div class="section-header">
+    <template v-if="showSkeleton">
+      <div class="skeleton-box skeleton-shimmer" style="height: 52px; border-radius: 12px; margin-bottom: 12px;"></div>
+      <div class="bi-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="skeleton-box skeleton-shimmer" style="height: 380px; border-radius: 16px;"></div>
+        <div class="skeleton-box skeleton-shimmer" style="height: 380px; border-radius: 16px;"></div>
+      </div>
+      <div class="skeleton-box skeleton-shimmer" style="height: 280px; border-radius: 16px; margin-top: 16px;"></div>
+    </template>
+
+    <template v-else>
+      <!-- Header Controls -->
+      <div class="section-header">
       <div class="header-left-title">
         <h2 class="section-title">Business Intelligence Overview</h2>
         <p class="section-subtitle">Cross-sectional transaction density, margin leadership & affinity analytics</p>
@@ -755,6 +767,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+    </template>
   </section>
 </template>
 

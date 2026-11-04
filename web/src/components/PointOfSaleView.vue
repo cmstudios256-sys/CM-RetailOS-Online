@@ -27,11 +27,25 @@ import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import { escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
+import { useBottomSheetDrag } from '../utils/useBottomSheetDrag'
 
 type CartItem = {
   product: Product
   quantity: number
 }
+
+const mobileCartOpen = ref(false)
+
+const {
+  sheetRef: mobileCartSheetRef,
+  sheetStyle: mobileCartSheetStyle,
+  onPointerDown: onCartPointerDown,
+  onPointerMove: onCartPointerMove,
+  onPointerUp: onCartPointerUp,
+  onPointerCancel: onCartPointerCancel,
+} = useBottomSheetDrag(() => {
+  mobileCartOpen.value = false
+})
 
 type ShopReceiptSettings = {
   shopName: string
@@ -46,7 +60,6 @@ type ShopReceiptSettings = {
 const props = defineProps<{ currency: string; shopName: string; role: string }>()
 const products = ref<Product[]>([])
 const cart = ref<CartItem[]>([])
-const mobileCartOpen = ref(false)
 const mobileTouch = ref(false)
 const cameraSupported = ref(false)
 const cameraOpen = ref(false)
@@ -854,11 +867,27 @@ onUnmounted(() => {
     ></div>
     <div
       id="pos-cart-panel"
+      ref="mobileCartSheetRef"
       class="cart-panel"
       :class="{ 'mobile-cart-open': mobileCartOpen }"
+      :style="mobileCartOpen ? mobileCartSheetStyle : undefined"
     >
-      <div class="mobile-sheet-drag-handle" aria-hidden="true"></div>
-      <div class="panel-header cart-panel-header">
+      <div
+        class="mobile-sheet-drag-area"
+        @pointerdown="onCartPointerDown"
+        @pointermove="onCartPointerMove"
+        @pointerup="onCartPointerUp"
+        @pointercancel="onCartPointerCancel"
+      >
+        <div class="mobile-sheet-drag-handle" aria-hidden="true"></div>
+      </div>
+      <div
+        class="panel-header cart-panel-header"
+        @pointerdown="onCartPointerDown"
+        @pointermove="onCartPointerMove"
+        @pointerup="onCartPointerUp"
+        @pointercancel="onCartPointerCancel"
+      >
         <div class="cart-title-group">
           <div class="cart-title-badge">
             <ShoppingCart :size="17" />

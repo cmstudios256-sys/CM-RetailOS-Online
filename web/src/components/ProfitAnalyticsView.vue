@@ -17,6 +17,7 @@ import {
 } from '@lucide/vue'
 import { apiRequest, formatDate, formatMoney, formatTime } from '../api'
 import { downloadCsv, escapeHtml, openPrintDocument } from '../utils/reporting'
+import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
 import { getThemeColors, hexToRgba } from '../utils/chartColors'
 import { Bar, Line, Doughnut } from 'vue-chartjs'
@@ -88,6 +89,7 @@ const trendMode = ref<TrendMode>('profit')
 const reportDate = ref('')
 const dashboard = ref<Dashboard | null>(null)
 const loading = ref(true)
+const showSkeleton = useDelayedSkeleton(loading, 200)
 const error = ref('')
 const isExportDropdownOpen = ref(false)
 
@@ -578,8 +580,19 @@ onUnmounted(() => {
   <section class="analytics-section">
     <div v-if="error" class="inline-error" role="alert">{{ error }}</div>
 
-    <!-- KPI Cards Grid -->
-    <div class="kpi-grid">
+    <template v-if="showSkeleton">
+      <div class="kpi-grid">
+        <div v-for="i in 4" :key="i" class="kpi-card skeleton-box skeleton-shimmer" style="height: 110px; border-radius: 14px;"></div>
+      </div>
+      <div class="analytics-panels-grid">
+        <div class="analytics-panel skeleton-box skeleton-shimmer" style="height: 400px; border-radius: 16px;"></div>
+        <div class="analytics-panel skeleton-box skeleton-shimmer" style="height: 400px; border-radius: 16px;"></div>
+      </div>
+    </template>
+
+    <template v-else>
+      <!-- KPI Cards Grid -->
+      <div class="kpi-grid">
       <!-- Gross Profit -->
       <div class="kpi-card card-gross">
         <div class="kpi-header">
@@ -852,6 +865,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+    </template>
   </section>
 </template>
 

@@ -2598,3 +2598,177 @@ body:has(.workspace-shell) {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+
+/* ==========================================================================
+   Navigation Transitions (?page= changes)
+   ========================================================================== */
+.view-fade-enter-active {
+  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.view-fade-leave-active {
+  transition: opacity 120ms ease-in, transform 120ms ease-in;
+}
+
+.view-fade-enter-from {
+  opacity: 0;
+  transform: translateX(16px);
+}
+
+.view-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-fade-enter-active,
+  .view-fade-leave-active {
+    transition: none !important;
+  }
+  .view-fade-enter-from,
+  .view-fade-leave-to {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* ==========================================================================
+   Shimmer Skeletons
+   ========================================================================== */
+.skeleton-box {
+  background-color: var(--bg-hover, rgba(148, 163, 184, 0.12));
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+[data-theme='light'] .skeleton-box {
+  background-color: #e2e8f0;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.08) 20%,
+    rgba(255, 255, 255, 0.18) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: skeleton-shimmer 1.5s infinite ease-in-out;
+}
+
+[data-theme='light'] .skeleton-shimmer::after {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.6) 20%,
+    rgba(255, 255, 255, 0.85) 60%,
+    rgba(255, 255, 255, 0)
+  );
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    display: none !important;
+    animation: none !important;
+  }
+}
+
+/* Specific view skeleton layouts */
+.skeleton-stat-card {
+  pointer-events: none;
+}
+
+.stat-icon-skeleton {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.sales-skeleton-list,
+.receipts-skeleton-list,
+.products-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.sales-skeleton-row,
+.receipts-skeleton-row,
+.products-skeleton-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--bg-card-subtle, rgba(30, 41, 59, 0.25));
+  border: 1px solid var(--border-light, rgba(255, 255, 255, 0.04));
+}
+
+[data-theme='light'] .sales-skeleton-row,
+[data-theme='light'] .receipts-skeleton-row,
+[data-theme='light'] .products-skeleton-row {
+  background: #f8fafc;
+  border-color: #f1f5f9;
+}
+
+.products-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+
+@media (max-width: 639px) {
+  .products-skeleton-grid {
+    grid-template-columns: 1fr;
+    padding: 8px 4px;
+  }
+}
+
+/* Bottom Sheet Drag Area */
+.mobile-sheet-drag-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0 4px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mobile-sheet-drag-area:active {
+  cursor: grabbing;
+}
+
+.mobile-sheet-drag-handle {
+  width: 38px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--text-muted, #64748b);
+  opacity: 0.45;
+  transition: opacity 0.15s ease;
+}
+
+.mobile-sheet-drag-area:active .mobile-sheet-drag-handle {
+  opacity: 0.85;
+}

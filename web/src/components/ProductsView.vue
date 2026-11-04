@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
+import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 import {
   AlertTriangle,
   ArrowRight,
@@ -43,6 +44,7 @@ const search = ref('')
 const selectedCategory = ref('All Categories')
 const selectedStock = ref<'All Stock' | 'In Stock' | 'Low Stock' | 'Out of Stock'>('All Stock')
 const loading = ref(true)
+const showSkeleton = useDelayedSkeleton(loading, 200)
 const saving = ref(false)
 const adjusting = ref(false)
 const categoryBusy = ref(false)
@@ -702,7 +704,25 @@ onUnmounted(() => {
       </div>
 
       <div v-if="isPhone" ref="productsGridRef" class="products-grid">
-        <p v-if="loading" class="products-grid-empty">Loading products...</p>
+        <div v-if="showSkeleton" class="products-skeleton-grid">
+          <div v-for="i in 6" :key="i" class="product-grid-card">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+              <div style="display: flex; flex-direction: column; gap: 6px; width: 65%;">
+                <div class="skeleton-box skeleton-shimmer" style="height: 16px; width: 80%;"></div>
+                <div class="skeleton-box skeleton-shimmer" style="height: 12px; width: 50%;"></div>
+              </div>
+              <div class="skeleton-box skeleton-shimmer" style="height: 20px; width: 64px; border-radius: 999px;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              <div v-for="j in 4" :key="j" class="skeleton-box skeleton-shimmer" style="height: 28px; border-radius: 6px;"></div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <div class="skeleton-box skeleton-shimmer" style="flex: 1; height: 32px; border-radius: 6px;"></div>
+              <div class="skeleton-box skeleton-shimmer" style="flex: 1; height: 32px; border-radius: 6px;"></div>
+            </div>
+          </div>
+        </div>
+        <p v-else-if="loading && !showSkeleton" class="products-grid-empty"></p>
         <p v-else-if="filteredProducts.length === 0" class="products-grid-empty">No products found.</p>
         <div
           v-else
@@ -760,7 +780,19 @@ onUnmounted(() => {
           <span>Quantity</span><span>Unit</span><span>Profit Per Unit</span>
           <span v-if="canManage">Actions</span>
         </div>
-        <p v-if="loading" class="products-grid-empty">Loading products...</p>
+        <div v-if="showSkeleton" class="products-skeleton-list">
+          <div v-for="i in 8" :key="i" class="products-skeleton-row">
+            <div class="skeleton-box skeleton-shimmer" style="width: 140px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 80px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 75px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 75px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 50px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 40px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 75px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 110px; height: 26px; border-radius: 6px;"></div>
+          </div>
+        </div>
+        <p v-else-if="loading && !showSkeleton" class="products-grid-empty"></p>
         <p v-else-if="filteredProducts.length === 0" class="products-grid-empty">No products found.</p>
         <div
           v-else

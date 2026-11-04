@@ -6,6 +6,7 @@ import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, for
 import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
+import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 
 type ReceiptSettings = {
   shopName: string
@@ -27,6 +28,7 @@ const isReceiptModalOpen = ref(false)
 const searchTerm = ref('')
 const selectedDate = ref('')
 const loading = ref(true)
+const showSkeleton = useDelayedSkeleton(loading, 200)
 const error = ref('')
 
 const filteredReceipts = computed(() =>
@@ -308,7 +310,17 @@ onUnmounted(() => {
             <span>Actions</span>
           </div>
         </div>
-        <div v-if="loading" class="empty-message">Loading receipts...</div>
+        <div v-if="showSkeleton" class="receipts-skeleton-list">
+          <div v-for="i in 8" :key="i" class="receipts-skeleton-row">
+            <div class="skeleton-box skeleton-shimmer" style="width: 100px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 70px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 110px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 85px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 80px; height: 18px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 110px; height: 26px; border-radius: 6px;"></div>
+          </div>
+        </div>
+        <div v-else-if="loading && !showSkeleton" class="empty-message"></div>
         <div v-else-if="filteredReceipts.length === 0" class="empty-message">No receipts found.</div>
         <div
           v-else
