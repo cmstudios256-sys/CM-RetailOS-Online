@@ -139,12 +139,20 @@ async function shareWithDevice() {
   align-items: end;
   padding: 12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   background: rgba(2, 6, 23, .76);
+  backdrop-filter: blur(6px);
+}
+
+@media (min-width: 640px) {
+  .mobile-share-backdrop {
+    align-items: center;
+    padding: 20px;
+  }
 }
 
 .mobile-share-dialog {
   width: min(100%, 480px);
   justify-self: center;
-  padding: 20px;
+  padding: 22px 20px 20px;
   border: 1px solid rgba(148, 163, 184, .2);
   border-radius: 18px;
   background: #101a2a;
@@ -163,6 +171,8 @@ async function shareWithDevice() {
 .mobile-share-heading h2 {
   margin: 0 0 5px;
   font-size: 19px;
+  font-weight: 700;
+  color: inherit;
 }
 
 .mobile-share-heading p,
@@ -182,14 +192,19 @@ async function shareWithDevice() {
   align-items: center;
   justify-content: center;
   gap: 9px;
-  border-radius: 9px;
+  border-radius: 10px;
   cursor: pointer;
+  transition: all 0.15s ease-out;
 }
 
 .mobile-share-close {
   border: 1px solid rgba(148, 163, 184, .2);
   color: #cbd5e1;
   background: transparent;
+}
+
+.mobile-share-close:hover {
+  background: rgba(148, 163, 184, .1);
 }
 
 .mobile-share-label {
@@ -203,13 +218,14 @@ async function shareWithDevice() {
 .mobile-share-phone {
   width: 100%;
   min-height: 48px;
-  padding: 0 12px;
-  border: 1px solid rgba(148, 163, 184, .25);
-  border-radius: 9px;
+  padding: 0 14px;
+  border: 1.5px solid rgba(148, 163, 184, .25);
+  border-radius: 10px;
   color: #f8fafc;
   background: #0b1220;
   font: inherit;
   font-size: 16px;
+  box-sizing: border-box;
 }
 
 .mobile-share-phone:focus-visible,
@@ -234,16 +250,21 @@ async function shareWithDevice() {
 .mobile-share-primary,
 .mobile-share-secondary {
   width: 100%;
-  padding: 0 14px;
+  padding: 0 16px;
   font: inherit;
   font-size: 14px;
   font-weight: 650;
+  box-sizing: border-box;
 }
 
 .mobile-share-primary {
   border: 1px solid #0f9f70;
   color: #f0fdf4;
   background: #087c5a;
+}
+
+.mobile-share-primary:hover:not(:disabled) {
+  background: #09946c;
 }
 
 .mobile-share-primary:disabled {
@@ -256,5 +277,108 @@ async function shareWithDevice() {
   border: 1px solid rgba(148, 163, 184, .2);
   color: #dbe5f0;
   background: rgba(148, 163, 184, .06);
+}
+
+.mobile-share-secondary:hover {
+  background: rgba(148, 163, 184, .12);
+}
+
+/* Light Mode — Crisp, elevated, high-contrast stand-out UI */
+[data-theme='light'] .mobile-share-backdrop {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme='light'] .mobile-share-dialog {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  box-shadow: 0 25px 60px -10px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme='light'] .mobile-share-heading h2 {
+  color: #0f172a;
+}
+
+[data-theme='light'] .mobile-share-heading p {
+  color: #64748b;
+  font-weight: 500;
+}
+
+[data-theme='light'] .mobile-share-close {
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  background: #f8fafc;
+}
+
+[data-theme='light'] .mobile-share-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+[data-theme='light'] .mobile-share-label {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+[data-theme='light'] .mobile-share-phone {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #0f172a;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme='light'] .mobile-share-phone::placeholder {
+  color: #94a3b8;
+}
+
+[data-theme='light'] .mobile-share-phone:focus-visible {
+  outline: 2px solid #16a34a;
+  border-color: #16a34a;
+}
+
+[data-theme='light'] .mobile-share-note {
+  color: #64748b;
+}
+
+[data-theme='light'] .mobile-share-error {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+[data-theme='light'] .mobile-share-primary {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  border: 1px solid #15803d;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme='light'] .mobile-share-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.45);
+}
+
+[data-theme='light'] .mobile-share-primary:disabled {
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  color: #64748b;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+[data-theme='light'] .mobile-share-secondary {
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  color: #1e293b;
+  font-weight: 650;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme='light'] .mobile-share-secondary:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
 }
 </style>

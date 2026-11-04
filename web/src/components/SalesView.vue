@@ -524,7 +524,7 @@ onMounted(() => {
               </thead>
               <tbody>
                 <tr v-for="(item, idx) in selectedSale.items" :key="`${item.productId}-${idx}`">
-                  <td class="font-medium text-slate-200">{{ item.productName }}</td>
+                  <td class="font-medium item-name-cell">{{ item.productName }}</td>
                   <td class="text-center">{{ formatQuantity(item.quantity) }}</td>
                   <td class="text-right">{{ formatMoney(item.unitPrice, currency) }}</td>
                   <td class="text-right font-semibold">{{ formatMoney(item.lineTotal, currency) }}</td>
@@ -961,6 +961,7 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   max-height: 85vh;
+  box-sizing: border-box;
 }
 
 .modal-header {
@@ -997,6 +998,8 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .sale-info-grid {
@@ -1038,7 +1041,10 @@ tbody tr:hover {
 .modal-table-container {
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .items-table {
@@ -1057,6 +1063,10 @@ tbody tr:hover {
 .items-table th {
   background-color: var(--bg-surface);
   position: static;
+}
+
+.item-name-cell {
+  color: var(--text-primary);
 }
 
 .sale-summary {
@@ -1096,15 +1106,166 @@ tbody tr:hover {
   border-bottom-right-radius: 12px;
 }
 
-[data-theme='light'] .modal-footer {
-  background-color: #f8fafc !important;
-  border-top: 1px solid #e2e8f0 !important;
+@media (max-width: 639px) {
+  .modal-content {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+
+  .modal-header {
+    padding: 12px 14px !important;
+    flex-shrink: 0;
+  }
+
+  .modal-body {
+    padding: 12px 14px !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    gap: 12px !important;
+  }
+
+  .sale-info-grid {
+    padding: 10px 12px !important;
+    gap: 8px 12px !important;
+    min-width: 0 !important;
+  }
+
+  .info-item {
+    min-width: 0 !important;
+  }
+
+  .info-value {
+    font-size: 0.85rem !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .items-table {
+    width: 100%;
+    min-width: 310px;
+  }
+
+  .items-table th,
+  .items-table td {
+    padding: 8px 8px !important;
+    font-size: 12.5px !important;
+  }
+
+  .items-table td:first-child {
+    max-width: 110px;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  .sale-summary {
+    padding: 10px 12px !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .summary-row {
+    font-size: 0.85rem !important;
+  }
+
+  .modal-footer {
+    padding: 12px 14px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    flex-shrink: 0;
+  }
+
+  .modal-footer button {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    min-height: 44px;
+    justify-content: center;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+  }
 }
 
 [data-theme='light'] .modal-content {
   background-color: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
   box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.12) !important;
+}
+
+[data-theme='light'] .modal-header {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .modal-header h3 {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .close-btn {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .close-btn:hover {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .sale-info-grid {
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .info-label {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .info-value {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .items-heading {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .modal-table-container {
+  border: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .items-table th {
+  background-color: #f8fafc !important;
+  color: #475569 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .items-table td {
+  border-bottom: 1px solid #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .item-name-cell {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .sale-summary {
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .summary-row {
+  color: #475569 !important;
+}
+
+[data-theme='light'] .total-row {
+  border-top: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .modal-footer {
+  background-color: #f8fafc !important;
+  border-top: 1px solid #e2e8f0 !important;
 }
 
 [data-theme='light'] .btn-secondary {
