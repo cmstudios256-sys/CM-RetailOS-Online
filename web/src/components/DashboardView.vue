@@ -491,7 +491,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Right Column: Top Selling Products / Stock Alerts -->
-      <div class="rotating-card-slot">
+      <div v-if="!isPhone" class="rotating-card-slot">
         <!-- Top Selling Products -->
         <div v-if="rotatingDashboardCard === 'top-selling'" class="card rotating-dashboard-card">
           <div class="rotating-card-header">
@@ -1580,14 +1580,6 @@ onUnmounted(() => {
 
   .chart-stat-label {
     font-size: 10px;
-  }
-
-  .rotating-card-slot {
-    min-height: 260px;
-  }
-
-  .rotating-dashboard-card {
-    min-height: 260px;
   }
 }
 </style>
