@@ -1,24 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
-import { Download, Search, SlidersHorizontal, X } from '@lucide/vue'
+import { Download, Search } from '@lucide/vue'
 import { apiRequest, formatMoney, formatQuantity, type Product } from '../api'
 import { downloadCsv } from '../utils/reporting'
 
-const props = defineProps<{ currency: string; role: string }>()
+const props = defineProps<{ currency: string; role?: string }>()
 const products = ref<Product[]>([])
 const search = ref('')
 const selectedCategory = ref('All Categories')
 const selectedStock = ref<'All Stock' | 'In Stock' | 'Low Stock' | 'Out of Stock'>('All Stock')
 const loading = ref(true)
 const error = ref('')
-const adjustmentError = ref('')
-const adjustingProduct = ref<Product | null>(null)
-const adjustmentMode = ref<'add' | 'remove' | 'set'>('add')
-const adjustmentQuantity = ref(1)
-const adjustmentReason = ref('Stock count adjustment')
-const adjusting = ref(false)
-const canManage = computed(() => props.role === 'owner' || props.role === 'manager')
 
 const categories = computed(() => {
   const unique = new Set(products.value.map(product => product.category.trim()).filter(Boolean))
@@ -58,15 +51,6 @@ watch(
 
 const totalProducts = computed(() => filteredProducts.value.length)
 const totalUnits = computed(() => filteredProducts.value.reduce((sum, product) => sum + product.quantity, 0))
-const adjustmentDelta = computed(() => {
-  const quantity = Number(adjustmentQuantity.value)
-  if (!Number.isFinite(quantity)) return 0
-  if (adjustmentMode.value === 'set') return quantity - (adjustingProduct.value?.quantity ?? 0)
-  return adjustmentMode.value === 'add' ? quantity : -quantity
-})
-const resultingStock = computed(() =>
-  Math.round(((adjustingProduct.value?.quantity ?? 0) + adjustmentDelta.value) * 1000) / 1000,
-)
 
 function getStockStatus(product: Product) {
   if (product.quantity <= 0) return { text: 'Out of Stock', class: 'status-out-of-stock' }
@@ -84,51 +68,6 @@ function projectedProfit(product: Product) {
 
 function profitPerUnit(product: Product) {
   return product.sellingPrice - product.costPrice
-}
-
-function openAdjustStock(product: Product) {
-  adjustingProduct.value = product
-  adjustmentMode.value = 'add'
-  adjustmentQuantity.value = 1
-  adjustmentReason.value = 'Stock count adjustment'
-  adjustmentError.value = ''
-}
-
-function closeAdjustStock() {
-  if (adjusting.value) return
-  adjustingProduct.value = null
-  adjustmentError.value = ''
-}
-
-async function submitStockAdjustment() {
-  if (!adjustingProduct.value) return
-  const quantity = Number(adjustmentQuantity.value)
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    adjustmentError.value = 'Enter a stock change greater than zero.'
-    return
-  }
-  if (resultingStock.value < 0) {
-    adjustmentError.value = 'Stock adjustment cannot leave a negative quantity.'
-    return
-  }
-
-  adjusting.value = true
-  adjustmentError.value = ''
-  try {
-    await apiRequest<{ product: Product }>(`/products/${adjustingProduct.value.id}/stock-adjustments`, {
-      method: 'POST',
-      body: {
-        delta: adjustmentDelta.value,
-        reason: adjustmentReason.value.trim() || 'Stock count adjustment',
-      },
-    })
-    adjustingProduct.value = null
-    await load()
-  } catch (reason) {
-    adjustmentError.value = reason instanceof Error ? reason.message : 'Stock could not be adjusted.'
-  } finally {
-    adjusting.value = false
-  }
 }
 
 function exportStockLevels() {
@@ -219,7 +158,7 @@ onMounted(load)
       </div>
 
       <div ref="stockListRef" class="table-container virtual-list-container" style="flex: 1; min-height: 0; overflow-y: auto;">
-        <div class="virtual-list-header stock-list-header" :class="{ 'with-actions': canManage }">
+        <div class="virtual-list-header stock-list-header">
           <span>Product</span>
           <span>Category</span>
           <span>Current Stock</span>
@@ -228,7 +167,6 @@ onMounted(load)
           <span>Projected Profit</span>
           <span>Profit per Unit</span>
           <span>Status</span>
-          <span v-if="canManage">Actions</span>
         </div>
         <div v-if="loading" class="empty-message">Loading stock levels...</div>
         <div v-else-if="filteredProducts.length === 0" class="empty-message">No products found.</div>
@@ -241,7 +179,6 @@ onMounted(load)
             v-for="virtualRow in virtualStockListItems"
             :key="String(virtualRow.key)"
             class="virtual-list-row stock-list-header"
-            :class="{ 'with-actions': canManage }"
             :style="{ transform: `translateY(${virtualRow.start}px)`, height: `${virtualRow.size}px` }"
           >
             <template v-if="filteredProducts[virtualRow.index]">
@@ -267,64 +204,10 @@ onMounted(load)
                   {{ getStockStatus(filteredProducts[virtualRow.index]).text }}
                 </span>
               </span>
-              <span v-if="canManage" class="actions-cell">
-                <button
-                  type="button"
-                  class="stock-adjust-button"
-                  :aria-label="`Adjust stock for ${filteredProducts[virtualRow.index].name}`"
-                  @click="openAdjustStock(filteredProducts[virtualRow.index])"
-                >
-                  <SlidersHorizontal :size="15" />
-                  Adjust
-                </button>
-              </span>
             </template>
           </div>
         </div>
       </div>
-    </div>
-
-    <div v-if="adjustingProduct" class="adjustment-backdrop" @click.self="closeAdjustStock">
-      <section class="adjustment-dialog" role="dialog" aria-modal="true" aria-labelledby="stock-adjustment-title">
-        <header class="adjustment-header">
-          <div>
-            <h2 id="stock-adjustment-title">Adjust Stock</h2>
-            <p>{{ adjustingProduct.name }} · Current: {{ formatQuantity(adjustingProduct.quantity) }} {{ adjustingProduct.unit }}</p>
-          </div>
-          <button type="button" class="adjustment-close" aria-label="Close stock adjustment" :disabled="adjusting" @click="closeAdjustStock">
-            <X :size="19" />
-          </button>
-        </header>
-        <form class="adjustment-form" @submit.prevent="submitStockAdjustment">
-          <p v-if="adjustmentError" class="inline-error" role="alert">{{ adjustmentError }}</p>
-          <label>
-            Adjustment type
-            <select v-model="adjustmentMode">
-              <option value="add">Add to stock</option>
-              <option value="remove">Remove from stock</option>
-              <option value="set">Set exact stock count</option>
-            </select>
-          </label>
-          <label>
-            Quantity
-            <input v-model.number="adjustmentQuantity" type="number" min="0.001" step="any" required />
-          </label>
-          <label>
-            Resulting stock
-            <input :value="`${formatQuantity(resultingStock)} ${adjustingProduct.unit}`" type="text" disabled />
-          </label>
-          <label>
-            Reason
-            <input v-model.trim="adjustmentReason" type="text" maxlength="160" placeholder="Stock count, restock, damaged item…" />
-          </label>
-          <footer class="adjustment-actions">
-            <button type="button" class="adjustment-cancel" :disabled="adjusting" @click="closeAdjustStock">Cancel</button>
-            <button type="submit" class="adjustment-submit" :disabled="adjusting">
-              {{ adjusting ? 'Updating…' : 'Apply Adjustment' }}
-            </button>
-          </footer>
-        </form>
-      </section>
     </div>
   </section>
 </template>
@@ -355,7 +238,7 @@ onMounted(load)
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
@@ -501,13 +384,8 @@ onMounted(load)
 }
 
 .stock-list-header {
-  grid-template-columns: minmax(140px, 1.4fr) minmax(100px, 1fr) minmax(90px, 0.9fr) minmax(70px, 0.7fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr);
-  min-width: 820px;
-}
-
-.stock-list-header.with-actions {
-  grid-template-columns: minmax(140px, 1.4fr) minmax(100px, 1fr) minmax(90px, 0.9fr) minmax(70px, 0.7fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(90px, 0.9fr);
-  min-width: 910px;
+  grid-template-columns: minmax(160px, 1.5fr) minmax(120px, 1.1fr) minmax(95px, 0.9fr) minmax(75px, 0.7fr) minmax(165px, 1.4fr) minmax(155px, 1.3fr) minmax(130px, 1.1fr) minmax(105px, 1fr);
+  min-width: 1005px;
 }
 
 .virtual-list-header {
@@ -528,7 +406,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.4rem 0.75rem;
+  padding: 0.4rem 0.65rem;
   border-right: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
   text-align: center;
@@ -536,6 +414,8 @@ onMounted(load)
   white-space: nowrap;
   box-sizing: border-box;
   height: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .virtual-list-row {
@@ -547,151 +427,6 @@ onMounted(load)
 
 .virtual-list-row:hover {
   background-color: var(--bg-surface);
-}
-
-.actions-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.stock-adjust-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.55rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.35rem;
-  color: var(--text-secondary);
-  background: var(--bg-surface);
-  font: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.stock-adjust-button:hover,
-.stock-adjust-button:focus-visible {
-  color: var(--text-primary);
-  border-color: var(--accent-color);
-}
-
-.adjustment-backdrop {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 16px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  background: rgba(2, 6, 23, 0.76);
-}
-
-.adjustment-dialog {
-  width: min(100%, 480px);
-  max-height: min(90vh, 760px);
-  overflow: auto;
-  padding: 1.25rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.9rem;
-  color: var(--text-primary);
-  background: var(--bg-sidebar);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
-}
-
-.adjustment-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.adjustment-header h2 {
-  margin: 0;
-  font-size: 1.15rem;
-}
-
-.adjustment-header p {
-  margin: 0.35rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-
-.adjustment-close,
-.adjustment-cancel,
-.adjustment-submit {
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 0.45rem;
-  cursor: pointer;
-}
-
-.adjustment-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  background: transparent;
-}
-
-.adjustment-form {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.adjustment-form label {
-  display: grid;
-  gap: 0.4rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.adjustment-form input,
-.adjustment-form select {
-  width: 100%;
-  min-height: 46px;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.45rem;
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  font: inherit;
-  font-size: 16px;
-}
-
-.adjustment-actions {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-top: 0.3rem;
-}
-
-.adjustment-cancel,
-.adjustment-submit {
-  padding: 0 0.9rem;
-  border: 1px solid var(--border-color);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.adjustment-cancel {
-  color: var(--text-primary);
-  background: var(--bg-surface);
-}
-
-.adjustment-submit {
-  color: white;
-  background: var(--accent-color);
-}
-
-.adjustment-cancel:disabled,
-.adjustment-submit:disabled {
-  opacity: 0.6;
-  cursor: wait;
 }
 
 table {
