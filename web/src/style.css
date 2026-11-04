@@ -1913,9 +1913,12 @@ input[type=number] {
   .workspace-content .desktop-metric-grid,
   .workspace-content .profit-metric-grid,
   .workspace-content .kpi-grid,
-  .workspace-content .stats-grid,
   .workspace-content .chart-summary {
     grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .workspace-content .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .workspace-content .dashboard-grid,

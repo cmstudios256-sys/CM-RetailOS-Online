@@ -410,9 +410,9 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-if="!isPhone" class="dashboard-cards-wrapper">
+    <div class="dashboard-cards-wrapper">
       <!-- Sales Overview -->
-      <div v-if="!isPhone" class="card sales-overview-card">
+      <div class="card sales-overview-card">
         <div class="tab-header">
           <div>
             <h3 class="card-title">Sales Overview</h3>
@@ -473,7 +473,7 @@ onUnmounted(() => {
             />
           </div>
 
-          <div v-if="!isPhone" class="chart-stats">
+          <div class="chart-stats">
             <div
               v-for="stat in salesSummaryStats"
               :key="stat.label"
@@ -491,7 +491,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Right Column: Top Selling Products / Stock Alerts -->
-      <div v-if="!isPhone" class="rotating-card-slot">
+      <div class="rotating-card-slot">
         <!-- Top Selling Products -->
         <div v-if="rotatingDashboardCard === 'top-selling'" class="card rotating-dashboard-card">
           <div class="rotating-card-header">
@@ -642,6 +642,31 @@ onUnmounted(() => {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
   box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03) !important;
+}
+
+[data-theme='light'] .stat-label {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .stat-value {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .currency-prefix {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .stat-sub-value {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .trend-text {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .chart-mode-nav button.active {
+  background: color-mix(in srgb, var(--accent-color) 14%, transparent) !important;
+  color: var(--accent-color) !important;
 }
 
 [data-theme='light'] .stat-card:hover {
@@ -1363,28 +1388,24 @@ onUnmounted(() => {
 
 @media (max-width: 639px) {
   .stats-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-    flex: 1 1 auto;
-    min-height: 570px;
-    grid-template-rows:
-      minmax(158px, 1fr)
-      minmax(158px, 1fr)
-      minmax(112px, 1fr)
-      minmax(112px, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px;
+    flex: 0 0 auto;
+    min-height: auto;
+    grid-template-rows: auto;
   }
 
   .view-section {
     flex: 1 1 auto;
     height: auto;
     min-height: 0;
-    gap: 0;
+    gap: 12px;
   }
 
   .stat-card {
-    min-height: 112px;
-    padding: 16px 16px 14px;
-    border-radius: 14px;
+    min-height: 84px;
+    padding: 10px 12px;
+    border-radius: 12px;
     border-color: rgba(148, 163, 184, 0.18);
     border-top-width: 2px;
     background: linear-gradient(
@@ -1393,131 +1414,180 @@ onUnmounted(() => {
       rgba(13, 23, 38, 0.98)
     );
     box-shadow:
-      0 10px 24px rgba(0, 0, 0, 0.28),
+      0 4px 14px rgba(0, 0, 0, 0.22),
       inset 0 1px 0 rgba(255, 255, 255, 0.055);
   }
 
   .stat-card:nth-child(1),
   .stat-card:nth-child(2) {
-    min-height: 158px;
+    min-height: 84px;
   }
 
   .stat-icon {
-    top: 14px;
-    right: 14px;
-    width: 44px;
-    height: 44px;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
     padding: 0;
-    border-radius: 11px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.075);
   }
 
+  .stat-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
   .stat-content {
-    padding-right: 54px;
+    padding-right: 34px;
   }
 
   .stat-label {
-    margin-bottom: 8px;
-    font-size: 12px;
+    margin-bottom: 3px;
+    font-size: 11px;
     line-height: 1.25;
-    font-weight: 700;
-    color: #b8c5d8;
+    font-weight: 600;
+    color: var(--text-muted);
     letter-spacing: 0.01em;
   }
 
   .stat-value {
-    margin-bottom: 7px;
-    font-size: 22px;
-    line-height: 1.15;
+    margin-bottom: 3px;
+    font-size: 15px;
+    line-height: 1.2;
     font-weight: 800;
-    color: #f8fafc;
-    letter-spacing: -0.025em;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .currency-prefix {
-    font-size: 12px;
-    font-weight: 800;
-    color: #9fb1c8;
-    margin-right: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-right: 3px;
   }
 
   .stat-sub-value {
-    font-size: 13px;
-    color: #cbd5e1;
+    font-size: 11px;
+    color: var(--text-muted);
   }
 
   .stat-trend-wrapper {
-    font-size: 12px;
-    line-height: 1.3;
+    font-size: 10px;
+    line-height: 1.2;
   }
 
   .stat-trend {
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .trend-text {
-    color: #9aabc0;
-    margin-left: 5px;
+    color: var(--text-muted);
+    margin-left: 4px;
   }
 
   .stat-sparkline {
-    height: 40px;
-    margin-top: 8px;
+    height: 20px;
+    margin-top: 4px;
+  }
+
+  .dashboard-cards-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
   }
 
   .tab-header {
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
   }
 
   .tab-controls-right {
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chart-mode-nav {
+    flex: 0 0 auto;
   }
 
   .tab-nav {
-    width: 100%;
+    flex: 1 1 auto;
+    min-width: 140px;
   }
 
   .tab-nav button {
     flex: 1;
-    min-height: 44px;
+    min-height: 34px;
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .chart-mode-nav button {
+    min-height: 34px;
+    padding: 3px 8px;
+    font-size: 11px;
   }
 
   .tab-controls-right .date-picker-btn {
-    justify-self: start;
-    width: 46px;
-    height: 46px;
-    min-width: 46px;
-    min-height: 46px;
+    justify-self: auto;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    justify-content: center;
   }
 
   .tab-controls-right .date-picker-btn span {
     display: none;
   }
 
-  .tab-nav button {
-    min-height: 44px;
-  }
-
   .sales-chart-container {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
   }
 
   .sales-chart-plot {
     position: relative;
     inset: auto;
-    flex: 0 0 240px;
-    height: 240px;
+    flex: 0 0 210px;
+    height: 210px;
   }
 
   .chart-stats {
     position: static;
-    grid-template-columns: 1fr;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .chart-stat {
+    padding: 7px 9px;
+  }
+
+  .chart-stat-value {
+    font-size: 12px;
+  }
+
+  .chart-stat-label {
+    font-size: 10px;
+  }
+
+  .rotating-card-slot {
+    min-height: 260px;
+  }
+
+  .rotating-dashboard-card {
+    min-height: 260px;
   }
 }
 </style>
