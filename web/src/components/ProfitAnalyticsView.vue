@@ -912,6 +912,75 @@ onUnmounted(() => {
   background: linear-gradient(180deg, rgba(245, 158, 11, 0.06) 0%, rgba(15, 23, 42, 0.4) 100%);
 }
 
+[data-theme='light'] .kpi-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03) !important;
+}
+
+[data-theme='light'] .kpi-card:hover {
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.1) !important;
+}
+
+[data-theme='light'] .card-gross {
+  border-top: 2.5px solid #10b981 !important;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, #ffffff 100%) !important;
+}
+
+[data-theme='light'] .card-net {
+  border-top: 2.5px solid #0ea5e9 !important;
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.08) 0%, #ffffff 100%) !important;
+}
+
+[data-theme='light'] .card-margin {
+  border-top: 2.5px solid #a855f7 !important;
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.08) 0%, #ffffff 100%) !important;
+}
+
+[data-theme='light'] .card-revenue {
+  border-top: 2.5px solid #f59e0b !important;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, #ffffff 100%) !important;
+}
+
+[data-theme='light'] .kpi-value {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .kpi-title {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .kpi-badge-hint {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+}
+
+[data-theme='light'] .time-range-selector {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme='light'] .time-range-selector button {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .time-range-selector button:hover {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .time-range-selector button.active {
+  background-color: #ffffff !important;
+  color: var(--accent-color) !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08) !important;
+}
+
+[data-theme='light'] .filter-btn {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
 .kpi-header {
   display: flex;
   justify-content: space-between;

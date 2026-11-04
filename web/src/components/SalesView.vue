@@ -968,6 +968,28 @@ tbody tr:hover {
   border-bottom-right-radius: 12px;
 }
 
+[data-theme='light'] .modal-footer {
+  background-color: #f8fafc !important;
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .modal-content {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.12) !important;
+}
+
+[data-theme='light'] .btn-secondary {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+[data-theme='light'] .btn-secondary:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
 .btn-secondary {
   background-color: var(--bg-surface);
   color: var(--text-secondary);

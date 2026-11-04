@@ -1057,21 +1057,31 @@ button, a { -webkit-tap-highlight-color: transparent; }
 [data-theme='light'] {
   --bg-app: #f1f5f9;
   --bg-sidebar: #ffffff;
-  --bg-surface: #f8fafc;
-  --bg-surface-hover: #e2e8f0;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f5f9;
   --bg-hover: #e2e8f0;
-  --bg-card-subtle: rgba(241, 245, 249, 0.8);
+  --bg-card-subtle: #f8fafc;
   --text-primary: #0f172a;
   --text-secondary: #334155;
   --text-muted: #64748b;
   --border-color: #cbd5e1;
   --border-subtle: #e2e8f0;
-  --border-light: rgba(0, 0, 0, 0.1);
+  --border-light: #e2e8f0;
   --accent-hover: color-mix(in srgb, var(--accent-color) 85%, black);
-  --glass-bg: rgba(255, 255, 255, 0.65);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+  --glass-bg: #ffffff;
+  --glass-border: #e2e8f0;
+  --glass-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
   --glow-primary: color-mix(in srgb, var(--accent-color) 20%, transparent);
+
+  --color-success: #16a34a;
+  --color-success-bg: rgba(22, 163, 74, 0.1);
+  --color-success-border: rgba(22, 163, 74, 0.2);
+  --color-warning: #d97706;
+  --color-warning-bg: rgba(217, 119, 6, 0.1);
+  --color-warning-border: rgba(217, 119, 6, 0.2);
+  --color-error: #dc2626;
+  --color-error-bg: rgba(220, 38, 38, 0.1);
+  --color-error-border: rgba(220, 38, 38, 0.2);
 }
 
 body, #app, button, input, select, textarea {
@@ -1182,6 +1192,78 @@ input[type=number] {
   background-color: #ef4444 !important;
   color: white !important;
   border-color: #ef4444 !important;
+}
+
+[data-theme='light'] .topbar-popover {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.12) !important;
+}
+
+[data-theme='light'] .popover-heading {
+  background: #f8fafc !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+[data-theme='light'] .popover-heading h2,
+[data-theme='light'] .notification-copy strong,
+[data-theme='light'] .popover-profile strong {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .popover-heading small,
+[data-theme='light'] .popover-empty,
+[data-theme='light'] .notification-copy small,
+[data-theme='light'] .popover-profile small,
+[data-theme='light'] .popover-role small {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .popover-menu button {
+  color: #334155 !important;
+}
+
+[data-theme='light'] .popover-menu button:hover,
+[data-theme='light'] .notification-item:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .demo-badge,
+[data-theme='light'] .connection-chip {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #334155 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+[data-theme='light'] .demo-badge {
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #b45309 !important;
+  background: #fffbeb !important;
+}
+
+[data-theme='light'] .connection-chip.connected {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #047857 !important;
+  background: #ecfdf5 !important;
+}
+
+[data-theme='light'] .connect-google-button {
+  background: rgba(16, 185, 129, 0.1) !important;
+  color: #047857 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+[data-theme='light'] .connect-google-button:hover {
+  background: rgba(16, 185, 129, 0.2) !important;
+}
+
+[data-theme='light'] .glass-tooltip {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12) !important;
 }
 
 .topbar-popover {

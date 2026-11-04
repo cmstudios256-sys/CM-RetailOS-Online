@@ -638,6 +638,16 @@ onUnmounted(() => {
   min-width: 0;
 }
 
+[data-theme='light'] .stat-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03) !important;
+}
+
+[data-theme='light'] .stat-card:hover {
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.1) !important;
+}
+
 .stat-card:nth-child(1) { border-top-color: rgba(34, 197, 94, 0.75); }
 .stat-card:nth-child(1):hover {
   box-shadow: 0 0 25px 0 rgba(34, 197, 94, 0.2), inset 0 1px 1px rgba(34, 197, 94, 0.35);
@@ -674,6 +684,12 @@ onUnmounted(() => {
   border-radius: 12px;
   padding: 0.55rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='light'] .stat-icon {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
 }
 
 .icon-success { color: #22c55e; }
@@ -912,6 +928,25 @@ onUnmounted(() => {
   border: 1px solid var(--border-subtle);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(15, 23, 42, 0.35) 100%);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme='light'] .chart-stat {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.05) !important;
+}
+
+[data-theme='light'] .chart-stat-value {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .chart-stat-label {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .stat-badge {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
 }
 
 .chart-stat:hover {

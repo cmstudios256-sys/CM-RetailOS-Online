@@ -2187,6 +2187,11 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+[data-theme='light'] .order-summary {
+  background-color: #ffffff;
+  border-top: 1px solid #e2e8f0;
+}
+
 .summary-row {
   display: flex;
   justify-content: space-between;
@@ -2208,6 +2213,92 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='light'] .summary-total-banner {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 8%, #ffffff) 0%, #f8fafc 100%);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 35%, #e2e8f0);
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme='light'] .total-label {
+  color: #475569;
+}
+
+[data-theme='light'] .total-amount {
+  color: #0f172a;
+}
+
+[data-theme='light'] .total-badge {
+  color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 12%, transparent);
+}
+
+[data-theme='light'] .discount-input-wrapper {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+[data-theme='light'] .discount-input {
+  color: #0f172a;
+}
+
+[data-theme='light'] .cart-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme='light'] .cart-item:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+[data-theme='light'] .cart-item-bottom {
+  border-top: 1px dashed #e2e8f0;
+}
+
+[data-theme='light'] .quantity-controls {
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .quantity-controls button {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='light'] .quantity-controls button:hover:not(:disabled) {
+  background: #f8fafc;
+  color: var(--accent-color);
+}
+
+[data-theme='light'] .quantity-input {
+  color: #0f172a;
+}
+
+[data-theme='light'] .item-total {
+  color: var(--accent-color);
+}
+
+[data-theme='light'] .checkout-btn:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+}
+
+[data-theme='light'] .change-calculator {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .tendered-wrapper {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+}
+
+[data-theme='light'] .tendered-input {
+  color: var(--accent-color);
 }
 
 .total-text-group {
