@@ -674,26 +674,28 @@ onUnmounted(() => {
         <Printer :size="14" /> Print Receipt
       </button>
     </div>
-    <button
-      type="button"
-      class="mobile-cart-toggle"
-      :class="{ 'has-items': cartUnits > 0 }"
-      aria-controls="pos-cart-panel"
-      :aria-expanded="mobileCartOpen"
-      @click="mobileCartOpen = true"
-    >
-      <div class="mobile-cart-toggle-left">
-        <div class="cart-icon-bubble">
-          <ShoppingCart :size="17" />
-          <span v-if="cartUnits > 0" class="cart-bubble-badge">{{ formatQuantity(cartUnits) }}</span>
+    <Transition name="mobile-cart-slide">
+      <button
+        v-if="cartUnits > 0"
+        type="button"
+        class="mobile-cart-toggle has-items"
+        aria-controls="pos-cart-panel"
+        :aria-expanded="mobileCartOpen"
+        @click="mobileCartOpen = true"
+      >
+        <div class="mobile-cart-toggle-left">
+          <div class="cart-icon-bubble">
+            <ShoppingCart :size="17" />
+            <span class="cart-bubble-badge">{{ formatQuantity(cartUnits) }}</span>
+          </div>
+          <span class="cart-toggle-label">View Order · {{ formatQuantity(cartUnits) }} {{ cartUnits === 1 ? 'item' : 'items' }}</span>
         </div>
-        <span class="cart-toggle-label">{{ cartUnits > 0 ? 'View Order' : 'Cart' }}</span>
-      </div>
-      <div class="mobile-cart-toggle-right">
-        <strong class="cart-toggle-total">{{ formatMoney(payableTotal, currency) }}</strong>
-        <ChevronUp :size="18" class="cart-toggle-chevron" />
-      </div>
-    </button>
+        <div class="mobile-cart-toggle-right">
+          <strong class="cart-toggle-total">{{ formatMoney(payableTotal, currency) }}</strong>
+          <ChevronUp :size="18" class="cart-toggle-chevron" />
+        </div>
+      </button>
+    </Transition>
 
     <!-- Left Panel: Product Selection -->
     <div class="products-panel">

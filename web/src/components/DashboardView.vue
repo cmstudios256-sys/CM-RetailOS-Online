@@ -1673,16 +1673,17 @@ onUnmounted(() => {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
-    gap: 8px;
-    justify-content: space-between;
+    gap: 6px;
+    justify-content: flex-start;
   }
 
   .sales-chart-plot {
     position: relative;
     inset: auto;
-    flex: 1 1 0;
-    min-height: 200px;
-    height: 100%;
+    flex: 0 0 auto;
+    height: 185px;
+    min-height: 185px;
+    max-height: 195px;
     width: 100%;
   }
 
@@ -1690,31 +1691,87 @@ onUnmounted(() => {
     position: static;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
+    gap: 8px;
     flex: 0 0 auto;
+    margin-top: 8px;
   }
 
   .chart-stat {
-    padding: 6px 6px;
+    padding: 8px 7px 7px;
     min-width: 0;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .chart-stat.stat-sales {
+    background: linear-gradient(180deg, rgba(14, 165, 233, 0.12) 0%, rgba(15, 23, 42, 0.4) 100%);
+    border-top: 2.5px solid #0ea5e9;
+  }
+
+  .chart-stat.stat-profit {
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.4) 100%);
+    border-top: 2.5px solid #10b981;
+  }
+
+  .chart-stat.stat-best {
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.4) 100%);
+    border-top: 2.5px solid #f59e0b;
+  }
+
+  [data-theme='light'] .chart-stat.stat-sales {
+    background: linear-gradient(180deg, rgba(14, 165, 233, 0.10) 0%, #ffffff 100%) !important;
+    border: 1px solid #bae6fd !important;
+    border-top: 2.5px solid #0ea5e9 !important;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1) !important;
+  }
+
+  [data-theme='light'] .chart-stat.stat-profit {
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.10) 0%, #ffffff 100%) !important;
+    border: 1px solid #bbf7d0 !important;
+    border-top: 2.5px solid #10b981 !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1) !important;
+  }
+
+  [data-theme='light'] .chart-stat.stat-best {
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.10) 0%, #ffffff 100%) !important;
+    border: 1px solid #fde68a !important;
+    border-top: 2.5px solid #f59e0b !important;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1) !important;
+  }
+
+  [data-theme='light'] .stat-sales .chart-stat-value {
+    color: #0369a1 !important;
+  }
+
+  [data-theme='light'] .stat-profit .chart-stat-value {
+    color: #047857 !important;
+  }
+
+  [data-theme='light'] .stat-best .chart-stat-value {
+    color: #b45309 !important;
   }
 
   .chart-stat-value {
-    font-size: clamp(9px, 2.7vw, 12px);
-    font-weight: 700;
+    font-size: clamp(10px, 3.1vw, 13px);
+    font-weight: 800;
     letter-spacing: -0.02em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-top: 3px;
+    line-height: 1.3;
   }
 
   .chart-stat-label {
-    font-size: 9px;
+    font-size: 9.5px;
+    font-weight: 800;
   }
 
   .stat-badge {
-    font-size: 8px;
-    padding: 1px 3px;
+    font-size: 8.5px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 4px;
   }
 }
 </style>
