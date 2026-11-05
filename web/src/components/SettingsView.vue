@@ -680,6 +680,34 @@ function handleSavePrinterForm() {
   showToast('success', isEditingPrinter.value ? 'Printer updated.' : 'Printer added.')
 }
 
+function quickConnectPreset(model: string) {
+  const entry: PrinterConfig = {
+    id: 'bt_' + model.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+    name: `${model} Bluetooth Printer`,
+    protocol: 'escpos',
+    address: model,
+    connectionType: 'bluetooth',
+    paperWidth: '58mm',
+    characterWidth: 32,
+    isDefault: true,
+    capabilities: {
+      supportsCut: true,
+      supportsQRCode: true,
+      supportsBarcode: true,
+      supportsStatus: true,
+      maxColumns: 32,
+    },
+  }
+  configuredPrinters.value = configuredPrinters.value.filter(p => p.connectionType !== 'bluetooth')
+  configuredPrinters.value.push(entry)
+  configuredPrinters.value.forEach(p => { p.isDefault = p.id === entry.id })
+  printerStatuses.value[entry.id] = { isOnline: true, stateDescription: 'Ready' }
+  appSettings.value.receiptsSettings.paperWidth = '58mm'
+  savePrintersToStorage()
+  persistLocalPrefs()
+  showToast('success', `${model} connected as default printer.`)
+}
+
 function handleSetDefault(printer: PrinterConfig) {
   configuredPrinters.value.forEach(p => {
     p.isDefault = p.id === printer.id
@@ -1243,8 +1271,126 @@ onMounted(() => {
       <!-- Receipt & Printing -->
       <template v-else-if="activeTab === 'receipt-printing'">
         <div class="receipt-tab-container" style="display: flex; flex-direction: column; gap: 16px; width: 100%; flex-shrink: 0;">
-          <!-- POS Thermal Hardware Printers (Full Width) -->
-          <div class="form-card full-width pos-printers-card" style="width: 100%; box-sizing: border-box;">
+          <!-- Mobile Unified Bluetooth Printer Card -->
+          <div v-if="isPhone" class="form-card full-width mobile-bt-unified-card">
+            <div class="mobile-bt-header">
+              <div class="mobile-bt-header-left">
+                <div class="mobile-bt-icon-bubble">
+                  <Bluetooth :size="20" />
+                </div>
+                <div>
+                  <h3 class="mobile-bt-title">Bluetooth Printer</h3>
+                  <span class="mobile-bt-subtitle">Portable 58mm / 80mm wireless printer</span>
+                </div>
+              </div>
+              <span
+                class="mobile-bt-status-pill"
+                :class="displayedPrinters.length > 0 ? 'connected' : 'disconnected'"
+              >
+                <i class="status-dot"></i>
+                {{ displayedPrinters.length > 0 ? 'Connected' : 'Not Paired' }}
+              </span>
+            </div>
+
+            <div class="mobile-bt-body">
+              <!-- Empty State (No Printer Configured) -->
+              <div v-if="displayedPrinters.length === 0" class="mobile-bt-empty-state">
+                <p class="mobile-bt-empty-hint">
+                  Turn on your wireless thermal printer to print receipts directly from your phone.
+                </p>
+
+                <button
+                  type="button"
+                  class="btn btn-primary mobile-bt-pair-btn"
+                  @click="openAddPrinter"
+                >
+                  <Bluetooth :size="18" />
+                  <span>Scan &amp; Pair Printer</span>
+                </button>
+
+                <div class="mobile-bt-presets-section">
+                  <span class="presets-section-title">1-Tap Quick Connect:</span>
+                  <div class="mobile-bt-chips-grid">
+                    <button
+                      v-for="model in ['POS-58', 'MPT-II', 'MTP-2', 'RPP02N', 'ZJ-5802']"
+                      :key="model"
+                      type="button"
+                      class="mobile-preset-chip"
+                      @click="quickConnectPreset(model)"
+                    >
+                      <span class="chip-model">{{ model }}</span>
+                      <span class="chip-label">58mm</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Connected State -->
+              <div v-else class="mobile-bt-connected-state">
+                <div
+                  v-for="printer in displayedPrinters"
+                  :key="printer.id"
+                  class="mobile-bt-device-row"
+                >
+                  <div class="device-details">
+                    <div class="device-name-row">
+                      <span class="device-name">{{ printer.name }}</span>
+                      <span class="device-badge">{{ printer.paperWidth || '58mm' }} THERMAL</span>
+                    </div>
+                    <span class="device-meta">{{ printer.address || 'Paired Bluetooth' }} · Ready</span>
+                  </div>
+
+                  <div class="device-actions">
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm mobile-test-print-btn"
+                      @click="handleTestPrinterCard(printer)"
+                      :disabled="isTestingPrinterId === printer.id"
+                    >
+                      <Printer :size="15" />
+                      <span>{{ isTestingPrinterId === printer.id ? 'Printing...' : 'Test Print' }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline btn-sm mobile-edit-btn"
+                      @click="openEditPrinter(printer)"
+                      title="Edit Printer"
+                    >
+                      <Edit2 :size="14" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline btn-sm mobile-remove-btn"
+                      @click="handleDeletePrinter(printer)"
+                      title="Remove"
+                    >
+                      <Trash2 :size="14" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Auto-Print Switch integrated into the mobile card -->
+              <div class="mobile-bt-toggle-row">
+                <div class="toggle-text">
+                  <strong>Auto-Print Receipts</strong>
+                  <span>Print automatically after completing a sale</span>
+                </div>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    v-model="appSettings.receiptsSettings.autoPrint"
+                    @change="handleReceiptSettingChange"
+                  />
+                  <span class="slider round"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- POS Thermal Hardware Printers (Desktop Only) -->
+          <div v-else class="form-card full-width pos-printers-card" style="width: 100%; box-sizing: border-box;">
             <div
               class="card-header"
               style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border-subtle);"
@@ -1252,7 +1398,7 @@ onMounted(() => {
               <div style="min-width: 200px; flex: 1 1 260px;">
                 <h3 style="margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                   <Printer :size="18" style="color: var(--accent-color); flex-shrink: 0;" />
-                  <span>{{ isPhone ? 'Bluetooth Thermal Printers' : 'POS Receipt Printers' }}</span>
+                  <span>POS Receipt Printers</span>
                   <span
                     style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(14, 165, 233, 0.15); color: var(--accent-color); font-weight: 600; white-space: nowrap;"
                   >
@@ -1260,7 +1406,7 @@ onMounted(() => {
                   </span>
                 </h3>
                 <span style="font-size: 12px; color: var(--text-muted); display: block; margin-top: 2px;">
-                  {{ isPhone ? 'Wireless 58mm / 80mm ESC/POS thermal printers for mobile phones' : 'ESC/POS direct printing via Windows RAW Spooler, Network TCP/IP, or USB' }}
+                  ESC/POS direct printing via Windows RAW Spooler, Network TCP/IP, or USB
                 </span>
               </div>
               <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -1275,7 +1421,6 @@ onMounted(() => {
                   <span>Queue &amp; Logs</span>
                 </button>
                 <button
-                  v-if="!isPhone"
                   type="button"
                   class="btn btn-outline"
                   style="padding: 6px 10px; font-size: 12px; display: flex; align-items: center; gap: 5px; white-space: nowrap;"
@@ -1292,7 +1437,7 @@ onMounted(() => {
                   @click="openAddPrinter"
                 >
                   <Plus :size="14" />
-                  <span>{{ isPhone ? 'Connect Bluetooth' : 'Add Printer' }}</span>
+                  <span>Add Printer</span>
                 </button>
               </div>
             </div>
@@ -1305,14 +1450,14 @@ onMounted(() => {
               >
                 <Printer :size="32" style="color: var(--text-muted); margin: 0 auto 10px auto; opacity: 0.7;" />
                 <h4 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 600; color: var(--text-primary);">
-                  {{ isPhone ? 'No Bluetooth Thermal Printer Connected' : 'No POS Printers Configured' }}
+                  No POS Printers Configured
                 </h4>
                 <p style="margin: 0 0 14px 0; font-size: 12px; color: var(--text-muted); max-width: 400px; margin-inline: auto;">
-                  {{ isPhone ? 'Connect a portable 58mm or 80mm wireless Bluetooth thermal printer to print receipts directly from your phone.' : 'Add your Windows named receipt printer or Ethernet/WiFi thermal printer to enable high-speed direct printing.' }}
+                  Add your Windows named receipt printer or Ethernet/WiFi thermal printer to enable high-speed direct printing.
                 </p>
                 <div style="display: flex; justify-content: center; gap: 10px;">
                   <button type="button" class="btn btn-primary" style="padding: 8px 18px; font-size: 12px;" @click="openAddPrinter">
-                    <Plus :size="14" style="margin-right: 4px;" /> {{ isPhone ? 'Pair Bluetooth Printer' : 'Add Your First Printer' }}
+                    <Plus :size="14" style="margin-right: 4px;" /> Add Your First Printer
                   </button>
                 </div>
               </div>
@@ -1489,10 +1634,26 @@ onMounted(() => {
                   </div>
                 </div>
               </div>
+
+              <!-- Mobile Save Button for Receipt Settings -->
+              <div v-if="isPhone" class="mobile-save-section" style="margin-top: 14px;">
+                <button
+                  type="button"
+                  class="btn btn-primary mobile-save-btn"
+                  @click="saveConfigurations"
+                  :disabled="isSavingConfig || settingsLoading"
+                >
+                  <Check v-if="!isSavingConfig" :size="16" />
+                  <span>{{ isSavingConfig ? 'Saving Changes...' : 'Save Receipt Settings' }}</span>
+                </button>
+                <div v-if="saveFeedback" class="mobile-save-toast" :class="saveFeedback.type">
+                  {{ saveFeedback.message }}
+                </div>
+              </div>
             </div>
 
-            <!-- Live Preview Side -->
-            <div class="preview-column">
+            <!-- Live Preview Side (Desktop Only) -->
+            <div v-if="!isPhone" class="preview-column">
               <div class="preview-container">
                 <div class="receipt-preview-wrapper">
                   <div :class="['receipt-paper', selectedPaperWidth === '58mm' ? 'paper-58mm' : 'paper-80mm']">
@@ -4288,6 +4449,341 @@ input:checked + .slider:before {
 [data-theme='light'] .mobile-save-section {
   background: #f8fafc !important;
   border-top-color: #e2e8f0 !important;
+}
+
+/* Mobile Bluetooth Unified Card */
+.mobile-bt-unified-card {
+  background: var(--bg-surface, #1e293b);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.mobile-bt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.mobile-bt-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mobile-bt-icon-bubble {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(14, 165, 233, 0.12);
+  color: var(--accent-color, #0ea5e9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mobile-bt-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  line-height: 1.2;
+}
+
+.mobile-bt-subtitle {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  display: block;
+  margin-top: 2px;
+}
+
+.mobile-bt-status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mobile-bt-status-pill .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.mobile-bt-status-pill.connected {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.mobile-bt-status-pill.connected .status-dot {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.mobile-bt-status-pill.disconnected {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-muted, #94a3b8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.mobile-bt-status-pill.disconnected .status-dot {
+  background: #94a3b8;
+}
+
+.mobile-bt-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mobile-bt-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.mobile-bt-empty-hint {
+  font-size: 13px;
+  color: var(--text-secondary, #cbd5e1);
+  margin: 0;
+  line-height: 1.4;
+  max-width: 320px;
+}
+
+.mobile-bt-pair-btn {
+  width: 100%;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-color) 30%, transparent);
+}
+
+.mobile-bt-presets-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.presets-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #94a3b8);
+  text-align: left;
+}
+
+.mobile-bt-chips-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobile-preset-chip {
+  flex: 1 1 calc(33.333% - 8px);
+  min-width: 80px;
+  padding: 8px 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  color: var(--text-primary, #ffffff);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all 0.15s ease;
+}
+
+.mobile-preset-chip:active {
+  transform: scale(0.96);
+  background: rgba(14, 165, 233, 0.15);
+  border-color: var(--accent-color, #0ea5e9);
+}
+
+.mobile-preset-chip .chip-model {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.mobile-preset-chip .chip-label {
+  font-size: 10px;
+  color: var(--accent-color, #0ea5e9);
+  font-weight: 600;
+}
+
+.mobile-bt-connected-state {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-bt-device-row {
+  background: rgba(14, 165, 233, 0.04);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.device-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.device-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+}
+
+.device-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  letter-spacing: 0.5px;
+}
+
+.device-meta {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 2px;
+  display: block;
+}
+
+.device-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-test-print-btn {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mobile-edit-btn,
+.mobile-remove-btn {
+  padding: 8px 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.mobile-remove-btn {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.mobile-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.mobile-bt-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.mobile-bt-toggle-row .toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobile-bt-toggle-row .toggle-text strong {
+  font-size: 13px;
+  color: var(--text-primary, #ffffff);
+}
+
+.mobile-bt-toggle-row .toggle-text span {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* Light mode overrides for Mobile Bluetooth Unified Card */
+[data-theme='light'] .mobile-bt-unified-card {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme='light'] .mobile-bt-header {
+  border-bottom-color: #f1f5f9 !important;
+}
+
+[data-theme='light'] .mobile-bt-title {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .mobile-bt-empty-hint {
+  color: #475569 !important;
+}
+
+[data-theme='light'] .mobile-preset-chip {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .mobile-preset-chip:active {
+  background: #e0f2fe !important;
+}
+
+[data-theme='light'] .mobile-bt-device-row {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+
+[data-theme='light'] .device-name {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .mobile-bt-toggle-row {
+  border-top-color: #f1f5f9 !important;
+}
+
+[data-theme='light'] .mobile-bt-toggle-row .toggle-text strong {
+  color: #0f172a !important;
 }
 
 
