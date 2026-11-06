@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import {
   Building,
   Palette,
@@ -32,7 +32,7 @@ import {
   Activity,
   Settings as SettingsIcon,
 } from '@lucide/vue'
-import { apiRequest, formatTime, getComplementaryColor, syncOnlinePrefsFromServer } from '../api'
+import { apiRequest, formatTime, getComplementaryColor, readOnlinePrefs, syncOnlinePrefsFromServer } from '../api'
 import { openPrintDocument, escapeHtml } from '../utils/reporting'
 import {
   requestWebBluetoothDevice,
@@ -147,7 +147,7 @@ const appSettings = ref({
     paperWidth: '80mm',
   },
   applicationSettings: {
-    themeMode: 'dark' as 'dark' | 'light' | 'system',
+    themeMode: (readOnlinePrefs().applicationSettings?.themeMode || (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark')) as 'dark' | 'light' | 'system',
     accent: '#0ea5e9',
     typography: 'Outfit',
     autoClearCart: true,
@@ -166,19 +166,106 @@ const appSettings = ref({
 
 const selectedCountry = ref('Uganda')
 const countryCurrencyMap: Record<string, string> = {
-  Uganda: 'UGX',
-  Kenya: 'KES',
-  Tanzania: 'TZS',
-  Rwanda: 'RWF',
+  Algeria: 'DZD',
+  Angola: 'AOA',
+  Benin: 'XOF',
+  Botswana: 'BWP',
+  'Burkina Faso': 'XOF',
   Burundi: 'BIF',
-  'South Sudan': 'SSP',
-  Nigeria: 'NGN',
-  Ghana: 'GHS',
-  'South Africa': 'ZAR',
-  Zambia: 'ZMW',
+  'Cabo Verde': 'CVE',
+  Cameroon: 'XAF',
+  'Central African Republic': 'XAF',
+  Chad: 'XAF',
+  Comoros: 'KMF',
+  'Democratic Republic of the Congo': 'CDF',
+  'Republic of the Congo': 'XAF',
+  Djibouti: 'DJF',
   Egypt: 'EGP',
+  'Equatorial Guinea': 'XAF',
+  Eritrea: 'ERN',
+  Eswatini: 'SZL',
   Ethiopia: 'ETB',
+  Gabon: 'XAF',
+  Gambia: 'GMD',
+  Ghana: 'GHS',
+  Guinea: 'GNF',
+  'Guinea-Bissau': 'XOF',
+  'Ivory Coast': 'XOF',
+  Kenya: 'KES',
+  Lesotho: 'LSL',
+  Liberia: 'LRD',
+  Libya: 'LYD',
+  Madagascar: 'MGA',
+  Malawi: 'MWK',
+  Mali: 'XOF',
+  Mauritania: 'MRU',
+  Mauritius: 'MUR',
   Morocco: 'MAD',
+  Mozambique: 'MZN',
+  Namibia: 'NAD',
+  Niger: 'XOF',
+  Nigeria: 'NGN',
+  Rwanda: 'RWF',
+  'Sao Tome and Principe': 'STN',
+  Senegal: 'XOF',
+  Seychelles: 'SCR',
+  'Sierra Leone': 'SLE',
+  Somalia: 'SOS',
+  'South Africa': 'ZAR',
+  'South Sudan': 'SSP',
+  Sudan: 'SDG',
+  Tanzania: 'TZS',
+  Togo: 'XOF',
+  Tunisia: 'TND',
+  Uganda: 'UGX',
+  Zambia: 'ZMW',
+  Zimbabwe: 'USD',
+}
+
+const currencyCountryMap: Record<string, string> = {
+  UGX: 'Uganda',
+  KES: 'Kenya',
+  TZS: 'Tanzania',
+  RWF: 'Rwanda',
+  BIF: 'Burundi',
+  SSP: 'South Sudan',
+  NGN: 'Nigeria',
+  GHS: 'Ghana',
+  ZAR: 'South Africa',
+  ZMW: 'Zambia',
+  EGP: 'Egypt',
+  ETB: 'Ethiopia',
+  MAD: 'Morocco',
+  DZD: 'Algeria',
+  AOA: 'Angola',
+  BWP: 'Botswana',
+  CVE: 'Cabo Verde',
+  CDF: 'Democratic Republic of the Congo',
+  DJF: 'Djibouti',
+  ERN: 'Eritrea',
+  SZL: 'Eswatini',
+  GMD: 'Gambia',
+  GNF: 'Guinea',
+  LSL: 'Lesotho',
+  LRD: 'Liberia',
+  LYD: 'Libya',
+  MGA: 'Madagascar',
+  MWK: 'Malawi',
+  MRU: 'Mauritania',
+  MUR: 'Mauritius',
+  MZN: 'Mozambique',
+  NAD: 'Namibia',
+  STN: 'Sao Tome and Principe',
+  SCR: 'Seychelles',
+  SLE: 'Sierra Leone',
+  SOS: 'Somalia',
+  SDG: 'Sudan',
+  TND: 'Tunisia',
+  USD: 'Zimbabwe',
+  ZWG: 'Zimbabwe',
+  XOF: 'Senegal',
+  XAF: 'Cameroon',
+  KMF: 'Comoros',
 }
 
 const countryOptions = [
@@ -296,6 +383,30 @@ const settingsMenu = [
   },
 ]
 
+const filteredSettingsMenu = computed(() => {
+  return settingsMenu.map(category => ({
+    ...category,
+    items: category.items.filter(item => {
+      if (isPhone.value && (item.id === 'appearance-theme' || item.id === 'pos-config')) {
+        return false
+      }
+      return true
+    }),
+  })).filter(category => category.items.length > 0)
+})
+
+watch(isPhone, (phone) => {
+  if (phone) {
+    if (activeTab.value === 'appearance-theme' || activeTab.value === 'pos-config') {
+      activeTab.value = 'business-info'
+    }
+    appSettings.value.applicationSettings.autoClearCart = true
+    appSettings.value.applicationSettings.barcodeBeep = true
+    appSettings.value.applicationSettings.showPosImages = true
+    persistLocalPrefs()
+  }
+}, { immediate: true })
+
 const logoInput = ref<HTMLInputElement | null>(null)
 
 const handleLogoUpload = (event: Event) => {
@@ -303,18 +414,56 @@ const handleLogoUpload = (event: Event) => {
   const file = target.files?.[0]
   if (!file) return
 
-  if (file.size > 2 * 1024 * 1024) {
-    showToast('error', 'Logo file size must be less than 2MB')
-    return
-  }
-
   const reader = new FileReader()
   reader.onload = (e) => {
-    if (e.target?.result) {
-      appSettings.value.shopDetails.logo = e.target.result as string
-      persistLocalPrefs()
+    const dataUrl = e.target?.result as string
+    if (!dataUrl) return
+
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const maxSize = 300
+      let width = img.width
+      let height = img.height
+
+      if (width > height) {
+        if (width > maxSize) {
+          height = Math.round((height * maxSize) / width)
+          width = maxSize
+        }
+      } else {
+        if (height > maxSize) {
+          width = Math.round((width * maxSize) / height)
+          height = maxSize
+        }
+      }
+
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height)
+        const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
+        appSettings.value.shopDetails.logo = canvas.toDataURL(mimeType, 0.9)
+        persistLocalPrefs()
+        showToast('success', 'Logo updated successfully.')
+      }
+      if (target) target.value = ''
     }
+
+    img.onerror = () => {
+      showToast('error', 'Could not process the selected image.')
+      if (target) target.value = ''
+    }
+
+    img.src = dataUrl
   }
+
+  reader.onerror = () => {
+    showToast('error', 'Failed to read image file.')
+    if (target) target.value = ''
+  }
+
   reader.readAsDataURL(file)
 }
 
@@ -331,6 +480,17 @@ function applyThemeModeDom(mode: 'dark' | 'light' | 'system') {
     root.setAttribute('data-theme', 'light')
   } else {
     root.removeAttribute('data-theme')
+  }
+
+  const isLight = root.getAttribute('data-theme') === 'light'
+  const headerColor = isLight ? '#f1f5f9' : '#080e18'
+  const themeMetas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
+  if (themeMetas.length) {
+    themeMetas.forEach(meta => meta.setAttribute('content', headerColor))
+  }
+  const statusBarMeta = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-status-bar-style"]')
+  if (statusBarMeta) {
+    statusBarMeta.setAttribute('content', isLight ? 'default' : 'black-translucent')
   }
 }
 
@@ -351,7 +511,13 @@ function applyTypographyDom(font: string) {
 function loadLocalPrefs() {
   try {
     const raw = localStorage.getItem(LOCAL_PREFS_KEY)
-    if (!raw) return
+    const isCurrentlyLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light'
+    if (!raw) {
+      if (isCurrentlyLight) {
+        appSettings.value.applicationSettings.themeMode = 'light'
+      }
+      return
+    }
     const parsed = JSON.parse(raw)
     if (parsed.owner) appSettings.value.shopDetails.owner = parsed.owner
     if (parsed.country) {
@@ -364,9 +530,20 @@ function loadLocalPrefs() {
     }
     if (parsed.applicationSettings) {
       Object.assign(appSettings.value.applicationSettings, parsed.applicationSettings)
+      if (isCurrentlyLight && !parsed.applicationSettings.themeMode) {
+        appSettings.value.applicationSettings.themeMode = 'light'
+      }
     }
     if (parsed.localizationSettings) {
       Object.assign(appSettings.value.localizationSettings, parsed.localizationSettings)
+    }
+    if (isPhone.value) {
+      appSettings.value.applicationSettings.autoClearCart = true
+      appSettings.value.applicationSettings.barcodeBeep = true
+      appSettings.value.applicationSettings.showPosImages = true
+      if (isCurrentlyLight) {
+        appSettings.value.applicationSettings.themeMode = 'light'
+      }
     }
     applyThemeModeDom(appSettings.value.applicationSettings.themeMode)
     applyAccentColorDom(appSettings.value.applicationSettings.accent)
@@ -376,7 +553,7 @@ function loadLocalPrefs() {
   }
 }
 
-function persistLocalPrefs() {
+async function persistLocalPrefs(): Promise<void> {
   const prefsPayload = {
     owner: appSettings.value.shopDetails.owner,
     country: selectedCountry.value,
@@ -399,7 +576,7 @@ function persistLocalPrefs() {
     // ignore quota errors
   }
   if (props.role === 'owner' || props.role === 'manager') {
-    void apiRequest('/settings/preferences', {
+    await apiRequest('/settings/preferences', {
       method: 'PUT',
       body: { preferences: prefsPayload },
     }).catch(() => undefined)
@@ -414,6 +591,18 @@ watch(selectedCountry, (country) => {
   }
 })
 
+watch(() => props.currency, (newCur) => {
+  if (newCur) {
+    appSettings.value.shopDetails.currency = newCur
+    const expected = countryCurrencyMap[selectedCountry.value]
+    if (expected !== newCur && currencyCountryMap[newCur]) {
+      const derived = currencyCountryMap[newCur]
+      selectedCountry.value = derived
+      appSettings.value.shopDetails.country = derived
+    }
+  }
+})
+
 async function loadSettings() {
   settingsLoading.value = true
   loadLocalPrefs()
@@ -424,12 +613,20 @@ async function loadSettings() {
   try {
     const result = await apiRequest<{ settings: ShopSettingsResponse }>('/settings')
     appSettings.value.shopDetails.name = result.settings.shopName || props.shopName || 'My Business'
-    appSettings.value.shopDetails.currency = result.settings.currency || props.currency || 'UGX'
+    const loadedCurrency = result.settings.currency || props.currency || 'UGX'
+    appSettings.value.shopDetails.currency = loadedCurrency
     appSettings.value.shopDetails.address = result.settings.address || ''
     appSettings.value.shopDetails.phone = result.settings.phone || ''
     appSettings.value.receiptsSettings.headerText = result.settings.receiptHeader || ''
     appSettings.value.receiptsSettings.footerText = result.settings.receiptFooter || 'Thank you for shopping with us!'
     appSettings.value.receiptsSettings.showPhone = result.settings.receiptShowPhone
+
+    const currentCountryCurrency = countryCurrencyMap[selectedCountry.value]
+    if (!selectedCountry.value || currentCountryCurrency !== loadedCurrency) {
+      const matchedCountry = currencyCountryMap[loadedCurrency] || 'Uganda'
+      selectedCountry.value = matchedCountry
+      appSettings.value.shopDetails.country = matchedCountry
+    }
   } catch (reason) {
     showToast('error', reason instanceof Error ? reason.message : 'Failed to load settings.')
   } finally {
@@ -446,7 +643,7 @@ async function saveConfigurations() {
       return
     }
     appSettings.value.shopDetails.country = selectedCountry.value
-    persistLocalPrefs()
+    await persistLocalPrefs()
     const payload: ShopSettingsResponse = {
       shopName: appSettings.value.shopDetails.name.trim() || 'My Business',
       currency: appSettings.value.shopDetails.currency.trim().toUpperCase() || 'UGX',
@@ -1061,7 +1258,17 @@ async function handleToggleUserStatus(id: string, name: string, currentStatus: b
   }
 }
 
+function handleExternalPrefsUpdate() {
+  const currentPrefs = readOnlinePrefs()
+  if (currentPrefs.applicationSettings?.themeMode) {
+    appSettings.value.applicationSettings.themeMode = currentPrefs.applicationSettings.themeMode
+  } else if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light') {
+    appSettings.value.applicationSettings.themeMode = 'light'
+  }
+}
+
 onMounted(() => {
+  window.addEventListener('online-prefs-updated', handleExternalPrefsUpdate)
   void loadSettings()
   void loadUsers()
   loadPrinters()
@@ -1079,6 +1286,10 @@ onMounted(() => {
     window.history.replaceState({}, document.title, window.location.pathname)
   }
 })
+
+onUnmounted(() => {
+  window.removeEventListener('online-prefs-updated', handleExternalPrefsUpdate)
+})
 </script>
 
 <template>
@@ -1086,7 +1297,7 @@ onMounted(() => {
     <!-- Sidebar -->
     <aside class="settings-sidebar">
       <nav class="sidebar-menu">
-        <div v-for="category in settingsMenu" :key="category.category" class="menu-category">
+        <div v-for="category in filteredSettingsMenu" :key="category.category" class="menu-category">
           <h3 class="category-title">{{ category.category }}</h3>
           <div class="menu-group-card">
             <button
@@ -1096,7 +1307,9 @@ onMounted(() => {
               :class="{ active: activeTab === item.id }"
               @click="activeTab = item.id"
             >
-              <component :is="item.icon" class="item-icon" :size="20" />
+              <div class="menu-item-icon-box">
+                <component :is="item.icon" class="item-icon" :size="20" />
+              </div>
               <div class="item-text">
                 <span class="item-label">{{ item.label }}</span>
                 <span class="item-desc">{{ item.description }}</span>
@@ -1141,19 +1354,20 @@ onMounted(() => {
               </div>
               <div class="logo-upload-area">
                 <input
+                  id="store-logo-file-input"
                   type="file"
-                  accept="image/png, image/jpeg"
-                  style="display: none;"
+                  accept="image/*"
+                  style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; opacity: 0;"
                   ref="logoInput"
                   @change="handleLogoUpload"
                 />
-                <div
+                <label
+                  for="store-logo-file-input"
                   class="current-logo"
-                  @click="logoInput?.click()"
                   role="button"
                   tabindex="0"
                   title="Upload store logo"
-                  style="display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-muted); font-size: 1.2rem; letter-spacing: 0.1em; overflow: hidden;"
+                  style="display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-muted); font-size: 1.2rem; letter-spacing: 0.1em; overflow: hidden; cursor: pointer;"
                 >
                   <img
                     v-if="appSettings.shopDetails.logo"
@@ -1165,18 +1379,18 @@ onMounted(() => {
                     <Building :size="24" class="empty-logo-icon" />
                     <span>LOGO</span>
                   </div>
-                </div>
+                </label>
                 <div class="upload-actions">
                   <div class="upload-btn-row">
-                    <button type="button" class="btn btn-outline upload-trigger-btn" @click="logoInput?.click()">
+                    <label for="store-logo-file-input" class="btn btn-outline upload-trigger-btn" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                       <Folder :size="14" /> {{ appSettings.shopDetails.logo ? 'Change' : 'Browse Files' }}
-                    </button>
+                    </label>
                     <button
                       v-if="appSettings.shopDetails.logo"
                       type="button"
                       class="btn btn-outline remove-logo-btn"
                       style="border-color: #ef4444; color: #ef4444;"
-                      @click="appSettings.shopDetails.logo = ''; persistLocalPrefs()"
+                      @click="appSettings.shopDetails.logo = ''; persistLocalPrefs(); showToast('success', 'Logo removed.')"
                     >
                       <X :size="14" /> Remove
                     </button>
@@ -2053,7 +2267,7 @@ onMounted(() => {
       </template>
 
       <!-- POS Configuration -->
-      <template v-else-if="activeTab === 'pos-config'">
+      <template v-else-if="!isPhone && activeTab === 'pos-config'">
         <div class="form-grid">
           <!-- Checkout Workflow -->
           <div class="form-card">
@@ -2152,7 +2366,7 @@ onMounted(() => {
       </template>
 
       <!-- Appearance & Theme -->
-      <template v-else-if="activeTab === 'appearance-theme'">
+      <template v-else-if="!isPhone && activeTab === 'appearance-theme'">
         <div class="form-grid">
           <div class="form-card full-width theme-selection-card">
             <div class="card-header">
@@ -2617,8 +2831,15 @@ onMounted(() => {
   color: var(--accent-color);
 }
 
-.item-icon {
+.menu-item-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   margin-top: 2px;
+}
+
+.item-icon {
   flex-shrink: 0;
 }
 
@@ -4047,25 +4268,28 @@ input:checked + .slider:before {
 
   .settings-sidebar {
     width: 100%;
-    min-height: 64px;
-    height: 64px;
+    min-height: auto;
+    height: auto;
     flex-direction: row;
-    border: 0;
+    border: none !important;
     border-radius: 0;
-    background: transparent;
+    background: transparent !important;
+    padding: 10px 12px 8px;
+    border-bottom: none !important;
   }
 
   .sidebar-menu {
     width: 100%;
     min-width: 0;
-    height: 64px;
+    height: auto;
     padding: 0;
     flex-direction: row;
-    gap: 0;
+    display: flex;
+    gap: 10px;
     overflow-x: auto;
     overflow-y: hidden;
-    border-bottom: 1px solid var(--border-subtle);
-    background: var(--bg-sidebar);
+    border-bottom: 0;
+    background: transparent;
     scrollbar-width: none;
   }
 
@@ -4088,7 +4312,7 @@ input:checked + .slider:before {
 
   .menu-group-card {
     display: contents;
-    height: 64px;
+    height: auto;
     min-width: 0;
     flex: 1;
     flex-direction: row;
@@ -4101,42 +4325,95 @@ input:checked + .slider:before {
   .menu-item {
     width: auto;
     min-width: 0;
-    height: 64px;
+    min-height: 64px;
+    height: auto;
     flex: 1 1 0;
+    align-items: center;
     justify-content: center;
     flex-direction: column;
-    gap: 3px;
-    padding: 7px 6px;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    background: transparent;
+    gap: 5px;
+    padding: 8px 6px;
+    border: none !important;
+    outline: none !important;
+    border-radius: 12px;
+    background: rgba(30, 41, 59, 0.72) !important;
+    box-shadow: none !important;
     text-align: center;
+    transition: background 0.15s ease, transform 0.1s ease;
+    position: relative;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .menu-item:active {
+    transform: scale(0.98);
+    background: rgba(51, 65, 85, 0.8) !important;
   }
 
   .menu-item.active {
-    border-bottom-color: var(--accent-primary, #3b82f6);
-    border-left: 0;
+    background: rgba(14, 165, 233, 0.16) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .menu-item-icon-box {
+    width: 48px;
+    height: 28px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
+    border: none;
+    box-shadow: none;
+    transition: background 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+    margin: 0;
   }
 
   .menu-item .item-icon {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
+    width: 19px;
+    height: 19px;
+    flex: 0 0 19px;
+    margin: 0;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+  }
+
+  .menu-item.active .menu-item-icon-box {
+    background: rgba(14, 165, 233, 0.2);
+    border: none;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .menu-item.active .item-icon {
+    color: var(--accent-color, #38bdf8) !important;
+    filter: none;
   }
 
   .item-text {
     min-width: 0;
+    width: 100%;
   }
 
   .item-label {
     display: block;
     width: 100%;
     overflow: hidden;
-    font-size: 10px;
-    line-height: 1.15;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.25;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+  }
+
+  .menu-item.active .item-label {
+    color: var(--accent-color, #38bdf8);
+    font-weight: 600;
   }
 
   .item-desc {
@@ -4161,17 +4438,22 @@ input:checked + .slider:before {
     gap: 0;
   }
 
-  .business-unified-card {
+  .form-card,
+  .business-unified-card,
+  .mobile-bt-unified-card {
     border-radius: 14px !important;
-    border: 1px solid var(--border-subtle) !important;
-    background: var(--bg-surface) !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: none !important;
+    outline: none !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    box-shadow: none !important;
     overflow: hidden;
   }
 
-  .business-unified-card .business-card-header {
+  .business-unified-card .business-card-header,
+  .form-card .card-header,
+  .mobile-bt-header {
     padding: 14px 16px 12px !important;
-    border-bottom: 1px solid var(--border-subtle) !important;
+    border-bottom: none !important;
   }
 
   .business-unified-card .business-card-header h3 {
@@ -4195,7 +4477,7 @@ input:checked + .slider:before {
   /* Mobile Logo Upload Section */
   .business-unified-section.logo-section {
     padding: 14px 16px !important;
-    border-bottom: 1px solid var(--border-subtle) !important;
+    border-bottom: none !important;
   }
 
   .business-unified-section.logo-section .logo-upload-area {
@@ -4211,8 +4493,9 @@ input:checked + .slider:before {
     height: 64px !important;
     min-width: 64px !important;
     border-radius: 12px !important;
-    border: 1.5px dashed var(--border-color) !important;
-    background: var(--bg-surface-hover, rgba(255, 255, 255, 0.04)) !important;
+    border: none !important;
+    outline: none !important;
+    background: rgba(30, 41, 59, 0.72) !important;
     cursor: pointer;
   }
 
@@ -4252,7 +4535,8 @@ input:checked + .slider:before {
   }
 
   .upload-trigger-btn,
-  .remove-logo-btn {
+  .remove-logo-btn,
+  .btn-outline {
     padding: 6px 12px !important;
     font-size: 12px !important;
     min-height: 34px !important;
@@ -4260,6 +4544,11 @@ input:checked + .slider:before {
     display: inline-flex !important;
     align-items: center !important;
     gap: 5px !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+    color: var(--text-primary) !important;
   }
 
   .upload-hint {
@@ -4308,6 +4597,8 @@ input:checked + .slider:before {
   }
 
   .input-group input,
+  .input-group select,
+  .input-group textarea,
   .mobile-country-select {
     width: 100% !important;
     min-height: 42px !important;
@@ -4315,18 +4606,37 @@ input:checked + .slider:before {
     border-radius: 8px !important;
     padding: 9px 12px !important;
     box-sizing: border-box !important;
-    border: 1px solid var(--border-color) !important;
-    background-color: var(--bg-surface) !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
     color: var(--text-primary) !important;
     font-family: inherit;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: background-color 0.15s, box-shadow 0.15s;
+  }
+
+  .input-group select,
+  .mobile-country-select {
+    appearance: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 16px !important;
+    padding-right: 36px !important;
+    font-weight: 600 !important;
+  }
+
+  .input-group textarea {
+    min-height: 70px !important;
   }
 
   .input-group input:focus,
+  .input-group select:focus,
+  .input-group textarea:focus,
   .mobile-country-select:focus {
     outline: none !important;
-    border-color: var(--accent-color) !important;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 18%, transparent) !important;
+    border: none !important;
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.4) !important;
   }
 
   .currency-hint-pill {
@@ -4347,11 +4657,11 @@ input:checked + .slider:before {
   .mobile-save-section {
     padding: 14px 16px 18px !important;
     margin-top: 4px;
-    border-top: 1px solid var(--border-subtle) !important;
+    border-top: none !important;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: var(--bg-card-subtle, rgba(0, 0, 0, 0.08));
+    background: transparent !important;
   }
 
   .mobile-save-btn {
@@ -4390,45 +4700,103 @@ input:checked + .slider:before {
 
 /* Light Mode Enhancements for Mobile Settings */
 [data-theme='light'] .settings-sidebar {
-  background: #ffffff !important;
-}
-
-[data-theme='light'] .sidebar-menu {
-  background: #ffffff !important;
+  background: #f8fafc !important;
   border-bottom: 1px solid #e2e8f0 !important;
 }
 
+[data-theme='light'] .sidebar-menu {
+  background: transparent !important;
+  border-bottom: 0 !important;
+}
+
 [data-theme='light'] .menu-item {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: none !important;
+  color: #64748b !important;
+}
+
+[data-theme='light'] .menu-item-icon-box {
+  background: transparent !important;
+  border: none !important;
+}
+
+[data-theme='light'] .menu-item .item-icon {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .menu-item .item-label {
   color: #64748b !important;
 }
 
 [data-theme='light'] .menu-item.active {
-  color: var(--accent-color) !important;
-  border-bottom-color: var(--accent-color) !important;
-  font-weight: 700 !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme='light'] .menu-item.active .menu-item-icon-box {
+  background: rgba(14, 165, 233, 0.12) !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 [data-theme='light'] .menu-item.active .item-icon {
-  color: var(--accent-color) !important;
+  color: var(--accent-color, #0284c7) !important;
 }
 
-[data-theme='light'] .business-unified-card {
+[data-theme='light'] .menu-item.active .item-label {
+  color: var(--accent-color, #0284c7) !important;
+  font-weight: 600 !important;
+}
+
+[data-theme='light'] .business-unified-card,
+[data-theme='light'] .form-card,
+[data-theme='light'] .mobile-bt-unified-card {
   background: #ffffff !important;
-  border-color: #e2e8f0 !important;
+  border: 1px solid #e2e8f0 !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
 
-[data-theme='light'] .business-unified-card .business-card-header {
+[data-theme='light'] .business-unified-card .business-card-header,
+[data-theme='light'] .form-card .card-header {
   border-bottom-color: #f1f5f9 !important;
+}
+
+[data-theme='light'] .business-unified-card .business-card-header h3,
+[data-theme='light'] .form-card .card-header h3 {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .toggle-label {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .toggle-desc {
+  color: #64748b !important;
 }
 
 [data-theme='light'] .business-unified-section.logo-section {
   border-bottom-color: #f1f5f9 !important;
 }
 
+[data-theme='light'] .business-unified-section.logo-section .current-logo,
 [data-theme='light'] .current-logo {
-  background: #f8fafc !important;
-  border-color: #cbd5e1 !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .upload-trigger-btn,
+[data-theme='light'] .remove-logo-btn,
+[data-theme='light'] .btn-outline {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .upload-trigger-btn:hover,
+[data-theme='light'] .btn-outline:hover {
+  background-color: #e2e8f0 !important;
 }
 
 [data-theme='light'] .input-group label {
@@ -4436,13 +4804,24 @@ input:checked + .slider:before {
 }
 
 [data-theme='light'] .input-group input,
+[data-theme='light'] .input-group select,
+[data-theme='light'] .input-group textarea,
 [data-theme='light'] .mobile-country-select {
-  background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
   color: #0f172a !important;
 }
 
-[data-theme='light'] .input-group input::placeholder {
+[data-theme='light'] .input-group input:focus,
+[data-theme='light'] .input-group select:focus,
+[data-theme='light'] .input-group textarea:focus,
+[data-theme='light'] .mobile-country-select:focus {
+  background-color: #ffffff !important;
+  border-color: var(--accent-color) !important;
+}
+
+[data-theme='light'] .input-group input::placeholder,
+[data-theme='light'] .input-group textarea::placeholder {
   color: #94a3b8 !important;
 }
 
@@ -4451,13 +4830,23 @@ input:checked + .slider:before {
   border-top-color: #e2e8f0 !important;
 }
 
+[data-theme='light'] .mobile-bt-unified-card {
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme='light'] .mobile-bt-title {
+  color: #0f172a !important;
+}
+
 /* Mobile Bluetooth Unified Card */
 .mobile-bt-unified-card {
-  background: var(--bg-surface, #1e293b);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.65);
+  border: none !important;
+  outline: none !important;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: none !important;
 }
 
 .mobile-bt-header {
@@ -4465,7 +4854,7 @@ input:checked + .slider:before {
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-bottom: none !important;
 }
 
 .mobile-bt-header-left {
@@ -4521,7 +4910,8 @@ input:checked + .slider:before {
 .mobile-bt-status-pill.connected {
   background: rgba(16, 185, 129, 0.15);
   color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: none !important;
+  outline: none !important;
 }
 
 .mobile-bt-status-pill.connected .status-dot {
@@ -4532,7 +4922,8 @@ input:checked + .slider:before {
 .mobile-bt-status-pill.disconnected {
   background: rgba(148, 163, 184, 0.12);
   color: var(--text-muted, #94a3b8);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: none !important;
+  outline: none !important;
 }
 
 .mobile-bt-status-pill.disconnected .status-dot {
@@ -4602,8 +4993,9 @@ input:checked + .slider:before {
   flex: 1 1 calc(33.333% - 8px);
   min-width: 80px;
   padding: 8px 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  background: rgba(30, 41, 59, 0.72);
+  border: none !important;
+  outline: none !important;
   border-radius: 8px;
   color: var(--text-primary, #ffffff);
   cursor: pointer;
@@ -4617,8 +5009,7 @@ input:checked + .slider:before {
 
 .mobile-preset-chip:active {
   transform: scale(0.96);
-  background: rgba(14, 165, 233, 0.15);
-  border-color: var(--accent-color, #0ea5e9);
+  background: rgba(14, 165, 233, 0.25);
 }
 
 .mobile-preset-chip .chip-model {
@@ -4640,8 +5031,9 @@ input:checked + .slider:before {
 }
 
 .mobile-bt-device-row {
-  background: rgba(14, 165, 233, 0.04);
-  border: 1px solid rgba(14, 165, 233, 0.25);
+  background: rgba(15, 23, 42, 0.65);
+  border: none !important;
+  outline: none !important;
   border-radius: 10px;
   padding: 12px 14px;
   display: flex;
@@ -4721,7 +5113,7 @@ input:checked + .slider:before {
   justify-content: space-between;
   gap: 12px;
   padding-top: 14px;
-  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  border-top: none !important;
 }
 
 .mobile-bt-toggle-row .toggle-text {
@@ -4743,12 +5135,12 @@ input:checked + .slider:before {
 /* Light mode overrides for Mobile Bluetooth Unified Card */
 [data-theme='light'] .mobile-bt-unified-card {
   background: #ffffff !important;
-  border-color: #e2e8f0 !important;
+  border: none !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
 }
 
 [data-theme='light'] .mobile-bt-header {
-  border-bottom-color: #f1f5f9 !important;
+  border-bottom: none !important;
 }
 
 [data-theme='light'] .mobile-bt-title {
@@ -4760,8 +5152,8 @@ input:checked + .slider:before {
 }
 
 [data-theme='light'] .mobile-preset-chip {
-  background: #f8fafc !important;
-  border-color: #cbd5e1 !important;
+  background: #f1f5f9 !important;
+  border: none !important;
   color: #0f172a !important;
 }
 
@@ -4771,7 +5163,7 @@ input:checked + .slider:before {
 
 [data-theme='light'] .mobile-bt-device-row {
   background: #f0fdf4 !important;
-  border-color: #bbf7d0 !important;
+  border: none !important;
 }
 
 [data-theme='light'] .device-name {
@@ -4779,7 +5171,7 @@ input:checked + .slider:before {
 }
 
 [data-theme='light'] .mobile-bt-toggle-row {
-  border-top-color: #f1f5f9 !important;
+  border-top: none !important;
 }
 
 [data-theme='light'] .mobile-bt-toggle-row .toggle-text strong {

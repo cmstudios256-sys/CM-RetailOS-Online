@@ -10,6 +10,7 @@ import {
 } from '@lucide/vue'
 import { apiRequest, formatAxisValue, formatQuantity, type Product } from '../api'
 import { getThemeColors, hexToRgba } from '../utils/chartColors'
+import AppDatePicker from './AppDatePicker.vue'
 import DashboardSalesChart from './DashboardSalesChart.vue'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
@@ -77,7 +78,7 @@ function handlePrefsUpdated() {
   themeVersion.value++
 }
 
-const activeCurrency = computed(() => dashboard.value?.currency || props.currency || 'UGX')
+const activeCurrency = computed(() => props.currency || dashboard.value?.currency || 'UGX')
 
 const stockAlerts = computed(() =>
   products.value
@@ -166,7 +167,7 @@ const statCards = computed(() => {
       sparkline: [] as number[],
     },
     {
-      label: 'Total Inventory Value',
+      label: isPhone.value ? 'Inventory Value' : 'Total Inventory Value',
       isCurrency: true,
       numberPart: Math.round(inventoryValue).toLocaleString(),
       subValue: '',
@@ -174,7 +175,7 @@ const statCards = computed(() => {
       color: 'icon-warning',
       trend: `${activeProductsCount.value} active items`,
       trendClass: 'trend-warning',
-      trendText: 'currently in stock',
+      trendText: isPhone.value ? '' : 'currently in stock',
       sparkline: [] as number[],
     },
   ]
@@ -198,6 +199,11 @@ const salesSummaryStats = computed(() => {
     { label: 'Profit', value: `${activeCurrency.value} ${Math.round(totalProfit).toLocaleString()}`, sub: 'Direct Margin' },
     { label: 'Best', value: bestPoint && bestPoint.sales > 0 ? bestPoint.label : 'N/A', sub: bestPoint && bestPoint.sales > 0 ? `${activeCurrency.value} ${Math.round(bestPoint.sales).toLocaleString()}` : 'Peak Volume' },
   ]
+})
+
+const displayedTopProducts = computed(() => {
+  const list = dashboard.value?.topProducts || []
+  return isPhone.value ? list.slice(0, 3) : list
 })
 
 const salesChartData = computed(() => {
@@ -374,12 +380,13 @@ onUnmounted(() => {
     <template v-if="showSkeleton">
       <div class="stats-grid">
         <div v-for="i in 4" :key="i" class="stat-card skeleton-stat-card">
-          <div class="skeleton-box skeleton-shimmer stat-icon-skeleton"></div>
-          <div class="stat-content" style="gap: 8px;">
+          <div class="stat-card-header">
             <div class="skeleton-box skeleton-shimmer" style="width: 55%; height: 14px;"></div>
-            <div class="skeleton-box skeleton-shimmer" style="width: 75%; height: 26px;"></div>
-            <div class="skeleton-box skeleton-shimmer" style="width: 40%; height: 12px;"></div>
-            <div v-if="isPhone" class="skeleton-box skeleton-shimmer" style="width: 100%; height: 20px; margin-top: 4px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 26px; height: 26px; border-radius: 8px;"></div>
+          </div>
+          <div class="stat-content" style="gap: 6px;">
+            <div class="skeleton-box skeleton-shimmer" style="width: 75%; height: 22px;"></div>
+            <div class="skeleton-box skeleton-shimmer" style="width: 45%; height: 12px;"></div>
           </div>
         </div>
       </div>
@@ -400,8 +407,8 @@ onUnmounted(() => {
             <div v-for="j in 3" :key="j" class="skeleton-box skeleton-shimmer" style="height: 64px; border-radius: 10px;"></div>
           </div>
         </div>
-        <div v-if="!isPhone" class="rotating-card-slot">
-          <div class="card rotating-dashboard-card" style="height: 100%; min-height: 380px;">
+        <div class="rotating-card-slot">
+          <div class="card rotating-dashboard-card" style="height: 100%; min-height: 240px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
               <div class="skeleton-box skeleton-shimmer" style="width: 150px; height: 20px;"></div>
               <div class="skeleton-box skeleton-shimmer" style="width: 32px; height: 32px; border-radius: 8px;"></div>
@@ -417,45 +424,31 @@ onUnmounted(() => {
     <template v-else>
       <!-- Stats Grid -->
       <div class="stats-grid">
-      <div v-for="stat in statCards" :key="stat.label" class="stat-card">
-        <div class="stat-icon">
-          <component :is="stat.icon" :class="stat.color" :size="24" />
-        </div>
-        <div class="stat-content">
-          <div class="stat-label">{{ stat.label }}</div>
-          <div class="stat-value">
-            <template v-if="stat.isCurrency">
-              <span class="currency-prefix">{{ activeCurrency }}</span>
-              <span>{{ stat.numberPart }}</span>
-            </template>
-            <template v-else>
-              {{ stat.numberPart }}
-            </template>
-            <span v-if="stat.subValue" class="stat-sub-value">{{ stat.subValue }}</span>
+        <div v-for="stat in statCards" :key="stat.label" class="stat-card">
+          <div class="stat-card-header">
+            <span class="stat-label">{{ stat.label }}</span>
+            <div class="stat-icon">
+              <component :is="stat.icon" :class="stat.color" :size="isPhone ? 15 : 20" />
+            </div>
           </div>
-          <div class="stat-trend-wrapper">
-            <span class="stat-trend" :class="stat.trendClass">{{ stat.trend }}</span>
-            <span v-if="stat.trendText" class="trend-text">{{ stat.trendText }}</span>
+          <div class="stat-content">
+            <div class="stat-value">
+              <template v-if="stat.isCurrency">
+                <span class="currency-prefix">{{ activeCurrency }}</span>
+                <span class="stat-amount">{{ stat.numberPart }}</span>
+              </template>
+              <template v-else>
+                <span class="stat-amount">{{ stat.numberPart }}</span>
+              </template>
+              <span v-if="stat.subValue" class="stat-sub-value">{{ stat.subValue }}</span>
+            </div>
+            <div class="stat-trend-wrapper">
+              <span class="stat-trend" :class="stat.trendClass">{{ stat.trend }}</span>
+              <span v-if="stat.trendText" class="trend-text">{{ stat.trendText }}</span>
+            </div>
           </div>
-          <svg
-            v-if="isPhone && stat.sparkline?.length"
-            class="stat-sparkline"
-            viewBox="0 0 100 40"
-            role="img"
-            aria-label="Last seven value points"
-            preserveAspectRatio="none"
-          >
-            <polyline
-              :points="sparklinePoints(stat.sparkline)"
-              fill="none"
-              stroke="var(--accent-color, #0ea5e9)"
-              stroke-width="2"
-              vector-effect="non-scaling-stroke"
-            />
-          </svg>
         </div>
       </div>
-    </div>
 
     <div class="dashboard-cards-wrapper">
       <!-- Sales Overview -->
@@ -466,29 +459,14 @@ onUnmounted(() => {
               <h3 class="card-title">Sales Overview</h3>
               <p class="card-subtitle">{{ selectedPeriod }} revenue & profitability timeline</p>
             </div>
-            <div
+            <AppDatePicker
               v-if="isPhone"
-              class="date-picker-btn"
-              :class="{ 'active-date': reportDate !== '' }"
-              title="Filter chart by date"
-            >
-              <Calendar :size="15" />
-              <input
-                v-model="reportDate"
-                type="date"
-                class="invisible-date-picker"
-                aria-label="Filter Sales Overview by date"
-              />
-              <button
-                v-if="reportDate"
-                type="button"
-                class="clear-date-btn"
-                title="Clear Date"
-                @click.stop="reportDate = ''"
-              >
-                <X :size="12" />
-              </button>
-            </div>
+              v-model="reportDate"
+              placeholder="Filter by date"
+              title="Filter Sales Overview by Date"
+              aria-label="Filter Sales Overview by date"
+              :compact="true"
+            />
           </div>
           <div class="tab-controls-right">
             <div class="chart-mode-nav">
@@ -526,29 +504,14 @@ onUnmounted(() => {
                 {{ period }}
               </button>
             </div>
-            <div
+            <AppDatePicker
               v-if="!isPhone"
-              class="date-picker-btn"
-              :class="{ 'active-date': reportDate !== '' }"
-              title="Filter chart by date"
-            >
-              <Calendar :size="15" />
-              <input
-                v-model="reportDate"
-                type="date"
-                class="invisible-date-picker"
-                aria-label="Filter Sales Overview by date"
-              />
-              <button
-                v-if="reportDate"
-                type="button"
-                class="clear-date-btn"
-                title="Clear Date"
-                @click.stop="reportDate = ''"
-              >
-                <X :size="12" />
-              </button>
-            </div>
+              v-model="reportDate"
+              placeholder="Filter chart by date"
+              title="Filter Sales Overview by Date"
+              aria-label="Filter Sales Overview by date"
+              :compact="true"
+            />
           </div>
         </div>
 
@@ -570,7 +533,7 @@ onUnmounted(() => {
             >
               <div class="stat-badge-row">
                 <span class="chart-stat-label">{{ stat.label }}</span>
-                <span class="stat-badge">{{ stat.sub }}</span>
+                <span v-if="!isPhone" class="stat-badge">{{ stat.sub }}</span>
               </div>
               <span class="chart-stat-value">{{ stat.value }}</span>
             </div>
@@ -579,21 +542,23 @@ onUnmounted(() => {
       </div>
 
       <!-- Right Column: Top Selling Products / Stock Alerts -->
-      <div v-if="!isPhone" class="rotating-card-slot">
+      <div class="rotating-card-slot">
         <!-- Top Selling Products -->
         <div v-if="rotatingDashboardCard === 'top-selling'" class="card rotating-dashboard-card">
           <div class="rotating-card-header">
             <div class="title-with-icon">
               <h3 class="card-title">Top Selling Products</h3>
-              <div class="date-picker-btn" :class="{ 'active-date': topSellingDate !== '' }" title="Filter by specific date">
-                <Calendar :size="16" />
-                <input v-model="topSellingDate" type="date" class="invisible-date-picker" aria-label="Filter Top Selling Products by date" />
-                <button v-if="topSellingDate" type="button" class="clear-date-btn" title="Clear Date" @click.stop="topSellingDate = ''">
-                  <X :size="12" />
-                </button>
-              </div>
+              <AppDatePicker
+                v-if="!isPhone"
+                v-model="topSellingDate"
+                placeholder="Filter by date"
+                title="Filter Top Selling Products by Date"
+                aria-label="Filter Top Selling Products by date"
+                :compact="true"
+              />
             </div>
             <button
+              v-if="!isPhone"
               type="button"
               class="rotation-switch is-off"
               role="switch"
@@ -607,10 +572,10 @@ onUnmounted(() => {
           </div>
 
           <div class="product-list">
-            <div v-if="!dashboard?.topProducts?.length" class="empty-product-list">
+            <div v-if="!displayedTopProducts.length" class="empty-product-list">
               No sales recorded yet.
             </div>
-            <div v-for="product in dashboard?.topProducts" :key="product.name" class="product-item">
+            <div v-for="product in displayedTopProducts" :key="product.name" class="product-item">
               <div class="product-info">
                 <div class="product-name" :title="product.name">{{ product.name }}</div>
                 <div class="product-sold">
@@ -627,6 +592,7 @@ onUnmounted(() => {
           <div class="rotating-card-header">
             <h3 class="card-title">Stock Alerts</h3>
             <button
+              v-if="!isPhone"
               type="button"
               class="rotation-switch is-on"
               role="switch"
@@ -786,18 +752,26 @@ onUnmounted(() => {
   border-top-color: #facc15;
 }
 
+.stat-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 0.65rem;
+  width: 100%;
+}
+
 .stat-icon {
-  position: absolute;
-  top: 0.75rem;
-  right: 1rem;
+  position: static;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-light);
   border-radius: 12px;
-  padding: 0.55rem;
+  padding: 0.45rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
 }
 
 [data-theme='light'] .stat-icon {
@@ -816,35 +790,47 @@ onUnmounted(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding-right: 2.75rem;
+  padding-right: 0;
+  width: 100%;
 }
 
 .stat-label {
   font-size: 0.85rem;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
 }
 
 .stat-value {
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 6px;
   white-space: nowrap;
-  overflow: visible;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.2;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  width: 100%;
 }
 
 .currency-prefix {
-  font-size: 0.8em;
+  font-size: 0.78em;
   font-weight: 600;
   color: var(--text-muted);
   margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.stat-amount {
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .stat-sub-value {
@@ -1394,12 +1380,33 @@ onUnmounted(() => {
 }
 
 .close-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: none !important;
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.18s ease, transform 0.15s ease, color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.close-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.close-btn:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .modal-body {
@@ -1484,7 +1491,7 @@ onUnmounted(() => {
 @media (max-width: 639px) {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px;
+    gap: 6px;
     flex: 0 0 auto;
     min-height: auto;
     grid-template-rows: auto;
@@ -1495,98 +1502,224 @@ onUnmounted(() => {
     min-height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .stat-card {
-    min-height: 84px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    border-color: rgba(148, 163, 184, 0.18);
-    border-top-width: 2px;
-    background: linear-gradient(
-      145deg,
-      rgba(28, 42, 64, 0.96),
-      rgba(13, 23, 38, 0.98)
-    );
-    box-shadow:
-      0 4px 14px rgba(0, 0, 0, 0.22),
-      inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    min-height: 86px;
+    padding: 10px 10px 8px;
+    border-radius: 14px;
+    border: none !important;
+    background: rgba(28, 28, 30, 0.78);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.28);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
 
-  .stat-card:nth-child(1),
+  .stat-card:nth-child(1) {
+    border: none !important;
+    border-top: none !important;
+    background: linear-gradient(180deg, rgba(34, 197, 94, 0.08) 0%, rgba(28, 28, 30, 0.78) 100%);
+  }
+  .stat-card:nth-child(1) .stat-icon {
+    background: rgba(34, 197, 94, 0.16) !important;
+    border: none !important;
+  }
+  .stat-card:nth-child(1) .stat-icon svg {
+    color: #22c55e !important;
+  }
+
   .stat-card:nth-child(2) {
-    min-height: 84px;
+    border: none !important;
+    border-top: none !important;
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.08) 0%, rgba(28, 28, 30, 0.78) 100%);
+  }
+  .stat-card:nth-child(2) .stat-icon {
+    background: rgba(56, 189, 248, 0.16) !important;
+    border: none !important;
+  }
+  .stat-card:nth-child(2) .stat-icon svg {
+    color: #38bdf8 !important;
+  }
+
+  .stat-card:nth-child(3) {
+    border: none !important;
+    border-top: none !important;
+    background: linear-gradient(180deg, rgba(167, 139, 250, 0.08) 0%, rgba(28, 28, 30, 0.78) 100%);
+  }
+  .stat-card:nth-child(3) .stat-icon {
+    background: rgba(167, 139, 250, 0.16) !important;
+    border: none !important;
+  }
+  .stat-card:nth-child(3) .stat-icon svg {
+    color: #a78bfa !important;
+  }
+
+  .stat-card:nth-child(4) {
+    border: none !important;
+    border-top: none !important;
+    background: linear-gradient(180deg, rgba(250, 204, 21, 0.08) 0%, rgba(28, 28, 30, 0.78) 100%);
+  }
+  .stat-card:nth-child(4) .stat-icon {
+    background: rgba(250, 204, 21, 0.16) !important;
+    border: none !important;
+  }
+  .stat-card:nth-child(4) .stat-icon svg {
+    color: #facc15 !important;
+  }
+
+  .stat-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 6px;
+    width: 100%;
   }
 
   .stat-icon {
-    top: 8px;
-    right: 8px;
-    width: 32px;
-    height: 32px;
+    position: static;
+    top: auto;
+    right: auto;
+    width: 26px;
+    height: 26px;
     padding: 0;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.075);
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
   .stat-icon svg {
-    width: 17px;
-    height: 17px;
+    width: 15px;
+    height: 15px;
   }
 
   .stat-content {
-    padding-right: 34px;
+    padding-right: 0 !important;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
   }
 
   .stat-label {
-    margin-bottom: 3px;
-    font-size: 11px;
-    line-height: 1.25;
-    font-weight: 600;
-    color: var(--text-muted);
-    letter-spacing: 0.01em;
+    margin-bottom: 0;
+    font-size: 11.5px;
+    line-height: 1.2;
+    font-weight: 500;
+    color: #8e8e93;
+    letter-spacing: -0.05px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
   }
 
   .stat-value {
     margin-bottom: 3px;
-    font-size: 15px;
+    font-size: clamp(14px, 4.4vw, 17px);
     line-height: 1.2;
-    font-weight: 800;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
+    font-weight: 750;
+    color: #ffffff;
+    letter-spacing: -0.35px;
+    font-variant-numeric: tabular-nums;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: baseline;
+    width: 100%;
   }
 
   .currency-prefix {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text-muted);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #8e8e93;
     margin-right: 3px;
+    flex-shrink: 0;
+    letter-spacing: 0;
+  }
+
+  .stat-amount {
+    font-weight: 800;
+    letter-spacing: -0.35px;
   }
 
   .stat-sub-value {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: 10.5px;
+    color: #8e8e93;
+    margin-left: 3px;
   }
 
   .stat-trend-wrapper {
-    font-size: 10px;
-    line-height: 1.2;
+    font-size: 11px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
   }
 
   .stat-trend {
-    font-weight: 700;
+    font-weight: 600;
+  }
+
+  .trend-positive {
+    color: #34c759 !important;
+  }
+
+  .trend-negative {
+    color: #ff453a !important;
   }
 
   .trend-text {
-    color: var(--text-muted);
-    margin-left: 4px;
+    color: #8e8e93;
+    margin-left: 3px;
+    font-weight: 400;
   }
 
   .stat-sparkline {
-    height: 20px;
-    margin-top: 4px;
+    display: none !important;
+  }
+
+  [data-theme='light'] .stat-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  [data-theme='light'] .stat-card:nth-child(1),
+  [data-theme='light'] .stat-card:nth-child(2),
+  [data-theme='light'] .stat-card:nth-child(3),
+  [data-theme='light'] .stat-card:nth-child(4) {
+    border: none !important;
+    border-top: none !important;
+  }
+
+  [data-theme='light'] .stat-label {
+    color: #6e6e73 !important;
+  }
+
+  [data-theme='light'] .stat-value {
+    color: #000000 !important;
+  }
+
+  [data-theme='light'] .currency-prefix {
+    color: #86868b !important;
+  }
+
+  [data-theme='light'] .stat-sub-value {
+    color: #86868b !important;
+  }
+
+  [data-theme='light'] .trend-text {
+    color: #86868b !important;
   }
 
   .dashboard-cards-wrapper {
@@ -1594,7 +1727,7 @@ onUnmounted(() => {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
   }
 
@@ -1602,8 +1735,11 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
-    min-height: 0;
-    padding: 12px 12px 10px;
+    min-height: 250px;
+    padding: 10px 10px 8px;
+    border-radius: 14px;
+    border: none !important;
+    overflow: visible;
   }
 
   .tab-header {
@@ -1634,24 +1770,28 @@ onUnmounted(() => {
     display: inline-flex;
     flex: 0 0 auto;
     padding: 2px;
+    border: none !important;
   }
 
   .chart-mode-nav button {
     min-height: 30px;
     padding: 2px 8px;
     font-size: 11px;
+    border: none !important;
   }
 
   .tab-nav {
     display: inline-flex;
     flex: 0 0 auto;
     padding: 2px;
+    border: none !important;
   }
 
   .tab-nav button {
     min-height: 30px;
     padding: 2px 8px;
     font-size: 11px;
+    border: none !important;
   }
 
   .date-picker-btn {
@@ -1662,6 +1802,7 @@ onUnmounted(() => {
     padding: 0;
     justify-content: center;
     flex: 0 0 auto;
+    border: none !important;
   }
 
   .date-picker-btn span {
@@ -1680,10 +1821,9 @@ onUnmounted(() => {
   .sales-chart-plot {
     position: relative;
     inset: auto;
-    flex: 0 0 auto;
-    height: 185px;
-    min-height: 185px;
-    max-height: 195px;
+    flex: 1 1 auto;
+    min-height: 125px;
+    height: 100%;
     width: 100%;
   }
 
@@ -1691,51 +1831,56 @@ onUnmounted(() => {
     position: static;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
     flex: 0 0 auto;
-    margin-top: 8px;
+    margin-top: 6px;
   }
 
   .chart-stat {
-    padding: 8px 7px 7px;
+    padding: 6px 6px 5px;
     min-width: 0;
-    border-radius: 10px;
+    border-radius: 8px;
+    border: none !important;
+    border-top: none !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   .chart-stat.stat-sales {
     background: linear-gradient(180deg, rgba(14, 165, 233, 0.12) 0%, rgba(15, 23, 42, 0.4) 100%);
-    border-top: 2.5px solid #0ea5e9;
+    border: none !important;
+    border-top: none !important;
   }
 
   .chart-stat.stat-profit {
     background: linear-gradient(180deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.4) 100%);
-    border-top: 2.5px solid #10b981;
+    border: none !important;
+    border-top: none !important;
   }
 
   .chart-stat.stat-best {
     background: linear-gradient(180deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.4) 100%);
-    border-top: 2.5px solid #f59e0b;
+    border: none !important;
+    border-top: none !important;
   }
 
   [data-theme='light'] .chart-stat.stat-sales {
     background: linear-gradient(180deg, rgba(14, 165, 233, 0.10) 0%, #ffffff 100%) !important;
-    border: 1px solid #bae6fd !important;
-    border-top: 2.5px solid #0ea5e9 !important;
+    border: none !important;
+    border-top: none !important;
     box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1) !important;
   }
 
   [data-theme='light'] .chart-stat.stat-profit {
     background: linear-gradient(180deg, rgba(16, 185, 129, 0.10) 0%, #ffffff 100%) !important;
-    border: 1px solid #bbf7d0 !important;
-    border-top: 2.5px solid #10b981 !important;
+    border: none !important;
+    border-top: none !important;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1) !important;
   }
 
   [data-theme='light'] .chart-stat.stat-best {
     background: linear-gradient(180deg, rgba(245, 158, 11, 0.10) 0%, #ffffff 100%) !important;
-    border: 1px solid #fde68a !important;
-    border-top: 2.5px solid #f59e0b !important;
+    border: none !important;
+    border-top: none !important;
     box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1) !important;
   }
 
@@ -1768,10 +1913,90 @@ onUnmounted(() => {
   }
 
   .stat-badge {
-    font-size: 8.5px;
+    display: none !important;
+  }
+
+  .rotating-card-slot {
+    display: block;
+    min-width: 0;
+    min-height: auto;
+    width: 100%;
+  }
+
+  .rotating-dashboard-card {
+    min-height: auto;
+    padding: 8px 10px 6px;
+    border-radius: 12px;
+    margin-bottom: 4px;
+    background: rgba(28, 28, 30, 0.65);
+    border: none !important;
+  }
+
+  .rotating-card-header {
+    margin-bottom: 4px;
+    gap: 6px;
+  }
+
+  .rotating-card-header .date-picker-btn,
+  .rotating-card-header .rotation-switch {
+    display: none !important;
+  }
+
+  .rotating-card-header .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #8e8e93);
+  }
+
+  .product-list {
+    max-height: 125px;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .product-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .product-item,
+  .stock-alert-item {
+    padding: 4px 2px;
+    min-height: 26px;
+    border: none !important;
+    border-bottom: none !important;
+  }
+
+  .product-item:nth-child(n+4) {
+    display: none !important;
+  }
+
+  .product-item:last-child,
+  .stock-alert-item:last-child {
+    border-bottom: none;
+  }
+
+  .product-name {
+    font-size: 11px;
     font-weight: 600;
-    padding: 1px 4px;
-    border-radius: 4px;
+    line-height: 1.2;
+    max-width: 190px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .product-sold {
+    font-size: 9px;
+    color: var(--text-muted, #8e8e93);
+    margin-top: 1px;
+  }
+
+  .product-revenue {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-color, #38bdf8);
   }
 }
 </style>

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Calendar, Download, Eye, Printer, Search, Share2, X } from '@lucide/vue'
 import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
+import AppDatePicker from './AppDatePicker.vue'
 import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
@@ -274,7 +275,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="view-section">
+  <section class="view-section sales-view">
     <div v-if="error" class="inline-error" role="alert">{{ error }}</div>
 
     <div class="card">
@@ -285,22 +286,12 @@ onMounted(() => {
             <Search class="search-icon" :size="18" />
             <input v-model="searchTerm" type="text" placeholder="Search by ID..." aria-label="Search sales by ID" />
           </div>
-          <div class="date-filter-wrapper">
-            <label class="filter-btn date-picker-btn" :class="{ 'active-filter': selectedDate }">
-              <Calendar :size="16" />
-              <span>{{ selectedDate || 'Filter by Date' }}</span>
-              <input v-model="selectedDate" type="date" class="hidden-date-input" aria-label="Filter sales by date" />
-            </label>
-            <button
-              v-if="selectedDate"
-              type="button"
-              class="clear-date-btn"
-              title="Clear Date Filter"
-              @click="selectedDate = ''"
-            >
-              <X :size="14" />
-            </button>
-          </div>
+          <AppDatePicker
+            v-model="selectedDate"
+            placeholder="Filter by Date"
+            title="Filter Sales by Date"
+            aria-label="Filter sales by date"
+          />
           <button
             type="button"
             class="export-btn print-btn"
@@ -504,11 +495,11 @@ onMounted(() => {
     </div>
 
     <!-- Sale Details Modal -->
-    <div v-if="isDetailModalOpen && selectedSale" class="modal-backdrop" @click.self="closeDetailModal">
-      <div class="modal-content">
+    <div v-if="isDetailModalOpen && selectedSale" class="modal-backdrop sale-details-backdrop" @click.self="closeDetailModal">
+      <div class="modal-content sale-details-modal">
         <div class="modal-header">
           <h3>Sale Details</h3>
-          <button type="button" class="close-btn" @click="closeDetailModal">
+          <button type="button" class="close-btn" aria-label="Close sale details" @click="closeDetailModal">
             <X :size="20" />
           </button>
         </div>
@@ -578,7 +569,7 @@ onMounted(() => {
         <div class="modal-footer">
           <button type="button" class="btn-secondary" @click="closeDetailModal">Close</button>
           <button
-            v-if="mobileTouch"
+            v-if="isPhone || mobileTouch"
             type="button"
             class="btn-secondary mobile-sales-share-button"
             @click="shareSaleOnMobile(selectedSale)"
@@ -949,7 +940,7 @@ tbody tr:hover {
 .profit-negative { color: #f87171; }
 
 .status-badge {
-  padding: 0.2rem 0.55rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 9999px;
   font-size: 0.7rem;
   font-weight: 600;
@@ -957,13 +948,15 @@ tbody tr:hover {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  border: 1px solid;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .status-completed {
-  border-color: #22c55e;
   color: #4ade80;
-  background-color: rgba(34, 197, 94, 0.1);
+  background-color: rgba(34, 197, 94, 0.16);
+  border: none !important;
 }
 
 .empty-message {
@@ -972,18 +965,31 @@ tbody tr:hover {
   color: var(--text-muted);
 }
 
-/* Modal Styles */
-.modal-content {
-  background-color: var(--bg-sidebar);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+/* Sale Details Modal Base Styles */
+.sale-details-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 23, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal-content.sale-details-modal {
+  background-color: var(--bg-sidebar, #0f172a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
   width: 100%;
   max-width: 600px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
-  max-height: 85vh;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .modal-header {
@@ -991,78 +997,111 @@ tbody tr:hover {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #f8fafc);
+  letter-spacing: -0.01em;
 }
 
 .close-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: none !important;
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.18s ease, transform 0.15s ease, color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
 
 .close-btn:hover {
-  color: var(--text-primary);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.close-btn:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .modal-body {
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
   min-width: 0;
   box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sale-info-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  background-color: var(--bg-surface);
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  gap: 12px 16px;
+  background-color: rgba(15, 23, 42, 0.65);
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .info-item {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 4px;
+  min-width: 0;
 }
 
 .info-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  font-size: 0.72rem;
+  color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  font-weight: 600;
 }
 
 .info-value {
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #f1f5f9;
+  word-break: break-word;
+}
+
+.sale-info-grid .info-item:first-child .info-value {
+  color: #38bdf8;
+  font-weight: 700;
 }
 
 .items-heading {
-  margin: 0;
+  margin: 4px 0 0;
   font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
 }
 
 .modal-table-container {
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border: none !important;
+  outline: none !important;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.65);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
@@ -1075,148 +1114,343 @@ tbody tr:hover {
   border-collapse: collapse;
 }
 
-.items-table th,
-.items-table td {
-  padding: 0.65rem 1rem;
-  border-bottom: 1px solid var(--border-subtle);
+.items-table th {
+  background-color: rgba(30, 41, 59, 0.5);
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   border-right: none;
+  white-space: nowrap;
 }
 
-.items-table th {
-  background-color: var(--bg-surface);
-  position: static;
+.items-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-right: none;
+  font-size: 0.875rem;
+  color: #e2e8f0;
+}
+
+.items-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .item-name-cell {
-  color: var(--text-primary);
+  color: #f8fafc;
+  font-weight: 600;
 }
 
 .sale-summary {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  background-color: var(--bg-surface);
-  padding: 1rem 1.25rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  gap: 0.75rem;
+  background-color: rgba(15, 23, 42, 0.65);
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .summary-row {
   display: flex;
   justify-content: space-between;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+  align-items: center;
+  font-size: 0.88rem;
+  color: #94a3b8;
+}
+
+.summary-row span:last-child {
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.profit-positive span:last-child,
+.profit-positive {
+  color: #34d399 !important;
+  font-weight: 700 !important;
+}
+
+.profit-negative span:last-child,
+.profit-negative {
+  color: #f87171 !important;
+  font-weight: 700 !important;
 }
 
 .total-row {
-  border-top: 1px solid var(--border-color);
-  padding-top: 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 0.75rem;
   margin-top: 0.25rem;
+}
+
+.total-row span:first-child {
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #f8fafc;
+}
+
+.total-row span:last-child {
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  color: #38bdf8 !important;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1.15rem 1.5rem;
-  border-top: 1px solid var(--border-subtle);
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   background-color: rgba(15, 23, 42, 0.5);
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
+  flex-shrink: 0;
+}
+
+.modal-footer button {
+  min-height: 44px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 650;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: all 0.15s ease-out;
+}
+
+.modal-footer button:active {
+  transform: scale(0.98);
+}
+
+.modal-footer .btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+}
+
+.modal-footer .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.modal-footer .mobile-sales-share-button {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+.modal-footer .mobile-sales-share-button:hover {
+  background: #059669 !important;
 }
 
 @media (max-width: 639px) {
-  .modal-content {
+  .card {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 8px 8px 16px 8px !important;
+  }
+
+  .card-header {
+    border-bottom: none !important;
+    padding-bottom: 0.25rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .header-controls {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .search-bar {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .search-bar input {
     width: 100% !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+  }
+
+  .filter-btn,
+  .date-picker-btn,
+  .export-btn {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+  }
+
+  /* Mobile Light Theme Overrides */
+  [data-theme='light'] .search-bar input {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  [data-theme='light'] .filter-btn,
+  [data-theme='light'] .date-picker-btn,
+  [data-theme='light'] .export-btn {
+    background-color: #ffffff !important;
+    color: #334155 !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  [data-theme='light'] .sale-details-backdrop {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .modal-content.sale-details-modal {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .sale-details-header {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .sale-meta-grid,
+  [data-theme='light'] .sale-items-table-wrap {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  /* Mobile Sale Details Page View */
+  .sale-details-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 100 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     max-width: 100vw !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #0b1320 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: hidden !important;
+  }
+
+  .modal-content.sale-details-modal {
+    width: 100% !important;
+    max-width: 100% !important;
     min-width: 0 !important;
-    box-sizing: border-box !important;
-    overflow-x: hidden !important;
+    height: 100% !important;
+    height: 100dvh !important;
     max-height: 100dvh !important;
     border-radius: 0 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #0b1320 !important;
+    overflow: hidden !important;
   }
 
   .modal-header {
-    padding: 12px 14px !important;
+    padding: max(16px, env(safe-area-inset-top)) 16px 14px 16px !important;
+    border-bottom: none !important;
     flex-shrink: 0;
   }
 
   .modal-body {
-    padding: 12px 14px !important;
+    padding: 0 14px 16px 14px !important;
     min-width: 0 !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
     overflow-x: hidden !important;
+    overflow-y: auto !important;
     gap: 12px !important;
+    flex: 1 1 auto;
   }
 
   .sale-info-grid {
-    padding: 10px 12px !important;
-    gap: 8px 12px !important;
-    min-width: 0 !important;
-  }
-
-  .info-item {
-    min-width: 0 !important;
-  }
-
-  .info-value {
-    font-size: 0.85rem !important;
-    word-break: break-word !important;
-    overflow-wrap: anywhere !important;
+    padding: 12px 14px !important;
+    gap: 10px 14px !important;
+    border-radius: 12px !important;
   }
 
   .items-table {
-    width: 100%;
-    min-width: 310px;
+    width: 100% !important;
+    min-width: 0 !important;
   }
 
   .items-table th,
   .items-table td {
-    padding: 8px 8px !important;
-    font-size: 12.5px !important;
+    padding: 8px 10px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .items-table th:first-child,
+  .items-table td:first-child {
+    padding-left: 12px !important;
+  }
+
+  .items-table th:last-child,
+  .items-table td:last-child {
+    padding-right: 12px !important;
   }
 
   .items-table td:first-child {
-    max-width: 110px;
+    max-width: 120px;
     white-space: normal !important;
     word-break: break-word !important;
   }
 
   .sale-summary {
-    padding: 10px 12px !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-  }
-
-  .summary-row {
-    font-size: 0.85rem !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
   }
 
   .modal-footer {
-    padding: 12px 14px !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important;
+    padding: 12px 14px max(16px, env(safe-area-inset-bottom)) 14px !important;
+    border-top: none !important;
+    background: #0b1320 !important;
+    gap: 10px !important;
     flex-shrink: 0;
   }
 
   .modal-footer button {
-    flex: 1 1 calc(50% - 4px);
-    min-width: 0;
-    min-height: 44px;
-    justify-content: center;
-    padding: 0 10px !important;
-    font-size: 13px !important;
+    flex: 1 1 0;
+    min-height: 48px;
+    border-radius: 10px;
+    font-size: 0.92rem !important;
   }
 }
 
-[data-theme='light'] .modal-content {
+[data-theme='light'] .modal-content,
+[data-theme='light'] .sale-details-modal {
   background-color: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
   box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.12) !important;
+}
+
+@media (max-width: 639px) {
+  [data-theme='light'] .sale-details-backdrop,
+  [data-theme='light'] .modal-content.sale-details-modal,
+  [data-theme='light'] .modal-footer {
+    background: #ffffff !important;
+  }
 }
 
 [data-theme='light'] .modal-header {

@@ -78,11 +78,11 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
       ticks: {
         color: isLightMode.value ? '#64748b' : '#94a3b8',
         autoSkip: true,
-        maxTicksLimit: props.isPhone ? 8 : 12,
+        maxTicksLimit: 12,
         maxRotation: 0,
         minRotation: 0,
         font: {
-          size: props.isPhone ? 10 : 11,
+          size: props.isPhone ? 9.5 : 11,
           weight: 'normal',
         },
       },
@@ -92,12 +92,15 @@ const chartOptions = computed<ChartOptions<'line' | 'bar'>>(() => ({
     },
     y: {
       beginAtZero: true,
+      suggestedMax: 10000,
       grid: {
         color: isLightMode.value ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
         borderDash: [3, 4],
         drawTicks: false,
       },
       ticks: {
+        precision: 0,
+        maxTicksLimit: 5,
         color: isLightMode.value ? '#64748b' : '#94a3b8',
         font: {
           size: props.isPhone ? 10 : 11,

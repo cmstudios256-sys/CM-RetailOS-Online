@@ -204,7 +204,8 @@ async function shareWithDevice() {
   width: min(100%, 480px);
   justify-self: center;
   padding: 22px 20px 20px;
-  border: 1px solid rgba(148, 163, 184, .2);
+  border: none !important;
+  outline: none !important;
   border-radius: 18px;
   background: #101a2a;
   color: #e5edf7;
@@ -234,11 +235,39 @@ async function shareWithDevice() {
   line-height: 1.5;
 }
 
-.mobile-share-close,
+.mobile-share-close {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: none !important;
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.18s ease, transform 0.15s ease, color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.mobile-share-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.mobile-share-close:active {
+  transform: scale(0.92);
+}
+
 .mobile-share-primary,
 .mobile-share-secondary {
   min-width: 44px;
-  min-height: 44px;
+  min-height: 46px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -246,16 +275,6 @@ async function shareWithDevice() {
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s ease-out;
-}
-
-.mobile-share-close {
-  border: 1px solid rgba(148, 163, 184, .2);
-  color: #cbd5e1;
-  background: transparent;
-}
-
-.mobile-share-close:hover {
-  background: rgba(148, 163, 184, .1);
 }
 
 .mobile-share-label {
@@ -270,21 +289,30 @@ async function shareWithDevice() {
   width: 100%;
   min-height: 48px;
   padding: 0 14px;
-  border: 1.5px solid rgba(148, 163, 184, .25);
+  border: none !important;
+  outline: none !important;
   border-radius: 10px;
   color: #f8fafc;
-  background: #0b1220;
+  background: rgba(15, 23, 42, 0.75);
   font: inherit;
-  font-size: 16px;
+  font-size: 15px;
   box-sizing: border-box;
+  box-shadow: none !important;
 }
 
 .mobile-share-phone:focus-visible,
+.mobile-share-phone:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.5) !important;
+}
+
 .mobile-share-close:focus-visible,
 .mobile-share-primary:focus-visible,
-.mobile-share-secondary:focus-visible {
-  outline: 2px solid #38bdf8;
-  outline-offset: 2px;
+.mobile-share-secondary:focus-visible,
+.mobile-share-bluetooth:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.5) !important;
 }
 
 .mobile-share-note {
@@ -302,7 +330,7 @@ async function shareWithDevice() {
   margin: 0 0 12px;
   padding: 8px 12px;
   background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  border: none !important;
   border-radius: 8px;
   color: #86efac;
   font-size: 13px;
@@ -324,15 +352,20 @@ async function shareWithDevice() {
   font-size: 14px;
   font-weight: 700;
   box-sizing: border-box;
-  background: #0284c7;
-  border: 1px solid #38bdf8;
+  background: #0ea5e9;
+  border: none !important;
+  outline: none !important;
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+  box-shadow: none !important;
   transition: all 0.15s ease-out;
 }
 
 .mobile-share-bluetooth:hover:not(:disabled) {
-  background: #0369a1;
+  background: #0284c7;
+}
+
+.mobile-share-bluetooth:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .mobile-share-bluetooth:disabled {
@@ -355,7 +388,7 @@ async function shareWithDevice() {
 .mobile-share-divider::after {
   content: '';
   flex: 1;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .mobile-share-divider span {
@@ -368,18 +401,24 @@ async function shareWithDevice() {
   padding: 0 16px;
   font: inherit;
   font-size: 14px;
-  font-weight: 650;
   box-sizing: border-box;
 }
 
 .mobile-share-primary {
-  border: 1px solid #0f9f70;
-  color: #f0fdf4;
-  background: #087c5a;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #ffffff;
+  background: #10b981;
+  font-weight: 700;
 }
 
 .mobile-share-primary:hover:not(:disabled) {
-  background: #09946c;
+  background: #059669;
+}
+
+.mobile-share-primary:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .mobile-share-primary:disabled {
@@ -389,13 +428,21 @@ async function shareWithDevice() {
 
 .mobile-share-secondary {
   margin-top: 8px;
-  border: 1px solid rgba(148, 163, 184, .2);
-  color: #dbe5f0;
-  background: rgba(148, 163, 184, .06);
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #cbd5e1;
+  background: rgba(30, 41, 59, 0.72);
+  font-weight: 600;
 }
 
 .mobile-share-secondary:hover {
-  background: rgba(148, 163, 184, .12);
+  background: rgba(51, 65, 85, 0.8);
+  color: #ffffff;
+}
+
+.mobile-share-secondary:active {
+  transform: scale(0.98);
 }
 
 /* Light Mode — Crisp, elevated, high-contrast stand-out UI */
@@ -406,9 +453,10 @@ async function shareWithDevice() {
 
 [data-theme='light'] .mobile-share-dialog {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: none !important;
+  outline: none !important;
   color: #0f172a;
-  box-shadow: 0 25px 60px -10px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 25px 60px -10px rgba(15, 23, 42, 0.28);
 }
 
 [data-theme='light'] .mobile-share-heading h2 {
@@ -421,15 +469,15 @@ async function shareWithDevice() {
 }
 
 [data-theme='light'] .mobile-share-close {
-  border: 1px solid #cbd5e1;
+  border: none !important;
+  outline: none !important;
   color: #475569;
-  background: #f8fafc;
+  background: #f1f5f9;
 }
 
 [data-theme='light'] .mobile-share-close:hover {
-  background: #f1f5f9;
+  background: #e2e8f0;
   color: #0f172a;
-  border-color: #94a3b8;
 }
 
 [data-theme='light'] .mobile-share-label {
@@ -438,8 +486,9 @@ async function shareWithDevice() {
 }
 
 [data-theme='light'] .mobile-share-phone {
-  background: #ffffff;
-  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  border: none !important;
+  outline: none !important;
   color: #0f172a;
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
 }
@@ -448,9 +497,11 @@ async function shareWithDevice() {
   color: #94a3b8;
 }
 
-[data-theme='light'] .mobile-share-phone:focus-visible {
-  outline: 2px solid #16a34a;
-  border-color: #16a34a;
+[data-theme='light'] .mobile-share-phone:focus-visible,
+[data-theme='light'] .mobile-share-phone:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.5) !important;
 }
 
 [data-theme='light'] .mobile-share-note {
@@ -464,20 +515,20 @@ async function shareWithDevice() {
 
 [data-theme='light'] .mobile-share-success {
   background: #f0fdf4;
-  border-color: #86efac;
+  border: none !important;
   color: #166534;
 }
 
 [data-theme='light'] .mobile-share-bluetooth {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  border: 1px solid #0284c7;
+  background: #0284c7;
+  border: none !important;
+  outline: none !important;
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  box-shadow: none !important;
 }
 
 [data-theme='light'] .mobile-share-bluetooth:hover:not(:disabled) {
-  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
-  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
+  background: #0369a1;
 }
 
 [data-theme='light'] .mobile-share-divider {
@@ -490,37 +541,36 @@ async function shareWithDevice() {
 }
 
 [data-theme='light'] .mobile-share-primary {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  border: 1px solid #15803d;
+  background: #10b981;
+  border: none !important;
+  outline: none !important;
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  box-shadow: none !important;
 }
 
 [data-theme='light'] .mobile-share-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.45);
+  background: #059669;
 }
 
 [data-theme='light'] .mobile-share-primary:disabled {
   background: #cbd5e1;
-  border-color: #cbd5e1;
+  border: none !important;
   color: #64748b;
   box-shadow: none;
   opacity: 0.7;
 }
 
 [data-theme='light'] .mobile-share-secondary {
-  background: #f8fafc;
-  border: 1.5px solid #cbd5e1;
+  background: #f1f5f9;
+  border: none !important;
+  outline: none !important;
   color: #1e293b;
   font-weight: 650;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  box-shadow: none !important;
 }
 
 [data-theme='light'] .mobile-share-secondary:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  background: #e2e8f0;
   color: #0f172a;
 }
 </style>

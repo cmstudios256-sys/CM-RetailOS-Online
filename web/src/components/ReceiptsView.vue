@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Calendar, Download, Eye, Printer, Search, Share2, X } from '@lucide/vue'
 import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
+import AppDatePicker from './AppDatePicker.vue'
 import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
@@ -280,7 +281,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="view-section">
+  <section class="view-section receipts-view">
     <div v-if="error" class="inline-error" role="alert">{{ error }}</div>
 
     <div class="card">
@@ -292,26 +293,16 @@ onUnmounted(() => {
             <input
               v-model="searchTerm"
               type="text"
-              placeholder="Search by Receipt ID, Sale ID..."
-              aria-label="Search receipts by Receipt ID or Sale ID"
+              placeholder="Search by ID..."
+              aria-label="Search receipts by ID"
             />
           </div>
-          <div class="date-filter-wrapper">
-            <label class="filter-btn date-picker-btn" :class="{ 'active-filter': selectedDate }">
-              <Calendar :size="16" />
-              <span>{{ selectedDate || 'Filter by Date' }}</span>
-              <input v-model="selectedDate" type="date" class="hidden-date-input" aria-label="Filter receipts by date" />
-            </label>
-            <button
-              v-if="selectedDate"
-              type="button"
-              class="clear-date-btn"
-              title="Clear Date Filter"
-              @click="selectedDate = ''"
-            >
-              <X :size="14" />
-            </button>
-          </div>
+          <AppDatePicker
+            v-model="selectedDate"
+            placeholder="Filter by Date"
+            title="Filter Receipts by Date"
+            aria-label="Filter receipts by date"
+          />
           <button
             type="button"
             class="export-btn print-btn"
@@ -514,11 +505,11 @@ onUnmounted(() => {
     </div>
 
     <!-- Receipt Preview Modal -->
-    <div v-if="isReceiptModalOpen && selectedReceipt" class="modal-backdrop" @click.self="closeModal">
+    <div v-if="isReceiptModalOpen && selectedReceipt" class="modal-backdrop receipt-preview-backdrop" @click.self="closeModal">
       <div class="receipt-modal">
         <div class="modal-top-bar">
           <h3>Receipt Preview</h3>
-          <button type="button" class="close-btn" @click="closeModal">
+          <button type="button" class="close-btn" aria-label="Close receipt preview" @click="closeModal">
             <X :size="20" />
           </button>
         </div>
@@ -591,9 +582,9 @@ onUnmounted(() => {
         </div>
 
         <div class="receipt-modal-actions">
-          <button type="button" class="btn-secondary" @click="closeModal">Close</button>
+          <button type="button" class="btn-secondary receipt-close-btn" @click="closeModal">Close</button>
           <button
-            v-if="mobileTouch"
+            v-if="isPhone || mobileTouch"
             type="button"
             class="btn-secondary mobile-receipt-share-button"
             @click="shareReceiptOnMobile(selectedReceipt)"
@@ -601,7 +592,7 @@ onUnmounted(() => {
             <Share2 :size="16" />
             Share to WhatsApp
           </button>
-          <button type="button" class="btn-primary" @click="printSingleReceipt(selectedReceipt)">
+          <button type="button" class="btn-primary receipt-print-btn" @click="printSingleReceipt(selectedReceipt)">
             <Printer :size="16" />
             Print Receipt
           </button>
@@ -689,10 +680,12 @@ onUnmounted(() => {
 .search-bar input {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: 0.375rem;
-  padding: 0.4rem 0.75rem 0.4rem 2.25rem;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem 0.45rem 2.25rem;
   color: var(--text-primary);
-  width: min(240px, 35vw);
+  width: 230px;
+  height: 38px;
+  box-sizing: border-box;
   font-size: 0.825rem;
 }
 
@@ -704,22 +697,25 @@ onUnmounted(() => {
 .date-filter-wrapper {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .filter-btn,
 .export-btn {
   background-color: var(--bg-surface);
   color: var(--text-secondary);
-  padding: 0.4rem 0.85rem;
-  border-radius: 0.375rem;
+  padding: 0.45rem 0.9rem;
+  height: 38px;
+  box-sizing: border-box;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   font-weight: 500;
   font-size: 0.825rem;
+  white-space: nowrap;
   transition: all 0.2s;
 }
 
@@ -962,14 +958,15 @@ tbody tr:hover {
 /* Receipt Modal Styles */
 .receipt-modal {
   background-color: var(--bg-sidebar);
-  border: 1px solid var(--border-subtle);
+  border: none !important;
+  outline: none !important;
   border-radius: 16px;
   width: 100%;
   max-width: 420px;
   display: flex;
   flex-direction: column;
   max-height: 90vh;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.6);
   overflow: hidden;
 }
 
@@ -977,52 +974,71 @@ tbody tr:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 1.1rem 1.5rem;
+  border-bottom: none !important;
   background-color: var(--bg-surface);
 }
 
 .modal-top-bar h3 {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .close-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 0.25rem;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: none !important;
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.18s ease, transform 0.15s ease, color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
 
 .close-btn:hover {
-  color: var(--text-primary);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.close-btn:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .receipt-paper-wrapper {
   padding: 1.5rem;
   overflow-y: auto;
-  background-color: var(--bg-app);
+  background-color: rgba(2, 6, 23, 0.35);
   display: flex;
   justify-content: center;
 }
 
 .receipt-paper {
   background-color: #ffffff;
-  color: #1e293b;
+  color: #0f172a;
   width: 100%;
   max-width: 320px;
-  padding: 1.5rem 1.25rem;
+  padding: 1.5rem 1.25rem 2rem;
   font-family: 'Courier New', Courier, monospace;
   font-size: 0.85rem;
-  line-height: 1.4;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  line-height: 1.45;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
   position: relative;
-  border-top: 4px solid #cbd5e1;
+  border-radius: 8px 8px 0 0;
+  border: none !important;
+  outline: none !important;
 }
 
 .paper-jagged-bottom {
@@ -1147,39 +1163,270 @@ tbody tr:hover {
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-subtle);
+  border-top: none !important;
   background-color: var(--bg-surface);
 }
 
 .btn-secondary {
-  background-color: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  font-weight: 500;
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  border: none !important;
+  outline: none !important;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 .btn-secondary:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.14);
 }
 
 .btn-primary {
   background-color: var(--accent-color);
   color: #ffffff;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  font-weight: 500;
+  border: none !important;
+  outline: none !important;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .btn-primary:hover {
   background-color: var(--accent-hover);
+}
+
+.status-badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.status-completed {
+  color: #4ade80;
+  background-color: rgba(34, 197, 94, 0.16);
+  border: none !important;
+}
+
+@media (max-width: 639px) {
+  .card {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 8px 8px 16px 8px !important;
+  }
+
+  .card-header {
+    border-bottom: none !important;
+    padding-bottom: 0.25rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .header-controls {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .search-bar {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .search-bar input {
+    width: 100% !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+  }
+
+  .filter-btn,
+  .date-picker-btn,
+  .export-btn {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+  }
+
+  /* Mobile Light Theme Overrides */
+  [data-theme='light'] .search-bar input {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  [data-theme='light'] .filter-btn,
+  [data-theme='light'] .date-picker-btn,
+  [data-theme='light'] .export-btn {
+    background-color: #ffffff !important;
+    color: #334155 !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  [data-theme='light'] .receipt-preview-backdrop {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .receipt-modal {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .receipt-header-mobile {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Mobile Receipt Preview Standout Fullscreen View */
+  .receipt-preview-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 100 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100vw !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #0b1320 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: hidden !important;
+  }
+
+  .receipt-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #0b1320 !important;
+    overflow: hidden !important;
+  }
+
+  .modal-top-bar {
+    padding: max(16px, env(safe-area-inset-top)) 16px 12px 16px !important;
+    border-bottom: none !important;
+    background: transparent !important;
+    flex-shrink: 0;
+  }
+
+  .receipt-paper-wrapper {
+    flex: 1 1 auto;
+    background: transparent !important;
+    padding: 10px 16px 20px 16px !important;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .receipt-paper {
+    width: 100% !important;
+    max-width: 330px;
+    margin: 0 auto;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5) !important;
+    border-radius: 10px 10px 0 0 !important;
+    border: none !important;
+    outline: none !important;
+  }
+
+  .receipt-modal-actions {
+    padding: 12px 14px max(16px, env(safe-area-inset-bottom)) 14px !important;
+    border-top: none !important;
+    background: #0b1320 !important;
+    display: flex !important;
+    gap: 10px !important;
+    flex-shrink: 0;
+  }
+
+  .receipt-modal-actions button {
+    flex: 1 1 0;
+    min-height: 48px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 650;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .receipt-close-btn {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #f1f5f9 !important;
+    border: none !important;
+    outline: none !important;
+  }
+
+  .receipt-close-btn:active {
+    background: rgba(255, 255, 255, 0.14) !important;
+  }
+
+  .mobile-receipt-share-button {
+    background: #10b981 !important;
+    color: #ffffff !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
+    font-weight: 700 !important;
+  }
+
+  .mobile-receipt-share-button:active {
+    background: #059669 !important;
+    transform: scale(0.98);
+  }
+}
+
+[data-theme='light'] .receipt-modal {
+  background-color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.12) !important;
+}
+
+@media (max-width: 639px) {
+  [data-theme='light'] .receipt-preview-backdrop,
+  [data-theme='light'] .receipt-modal,
+  [data-theme='light'] .receipt-modal-actions {
+    background: #f1f5f9 !important;
+  }
+}
+
+[data-theme='light'] .modal-top-bar h3 {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .receipt-close-btn {
+  background: rgba(15, 23, 42, 0.07) !important;
+  color: #1e293b !important;
 }
 </style>

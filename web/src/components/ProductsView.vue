@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { usePhoneBreakpoint } from '../utils/breakpoints'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
@@ -7,9 +7,11 @@ import {
   AlertTriangle,
   ArrowRight,
   Barcode,
+  Camera,
   Check,
   ChevronDown,
   Edit,
+  Folders,
   ImagePlus,
   Layers,
   Lock,
@@ -18,6 +20,7 @@ import {
   Search,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Trash2,
   X,
 } from '@lucide/vue'
@@ -58,6 +61,20 @@ const showForm = ref(false)
 const editingProductId = ref<number | null>(null)
 const editingOriginalQuantity = ref(0)
 const form = ref<ProductInput>(blankProduct())
+
+const formProfit = computed(() => {
+  const cost = Number(form.value.costPrice) || 0
+  const selling = Number(form.value.sellingPrice) || 0
+  return selling - cost
+})
+
+const formStockStatus = computed(() => {
+  const qty = Number(form.value.quantity) || 0
+  const min = Number(form.value.minStock) || 0
+  if (qty <= 0) return { label: 'Out of Stock', class: 'out' }
+  if (qty <= min) return { label: 'Low Stock Alert', class: 'low' }
+  return { label: 'In Stock', class: 'in-stock' }
+})
 const barcodeType = ref('EAN-13')
 const barcodeInputRef = ref<HTMLInputElement | null>(null)
 const isBarcodeScanning = ref(false)
@@ -82,6 +99,146 @@ function handleBarcodeScanned() {
     isBarcodeScanning.value = false
     if (scanTimeout) clearTimeout(scanTimeout)
   }
+}
+
+const cameraSupported = ref(false)
+const cameraOpen = ref(false)
+const cameraError = ref('')
+const cameraVideo = ref<HTMLVideoElement | null>(null)
+let cameraControls: any = null
+let cameraSession = 0
+
+function playScannerBeep() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(1046.5, ctx.currentTime)
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.07)
+  } catch {
+    // audio context restrictions
+  }
+}
+
+async function openBarcodeCamera() {
+  if (cameraOpen.value) return
+  cameraError.value = ''
+  cameraOpen.value = true
+  const session = ++cameraSession
+
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    cameraError.value = window.isSecureContext === false
+      ? 'Camera access requires a secure connection (HTTPS or localhost).'
+      : 'Camera is not supported on this browser or device.'
+    return
+  }
+
+  try {
+    await nextTick()
+    if (!cameraVideo.value) throw new Error('The camera preview could not be opened.')
+    const { BrowserMultiFormatReader } = await import('@zxing/browser')
+    const reader = new BrowserMultiFormatReader()
+    const controls = await reader.decodeFromConstraints(
+      { audio: false, video: { facingMode: { ideal: 'environment' } } },
+      cameraVideo.value,
+      result => {
+        if (!result || session !== cameraSession || !cameraOpen.value) return
+        const code = result.getText().trim()
+        closeBarcodeCamera()
+        if (code) {
+          form.value.barcode = code
+          playScannerBeep()
+          if (/^\d{13}$/.test(code)) barcodeType.value = 'EAN-13'
+          else if (/^\d{12}$/.test(code)) barcodeType.value = 'UPC-A'
+          else if (/^\d{8}$/.test(code)) barcodeType.value = 'EAN-8'
+          else if (/^\d{14}$/.test(code)) barcodeType.value = 'ITF-14'
+          else barcodeType.value = 'Code-128'
+        }
+      },
+    )
+    if (session !== cameraSession || !cameraOpen.value) controls.stop()
+    else cameraControls = controls
+  } catch (reason) {
+    if (session !== cameraSession || !cameraOpen.value) return
+    const stream = cameraVideo.value?.srcObject
+    if (stream instanceof MediaStream) stream.getTracks().forEach(track => track.stop())
+    if (cameraVideo.value) cameraVideo.value.srcObject = null
+    cameraError.value = reason instanceof Error
+      ? reason.name === 'NotAllowedError'
+        ? 'Camera permission was denied. Allow camera access in your browser settings and try again.'
+        : reason.message
+      : 'Camera access failed. Check permission and try again.'
+  }
+}
+
+function closeBarcodeCamera() {
+  cameraSession++
+  cameraOpen.value = false
+  cameraControls?.stop()
+  cameraControls = null
+  const stream = cameraVideo.value?.srcObject
+  if (stream instanceof MediaStream) stream.getTracks().forEach(track => track.stop())
+  if (cameraVideo.value) cameraVideo.value.srcObject = null
+}
+
+let lastKeyTime = 0
+let barcodeBuffer = ''
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && cameraOpen.value) {
+    closeBarcodeCamera()
+    return
+  }
+
+  const activeTag = document.activeElement?.tagName
+  if (activeTag === 'TEXTAREA' || activeTag === 'SELECT') return
+  // If active on a different text input, allow normal typing unless it's a fast scanner burst
+  if (activeTag === 'INPUT' && document.activeElement !== barcodeInputRef.value) {
+    // Only capture if fast burst
+  }
+
+  const now = Date.now()
+  // 100ms inter-character tolerance for Bluetooth HID and Android handheld scanner services (Sunmi/Zebra)
+  if (now - lastKeyTime > 100) {
+    barcodeBuffer = ''
+  }
+
+  if (event.key === 'Enter') {
+    if (barcodeBuffer.length >= 3) {
+      event.preventDefault()
+      const code = barcodeBuffer.trim()
+      barcodeBuffer = ''
+
+      playScannerBeep()
+
+      if (showForm.value) {
+        form.value.barcode = code
+        if (/^\d{13}$/.test(code)) barcodeType.value = 'EAN-13'
+        else if (/^\d{12}$/.test(code)) barcodeType.value = 'UPC-A'
+        else if (/^\d{8}$/.test(code)) barcodeType.value = 'EAN-8'
+        else if (/^\d{14}$/.test(code)) barcodeType.value = 'ITF-14'
+        else barcodeType.value = 'Code-128'
+
+        isBarcodeScanning.value = true
+        if (scanTimeout) clearTimeout(scanTimeout)
+        scanTimeout = setTimeout(() => {
+          isBarcodeScanning.value = false
+        }, 2000)
+      } else {
+        search.value = code
+      }
+    }
+  } else if (event.key.length === 1) {
+    barcodeBuffer += event.key
+  }
+  lastKeyTime = now
 }
 
 const imageInputRef = ref<HTMLInputElement | null>(null)
@@ -552,14 +709,18 @@ async function confirmDeleteProduct() {
 }
 
 onMounted(() => {
+  cameraSupported.value = typeof navigator !== 'undefined' && (!!navigator.mediaDevices?.getUserMedia || isPhone.value)
   void loadProducts()
   updateProductsGridColumns()
   window.addEventListener('click', closeDropdown)
   window.addEventListener('resize', updateProductsGridColumns)
+  window.addEventListener('keydown', handleGlobalKeydown)
 })
 onUnmounted(() => {
+  closeBarcodeCamera()
   window.removeEventListener('click', closeDropdown)
   window.removeEventListener('resize', updateProductsGridColumns)
+  window.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>
 
@@ -671,19 +832,19 @@ onUnmounted(() => {
             <option value="Out of Stock">Out of Stock</option>
           </select>
 
-          <div v-if="canManage" class="action-dropdown-container">
-            <button type="button" class="action-dropdown-btn" @click.stop="toggleDropdown">
-              <Layers :size="18" />
+          <div v-if="canManage" class="dropdown-container action-dropdown-container">
+            <button type="button" class="add-btn action-dropdown-btn" @click.stop="toggleDropdown">
+              <SlidersHorizontal :size="16" />
               <span>Manage</span>
-              <ChevronDown :size="16" :class="{ rotate: isDropdownOpen }" class="chevron-icon" />
+              <ChevronDown :size="16" style="margin-left: -4px" />
             </button>
-            <div v-if="isDropdownOpen" class="action-dropdown-menu">
-              <button type="button" class="dropdown-item" @click="openCreateForm">
-                <PlusCircle :size="16" class="item-icon add-icon" />
+            <div v-if="isDropdownOpen" class="dropdown-menu action-dropdown-menu">
+              <button type="button" class="dropdown-item add-item" @click="openCreateForm">
+                <Plus :size="16" />
                 <span>Add Product</span>
               </button>
               <button type="button" class="dropdown-item" @click="openCategoryManagement">
-                <Layers :size="16" class="item-icon cat-icon" />
+                <Folders :size="16" />
                 <span>Categories</span>
               </button>
             </div>
@@ -820,55 +981,44 @@ onUnmounted(() => {
     </div>
 
     <!-- Add / Edit Product Modal -->
-    <div v-if="showForm" class="modal-backdrop" @click.self="closeForm">
-      <div class="modal-content">
+    <div v-if="showForm" class="modal-backdrop product-modal-backdrop" @click.self="closeForm">
+      <div class="modal-content product-editor-modal">
         <div class="modal-header">
           <div class="modal-title-group">
             <h3>{{ editingProductId === null ? 'Add New Product' : 'Edit Product' }}</h3>
-            <p class="modal-subtitle">Fill in the product details below to update your inventory.</p>
+            <p class="modal-subtitle">Configure product identity, pricing margins, and stock thresholds.</p>
           </div>
-          <button type="button" class="close-btn" @click="closeForm">
-            <X :size="20" />
+          <button type="button" class="close-btn" aria-label="Close" @click="closeForm">
+            <X :size="19" />
           </button>
         </div>
 
-        <form @submit.prevent="saveProduct">
+        <form class="product-form-container" @submit.prevent="saveProduct">
           <div v-if="error" class="inline-error" role="alert" style="margin-bottom: 1rem;">{{ error }}</div>
 
-          <div class="product-top-section">
-            <div class="product-top-fields">
-              <div class="form-group">
-                <label>Product Name *</label>
-                <input v-model.trim="form.name" type="text" placeholder="e.g. Fresh Orange Juice 1L" required />
-              </div>
-
-              <div class="product-sku-cat-row">
-                <div class="form-group">
-                  <label>SKU *</label>
-                  <input v-model.trim="form.sku" type="text" placeholder="SKU-XXXXXX" required />
-                </div>
-
-                <div class="form-group">
-                  <label>Category *</label>
-                  <select v-model="form.category" required class="modal-select">
-                    <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
+          <div class="product-hero-card">
             <input ref="imageInputRef" type="file" accept="image/*" style="display: none" @change="handleImageUpload" />
             <div class="image-upload-wrapper">
               <button
                 type="button"
-                class="image-upload-square"
+                class="image-upload-square image-upload-frame"
+                :class="{ 'has-image': !!form.image }"
                 :title="form.image ? 'Change product photo' : 'Upload product photo'"
                 @click="triggerImageUpload"
               >
-                <img v-if="form.image" :src="form.image" alt="Product preview" class="uploaded-preview" />
+                <template v-if="form.image">
+                  <img :src="form.image" alt="Product preview" class="uploaded-preview" />
+                  <div class="photo-change-overlay">
+                    <Camera :size="13" />
+                    <span>Change</span>
+                  </div>
+                </template>
                 <div v-else class="upload-placeholder">
-                  <ImagePlus :size="24" class="upload-icon" />
-                  <span class="upload-hint">Add Photo</span>
+                  <div class="upload-icon-circle">
+                    <ImagePlus :size="22" class="upload-icon" />
+                  </div>
+                  <span class="upload-hint">Upload Photo</span>
+                  <span class="upload-subhint">Tap to select image</span>
                 </div>
               </button>
               <button
@@ -876,40 +1026,75 @@ onUnmounted(() => {
                 type="button"
                 class="remove-image-btn"
                 title="Remove photo"
+                aria-label="Remove photo"
                 @click.stop="removeProductImage"
               >
-                <X :size="12" />
+                <Trash2 :size="13" />
               </button>
+            </div>
+            <div class="photo-hero-tip">
+              <span>{{ form.image ? 'High quality photos boost POS and sales visibility' : 'Add a clear photo to help cashiers identify items quickly' }}</span>
             </div>
           </div>
 
           <div class="form-grid">
+            <div class="form-group span-2">
+              <label>Product Name <span class="required-star">*</span></label>
+              <input v-model.trim="form.name" type="text" placeholder="e.g. Air Freshener Lavender 300ml" required class="input-highlight" />
+            </div>
+
+            <div class="form-group">
+              <label>SKU / Item Code <span class="required-star">*</span></label>
+              <input v-model.trim="form.sku" type="text" placeholder="SKU-XXXXXX" required />
+            </div>
+
+            <div class="form-group">
+              <label>Category <span class="required-star">*</span></label>
+              <select v-model="form.category" required class="modal-select">
+                <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+              </select>
+            </div>
 
             <div class="form-group span-2">
-              <label>Barcode</label>
+              <label>Barcode / Scanner Code</label>
               <div class="barcode-row-inputs">
                 <div class="input-with-scan-btn" :class="{ 'scanning-active': isBarcodeScanning }">
-                  <input
-                    ref="barcodeInputRef"
-                    v-model.trim="form.barcode"
-                    type="text"
-                    placeholder="Scan or enter..."
-                    @focus="isBarcodeScanning = true"
-                    @blur="isBarcodeScanning = false"
-                    @keyup.enter="handleBarcodeScanned"
-                  />
-                  <button
-                    type="button"
-                    class="scan-inside-btn"
-                    :class="{ active: isBarcodeScanning }"
-                    title="Click to activate scanner &amp; focus input"
-                    @click="triggerBarcodeScan"
-                  >
-                    <Barcode :size="16" />
-                  </button>
+                  <div class="scan-input-wrapper">
+                    <input
+                      ref="barcodeInputRef"
+                      v-model.trim="form.barcode"
+                      type="text"
+                      placeholder="Scan barcode or type code..."
+                      @focus="isBarcodeScanning = true"
+                      @blur="isBarcodeScanning = false"
+                      @keyup.enter="handleBarcodeScanned"
+                    />
+                    <div class="barcode-action-btns">
+                      <button
+                        v-if="cameraSupported"
+                        type="button"
+                        class="scan-inside-btn camera-scan-btn"
+                        title="Scan barcode with phone camera"
+                        aria-label="Scan barcode with camera"
+                        @click="openBarcodeCamera"
+                      >
+                        <Camera :size="16" />
+                      </button>
+                      <button
+                        type="button"
+                        class="scan-inside-btn hardware-scan-btn"
+                        :class="{ active: isBarcodeScanning }"
+                        title="Hardware & Bluetooth scanner ready • Sunmi, Zebra, Honeywell supported"
+                        aria-label="Hardware barcode scanner"
+                        @click="triggerBarcodeScan"
+                      >
+                        <Barcode :size="16" />
+                      </button>
+                    </div>
+                  </div>
                   <div v-if="isBarcodeScanning" class="scan-laser-indicator">
                     <span class="laser-dot" />
-                    <span>Scanner ready &bull; scan now...</span>
+                    <span>Hardware / Bluetooth Scanner ready • scan now...</span>
                   </div>
                 </div>
                 <select v-model="barcodeType" class="modal-select barcode-type-select" aria-label="Barcode type">
@@ -918,8 +1103,13 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="form-section span-2">
-              <h4 class="section-title">Pricing Margin</h4>
+            <!-- Pricing & Profit Margin Card -->
+            <div class="form-section span-2 pricing-margin-section">
+              <div class="section-header-row">
+                <div class="section-title-wrap">
+                  <h4 class="section-title">Pricing Margin</h4>
+                </div>
+              </div>
               <div class="section-grid-2">
                 <div class="form-group">
                   <label>Cost Price</label>
@@ -936,10 +1126,22 @@ onUnmounted(() => {
                   </div>
                 </div>
               </div>
+              <div v-if="form.costPrice > 0 && form.sellingPrice > 0" class="pricing-metrics-microbar">
+                <span>Profit per unit: <strong :class="formProfit >= 0 ? 'text-emerald' : 'text-rose'">{{ formatMoney(formProfit, currency) }}</strong></span>
+              </div>
             </div>
 
-            <div class="form-section span-2">
-              <h4 class="section-title">Stock Levels &amp; Unit</h4>
+            <!-- Stock Levels & Unit Card -->
+            <div class="form-section span-2 stock-levels-section">
+              <div class="section-header-row">
+                <div class="section-title-wrap">
+                  <h4 class="section-title">Stock Levels &amp; Unit</h4>
+                </div>
+                <div class="stock-live-pill" :class="formStockStatus.class">
+                  <span class="stock-dot"></span>
+                  <span>{{ formStockStatus.label }}</span>
+                </div>
+              </div>
               <div class="section-grid-3">
                 <div class="form-group">
                   <label>{{ editingProductId === null ? 'Initial Qty' : 'Current Qty' }}</label>
@@ -957,9 +1159,11 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div class="modal-actions">
+          <div class="modal-actions sticky-modal-actions">
             <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
-            <button type="submit" class="btn-primary" :disabled="saving">
+            <button type="submit" class="btn-primary btn-save-product" :disabled="saving">
+              <Sparkles v-if="!saving && editingProductId === null" :size="16" />
+              <Check v-else-if="!saving" :size="16" />
               {{ saving ? 'Saving…' : editingProductId === null ? 'Add Product' : 'Save Changes' }}
             </button>
           </div>
@@ -1100,6 +1304,41 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Product Camera Scanner Modal -->
+    <Teleport to="body">
+      <div v-if="cameraOpen" class="barcode-camera-backdrop" @click.self="closeBarcodeCamera">
+        <section
+          class="barcode-camera-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="barcode-product-camera-title"
+        >
+          <header class="barcode-camera-heading">
+            <div>
+              <h2 id="barcode-product-camera-title">Scan product barcode</h2>
+              <p>Hold barcode inside frame to auto-fill barcode</p>
+            </div>
+            <button type="button" class="barcode-camera-close" aria-label="Close barcode scanner" @click="closeBarcodeCamera">
+              <X :size="19" />
+            </button>
+          </header>
+          <div class="barcode-camera-viewfinder-wrap">
+            <video ref="cameraVideo" class="barcode-camera-preview" autoplay muted playsinline></video>
+            <div class="barcode-scan-reticle">
+              <div class="reticle-corner tl"></div>
+              <div class="reticle-corner tr"></div>
+              <div class="reticle-corner bl"></div>
+              <div class="reticle-corner br"></div>
+              <div class="reticle-laser-line"></div>
+            </div>
+          </div>
+          <p v-if="cameraError" class="barcode-camera-error" role="alert">{{ cameraError }}</p>
+          <p v-else class="barcode-camera-status" role="status">Scanning with rear camera…</p>
+          <button type="button" class="barcode-camera-cancel" @click="closeBarcodeCamera">Cancel scan</button>
+        </section>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -1589,71 +1828,100 @@ onUnmounted(() => {
   max-width: 140px;
 }
 
+.dropdown-container,
 .action-dropdown-container {
   position: relative;
 }
 
+.add-btn,
 .action-dropdown-btn {
-  background: linear-gradient(135deg, var(--accent-color) 0%, #0284c7 100%);
-  color: #ffffff;
-  font-weight: 500;
-  padding: 0.45rem 0.9rem;
-  border-radius: 0.5rem;
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.85rem;
+  gap: 0.5rem;
+  background-color: #0ea5e9;
+  color: white;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: none !important;
+  outline: none !important;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: background-color 0.15s, transform 0.1s;
 }
 
-.chevron-icon {
-  transition: transform 0.2s ease;
+.add-btn:hover,
+.action-dropdown-btn:hover {
+  background-color: #0284c7;
 }
 
-.chevron-icon.rotate {
-  transform: rotate(180deg);
+.add-btn:active,
+.action-dropdown-btn:active {
+  transform: scale(0.97);
 }
 
+.dropdown-menu,
 .action-dropdown-menu {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + 6px);
   right: 0;
-  background-color: var(--bg-sidebar);
-  border: 1px solid var(--border-color);
-  border-radius: 0.75rem;
-  padding: 0.4rem;
-  min-width: 185px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-  z-index: 50;
+  margin-top: 0;
+  background-color: #141f32;
+  border: none !important;
+  outline: none !important;
+  border-radius: 14px;
+  padding: 6px;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 3px;
+  z-index: 9999;
+  box-shadow: 0 20px 45px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  min-width: 180px;
 }
 
 .dropdown-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 0.85rem;
-  border-radius: 0.5rem;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  font-weight: 500;
+  gap: 0.65rem;
+  background-color: transparent;
+  border: none !important;
+  outline: none !important;
+  color: #e2e8f0;
+  padding: 0.65rem 0.85rem;
+  min-height: 44px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 550;
   cursor: pointer;
-  text-align: left;
   width: 100%;
+  justify-content: flex-start;
+  transition: background-color 0.15s, transform 0.1s;
+  text-align: left;
 }
 
 .dropdown-item:hover {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
 }
 
-.item-icon.add-icon { color: #38bdf8; }
-.item-icon.cat-icon { color: #a855f7; }
+.dropdown-item:active {
+  background-color: rgba(255, 255, 255, 0.14);
+  transform: scale(0.98);
+}
+
+.dropdown-item.add-item {
+  color: #38bdf8;
+  font-weight: 650;
+}
+
+.dropdown-item.add-item:hover {
+  background-color: rgba(14, 165, 233, 0.12);
+  color: #38bdf8;
+}
+
+.dropdown-item.add-item:active {
+  background-color: rgba(14, 165, 233, 0.2);
+}
 
 .table-container {
   flex-grow: 1;
@@ -1874,33 +2142,85 @@ tbody tr:hover {
   margin-bottom: 1.25rem;
   padding-bottom: 0.85rem;
   border-bottom: 1px solid var(--border-subtle);
+  gap: 12px;
+}
+
+.modal-title-badge-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .modal-title-group h3 {
   margin: 0;
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 750;
   color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.product-modal-cat-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 650;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+}
+
+.product-modal-sku-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .modal-subtitle {
-  margin: 0.2rem 0 0;
+  margin: 0.25rem 0 0;
   font-size: 0.825rem;
   color: var(--text-muted);
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.4rem;
-  border-radius: 0.5rem;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: none !important;
+  outline: none !important;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.18s ease, transform 0.15s ease, color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  box-shadow: none !important;
 }
 
 .close-btn:hover {
-  color: var(--text-primary);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+  transform: none;
+}
+
+.close-btn:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .form-grid {
@@ -1920,11 +2240,155 @@ tbody tr:hover {
   grid-column: span 2;
 }
 
+.required-star {
+  color: #38bdf8;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
 .form-section {
   background-color: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--border-subtle);
+  border: none !important;
   border-radius: 0.75rem;
   padding: 1rem;
+}
+
+.pricing-margin-section {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(13, 22, 38, 0.84) 100%);
+  border: none !important;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: none !important;
+}
+
+.stock-levels-section {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(13, 22, 38, 0.84) 100%);
+  border: none !important;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: none !important;
+}
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-icon {
+  flex-shrink: 0;
+}
+
+.section-icon-pricing {
+  color: #38bdf8;
+}
+
+.section-icon-stock {
+  color: #fbbf24;
+}
+
+.profit-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.profit-live-pos {
+  background: rgba(34, 197, 94, 0.16);
+  border: none !important;
+  color: #4ade80;
+  box-shadow: none !important;
+}
+
+.profit-live-zero {
+  background: rgba(148, 163, 184, 0.14);
+  border: none !important;
+  color: #94a3b8;
+  box-shadow: none !important;
+}
+
+.profit-live-neg {
+  background: rgba(239, 68, 68, 0.16);
+  border: none !important;
+  color: #f87171;
+  box-shadow: none !important;
+}
+
+.profit-sep {
+  opacity: 0.45;
+}
+
+.pricing-metrics-microbar {
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.text-emerald { color: #4ade80; }
+.text-rose { color: #f87171; }
+
+.stock-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.stock-live-pill.in-stock {
+  background: rgba(34, 197, 94, 0.16);
+  border: none !important;
+  color: #86efac;
+  box-shadow: none !important;
+}
+
+.stock-live-pill.low {
+  background: rgba(245, 158, 11, 0.16);
+  border: none !important;
+  color: #fcd34d;
+  box-shadow: none !important;
+}
+
+.stock-live-pill.out {
+  background: rgba(239, 68, 68, 0.16);
+  border: none !important;
+  color: #fca5a5;
+  box-shadow: none !important;
+}
+
+.stock-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 [data-theme='light'] .modal-content {
@@ -1971,6 +2435,18 @@ tbody tr:hover {
   color: #64748b !important;
 }
 
+[data-theme='light'] .scan-inside-btn.camera-scan-btn {
+  background: rgba(2, 132, 199, 0.12) !important;
+  color: #0284c7 !important;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.15);
+}
+
+[data-theme='light'] .scan-inside-btn.hardware-scan-btn {
+  background: rgba(22, 163, 74, 0.12) !important;
+  color: #16a34a !important;
+  box-shadow: 0 1px 4px rgba(22, 163, 74, 0.15);
+}
+
 
 [data-theme='light'] .image-upload-square {
   background-color: #f8fafc !important;
@@ -1982,13 +2458,12 @@ tbody tr:hover {
 }
 
 [data-theme='light'] .category-item {
-  background-color: #f8fafc !important;
-  border: 1px solid #e2e8f0 !important;
+  background-color: #f1f5f9 !important;
+  border: none !important;
 }
 
 [data-theme='light'] .category-item:hover {
-  background-color: #f1f5f9 !important;
-  border-color: #cbd5e1 !important;
+  background-color: #e2e8f0 !important;
 }
 
 [data-theme='light'] .cat-name {
@@ -1997,21 +2472,34 @@ tbody tr:hover {
 }
 
 [data-theme='light'] .cat-actions .action-btn {
-  color: #64748b !important;
+  background: rgba(2, 132, 199, 0.12) !important;
+  color: #0284c7 !important;
+  border: none !important;
 }
 
 [data-theme='light'] .cat-actions .action-btn:hover {
-  color: #0f172a !important;
-  background-color: #e2e8f0 !important;
+  background: #0ea5e9 !important;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .cat-actions .action-btn.delete {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #ef4444 !important;
 }
 
 [data-theme='light'] .cat-actions .action-btn.delete:hover {
-  color: #ef4444 !important;
-  background-color: rgba(239, 68, 68, 0.1) !important;
+  background: #ef4444 !important;
+  color: #ffffff !important;
 }
 
-[data-theme='light'] .modal-actions {
-  border-top: 1px solid #e2e8f0 !important;
+[data-theme='light'] .category-modal .modal-actions {
+  border-top: none !important;
+}
+
+[data-theme='light'] .category-modal .modal-actions .btn-secondary {
+  background: #0ea5e9 !important;
+  color: #ffffff !important;
+  border: none !important;
 }
 
 [data-theme='light'] .btn-secondary {
@@ -2063,6 +2551,15 @@ tbody tr:hover {
   font-size: 0.9rem;
 }
 
+.modal-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  padding-right: 32px;
+}
+
 .input-with-prefix {
   position: relative;
   display: flex;
@@ -2096,34 +2593,210 @@ tbody tr:hover {
   gap: 0.35rem;
 }
 
-.input-with-scan-btn input {
-  padding-right: 2.5rem;
+.scan-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.scan-input-wrapper input {
+  width: 100%;
+  padding-right: 76px !important;
 }
 
 .input-with-scan-btn.scanning-active input {
-  border-color: #22c55e;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25) !important;
+}
+
+.barcode-action-btns {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 2;
 }
 
 .scan-inside-btn {
-  position: absolute;
-  right: 0.5rem;
-  top: 0.42rem;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  padding: 0.25rem;
-  border-radius: 0.35rem;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border-radius: 8px;
+  border: none !important;
+  outline: none !important;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.scan-inside-btn:hover,
-.scan-inside-btn.active {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.12);
+.scan-inside-btn.camera-scan-btn {
+  background: rgba(14, 165, 233, 0.16) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 2px 6px rgba(14, 165, 233, 0.22);
+}
+
+.scan-inside-btn.camera-scan-btn:hover {
+  background: rgba(14, 165, 233, 0.28) !important;
+  color: #ffffff !important;
+}
+
+.scan-inside-btn.camera-scan-btn:active {
+  background: #0ea5e9 !important;
+  color: #ffffff !important;
+  transform: scale(0.92);
+}
+
+.scan-inside-btn.hardware-scan-btn {
+  background: rgba(34, 197, 94, 0.16) !important;
+  color: #4ade80 !important;
+  box-shadow: 0 2px 6px rgba(34, 197, 94, 0.22);
+}
+
+.scan-inside-btn.hardware-scan-btn:hover {
+  background: rgba(34, 197, 94, 0.28) !important;
+  color: #ffffff !important;
+}
+
+.scan-inside-btn.hardware-scan-btn:active {
+  background: #22c55e !important;
+  color: #ffffff !important;
+  transform: scale(0.92);
+}
+
+.scan-inside-btn.hardware-scan-btn.active {
+  background: #22c55e !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5) !important;
+}
+
+/* Camera Barcode Scanner Modal */
+.barcode-camera-backdrop {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgba(2, 6, 23, .86);
+}
+
+.barcode-camera-dialog {
+  width: min(100%, 500px);
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 16px;
+  background: #101a2a;
+  color: #e5edf7;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .45);
+}
+
+.barcode-camera-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.barcode-camera-heading h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.barcode-camera-heading p,
+.barcode-camera-status,
+.barcode-camera-error {
+  margin: 0;
+  color: #aab8ca;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.barcode-camera-close,
+.barcode-camera-cancel {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 9px;
+  color: #dbe5f0;
+  background: rgba(148, 163, 184, .06);
+  cursor: pointer;
+}
+
+.barcode-camera-viewfinder-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #020617;
+}
+
+.barcode-camera-preview {
+  width: 100%;
+  max-height: min(50dvh, 420px);
+  aspect-ratio: 4 / 3;
+  display: block;
+  border-radius: 10px;
+  background: #020617;
+  object-fit: cover;
+}
+
+.barcode-scan-reticle {
+  position: absolute;
+  inset: 18% 14%;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.reticle-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: #38bdf8;
+  border-style: solid;
+}
+
+.reticle-corner.tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-top-left-radius: 6px; }
+.reticle-corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-top-right-radius: 6px; }
+.reticle-corner.bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-bottom-left-radius: 6px; }
+.reticle-corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
+
+.reticle-laser-line {
+  position: absolute;
+  top: 50%;
+  left: 5%;
+  right: 5%;
+  height: 2px;
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: productLaserSweep 2s ease-in-out infinite alternate;
+}
+
+@keyframes productLaserSweep {
+  0% { transform: translateY(-35px); opacity: 0.7; }
+  100% { transform: translateY(35px); opacity: 1; }
+}
+
+.barcode-camera-status,
+.barcode-camera-error {
+  margin: 12px 0;
+}
+
+.barcode-camera-error {
+  color: #fca5a5;
+}
+
+.barcode-camera-cancel {
+  width: 100%;
 }
 
 .scan-laser-indicator {
@@ -2185,6 +2858,13 @@ tbody tr:hover {
 /* Category Modal */
 .category-modal {
   max-width: 440px;
+  border: none !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.category-modal .modal-header {
+  border-bottom: none !important;
+  padding-bottom: 0.5rem;
 }
 
 .add-category-form {
@@ -2195,27 +2875,63 @@ tbody tr:hover {
 
 .add-category-form input {
   flex-grow: 1;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
-  padding: 0.55rem 0.85rem;
+  background-color: rgba(30, 41, 59, 0.72);
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 8px;
+  padding: 0.65rem 0.95rem;
   color: var(--text-primary);
   font-size: 0.9rem;
+}
+
+.add-category-form .btn-primary {
+  min-height: 42px;
+  padding: 0 1.25rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  border: none !important;
+  outline: none !important;
+  background: #0ea5e9;
+  color: #ffffff;
+  box-shadow: none !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.add-category-form .btn-primary:hover:not(:disabled) {
+  background: #0284c7;
+}
+
+.add-category-form .btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .category-list {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
 }
 
 .category-item {
-  background-color: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.5rem;
-  padding: 0.65rem 0.9rem;
+  background-color: rgba(15, 23, 42, 0.65);
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  transition: background-color 0.18s ease;
+}
+
+.category-item:hover {
+  background-color: rgba(22, 33, 58, 0.75);
 }
 
 .view-category-mode,
@@ -2223,28 +2939,120 @@ tbody tr:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
 .cat-name {
-  font-weight: 500;
-  color: #e2e8f0;
-  font-size: 0.9rem;
+  font-weight: 550;
+  color: #f1f5f9;
+  font-size: 0.925rem;
+  letter-spacing: -0.01em;
 }
 
 .edit-cat-input {
   flex-grow: 1;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--accent-color);
-  border-radius: 0.375rem;
-  padding: 0.35rem 0.65rem;
-  color: var(--text-primary);
-  font-size: 0.875rem;
+  background-color: rgba(30, 41, 59, 0.85);
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  color: #ffffff;
+  font-size: 0.9rem;
 }
 
 .cat-actions {
   display: flex;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.cat-actions .action-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none !important;
+  outline: none !important;
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.18s ease, transform 0.15s ease, color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: none !important;
+}
+
+.cat-actions .action-btn:hover {
+  background: rgba(56, 189, 248, 0.28);
+  color: #ffffff;
+}
+
+.cat-actions .action-btn:active {
+  transform: scale(0.92);
+}
+
+.cat-actions .action-btn.delete {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+}
+
+.cat-actions .action-btn.delete:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.cat-actions .action-btn.save {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+}
+
+.cat-actions .action-btn.save:hover {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.cat-actions .action-btn.cancel {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+}
+
+.cat-actions .action-btn.cancel:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.category-modal .modal-actions {
+  border-top: none !important;
+  margin-top: 1.25rem;
+  padding-top: 0.5rem;
+}
+
+.category-modal .modal-actions .btn-secondary {
+  min-width: 100px;
+  padding: 0.65rem 1.6rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  border: none !important;
+  outline: none !important;
+  background: #0ea5e9;
+  color: #ffffff;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.category-modal .modal-actions .btn-secondary:hover {
+  background: #0284c7;
+}
+
+.category-modal .modal-actions .btn-secondary:active {
+  transform: scale(0.96);
 }
 
 .empty-categories {
@@ -2294,101 +3102,147 @@ tbody tr:hover {
   justify-content: center;
 }
 
-.product-top-section {
-  display: flex;
-  gap: 1rem;
-  align-items: stretch;
-  margin-bottom: 1rem;
-}
-
-.product-top-fields {
+.product-hero-card {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  flex: 1;
-}
-
-.product-sku-cat-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 1.25rem;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(10, 16, 30, 0.9) 100%);
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .image-upload-wrapper {
   position: relative;
-  width: 96px;
+  width: 112px;
+  height: 112px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-.image-upload-square {
-  width: 96px;
-  height: 96px;
+.image-upload-frame {
+  width: 112px;
+  height: 112px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: var(--bg-surface-hover, rgba(255, 255, 255, 0.04));
-  border: 1px dashed var(--border-color);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px dashed rgba(56, 189, 248, 0.35);
+  border-radius: 18px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   padding: 0;
+  position: relative;
 }
 
-.image-upload-square:hover {
-  background-color: rgba(14, 165, 233, 0.08);
-  border-color: var(--accent-color);
-  box-shadow: 0 0 12px rgba(14, 165, 233, 0.2);
+.image-upload-frame.has-image {
+  border: none !important;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5) !important;
 }
 
-.upload-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.upload-icon {
-  color: var(--text-muted);
-}
-
-.upload-hint {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-muted);
+.image-upload-frame:hover {
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.6), 0 0 24px rgba(56, 189, 248, 0.25);
 }
 
 .uploaded-preview {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 16px;
+}
+
+.photo-change-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 5px 0 6px;
+  background: rgba(10, 17, 28, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #38bdf8;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.18s ease;
+}
+
+.photo-change-overlay:hover {
+  background: rgba(2, 132, 199, 0.9);
+  color: #ffffff;
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px;
+}
+
+.upload-icon-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+}
+
+.upload-hint {
+  font-size: 11px;
+  font-weight: 650;
+  color: #cbd5e1;
+}
+
+.upload-subhint {
+  font-size: 9.5px;
+  color: #64748b;
 }
 
 .remove-image-btn {
   position: absolute;
   top: -6px;
   right: -6px;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background-color: #ef4444;
-  color: #ffffff;
+  background: rgba(15, 23, 42, 0.95);
+  color: #f87171;
+  border: none !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(0, 0, 0, 0.3);
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  transition: transform 0.15s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  transition: all 0.18s ease;
+  z-index: 2;
 }
 
 .remove-image-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
   transform: scale(1.1);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5);
+}
+
+.photo-hero-tip {
+  font-size: 11px;
+  color: #64748b;
+  text-align: center;
 }
 
 @media (max-width: 639px) {
@@ -2398,36 +3252,49 @@ tbody tr:hover {
     margin: 0;
   }
 
+  .products-view-section .card,
   .card {
     width: 100%;
     max-width: 100%;
-    padding: 0;
-    border-top: 0;
-    border-right: 0;
-    border-left: 0;
-    border-radius: 0;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
+  .products-view-section .card-header,
   .card-header {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
-    margin: 0;
-    padding: 12px;
+    gap: 6px !important;
+    margin: 0 !important;
+    padding: 2px 8px 4px 8px !important;
+    border-bottom: none !important;
   }
 
   .summary-badges {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .summary-badge {
     min-width: 0;
     justify-content: center;
-    padding: 8px;
+    padding: 6px 8px !important;
+    border: none !important;
+    border-left: none !important;
+  }
+
+  .summary-badge:nth-child(2) {
+    border-left: none !important;
+    border-left-color: transparent !important;
   }
 
   .header-controls {
@@ -2450,36 +3317,85 @@ tbody tr:hover {
   .search-bar input {
     height: 42px;
     font-size: 12px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
   }
 
   .filter-select {
     width: 100%;
     min-width: 0;
-    height: 40px;
-    font-size: 12px;
-    padding: 0 4px 0 8px;
+    height: 42px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #f1f5f9;
+    padding: 0 28px 0 10px !important;
     text-overflow: ellipsis;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+    border-radius: 10px !important;
+    appearance: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 8px center !important;
+    background-size: 14px !important;
   }
 
   .filter-select[aria-label="Filter by category"] {
     grid-column: auto;
   }
 
-  .action-dropdown-container,
-  .action-dropdown-btn {
+  .action-dropdown-container {
+    position: relative;
+    width: 100%;
+  }
+
+  .action-dropdown-btn,
+  .add-btn {
     width: 100%;
     min-width: 0;
-    height: 40px;
-    font-size: 12px;
-    padding: 0 6px;
+    height: 42px;
+    font-size: 13px;
+    font-weight: 650;
+    padding: 0 8px;
     justify-content: center;
-    gap: 4px;
+    gap: 5px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 10px !important;
+    background-color: #0ea5e9 !important;
+    color: #ffffff !important;
+  }
+
+  .action-dropdown-menu {
+    position: absolute !important;
+    top: calc(100% + 6px) !important;
+    right: 0 !important;
+    min-width: 190px !important;
+    background-color: #141f32 !important;
+    border: none !important;
+    outline: none !important;
+    border-radius: 14px !important;
+    box-shadow: 0 20px 45px -4px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+    padding: 6px !important;
+    z-index: 9999 !important;
+  }
+
+  .action-dropdown-menu .dropdown-item {
+    min-height: 48px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 14px;
+    border-radius: 10px;
   }
 
 
   .products-grid {
     display: block;
-    padding: 8px;
+    padding: 2px 8px 8px 8px !important;
   }
 
   .virtual-grid-row {
@@ -2495,6 +3411,17 @@ tbody tr:hover {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    border: none !important;
+    outline: none !important;
+    box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.28) !important;
+  }
+
+  .stock-badge,
+  .status-in-stock,
+  .status-low-stock,
+  .status-out-of-stock {
+    border: none !important;
+    outline: none !important;
   }
 
   .product-grid-header {
@@ -2552,6 +3479,7 @@ tbody tr:hover {
     grid-template-columns: 1fr 1fr;
     gap: 4px;
     padding-top: 6px;
+    border-top: none !important;
   }
 
   .product-grid-actions button {
@@ -2559,18 +3487,218 @@ tbody tr:hover {
     padding: 0 4px;
     font-size: 11px;
     gap: 2px;
+    border: none !important;
+    outline: none !important;
   }
 
   .product-grid-actions button.delete {
     grid-column: 1 / -1;
   }
 
-  .product-top-section {
-    flex-direction: column-reverse;
-    align-items: center;
+  .product-editor-modal {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: #0a0f1d !important;
+    overflow: hidden !important;
   }
-  .product-top-fields {
-    width: 100%;
+
+  .product-editor-modal .modal-header {
+    padding: max(16px, env(safe-area-inset-top)) 16px 14px 16px;
+    margin: 0;
+    flex-shrink: 0;
+    background: rgba(13, 20, 36, 0.98);
+    border-bottom: none !important;
+  }
+
+  .product-editor-modal .form-group input,
+  .product-editor-modal .modal-select,
+  .product-editor-modal .input-with-prefix input,
+  .product-editor-modal .input-with-scan-btn input {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+    min-height: 42px;
+    font-size: 14px !important;
+    border-radius: 10px !important;
+  }
+
+  .product-editor-modal .input-with-scan-btn input {
+    padding-right: 76px !important;
+  }
+
+  .product-editor-modal .modal-select {
+    padding-right: 32px !important;
+    font-weight: 600;
+    color: #f1f5f9 !important;
+  }
+
+  .product-editor-modal .pricing-margin-section,
+  .product-editor-modal .stock-levels-section,
+  .product-editor-modal .product-hero-card,
+  .product-editor-modal .form-section {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .product-editor-modal .pricing-metrics-microbar {
+    border-top: none !important;
+  }
+
+  .product-editor-modal .photo-change-overlay {
+    border-top: none !important;
+  }
+
+  .category-modal {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .category-modal .modal-header,
+  .category-modal .modal-actions {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+  }
+
+  .category-modal .add-category-form input,
+  .category-modal .edit-cat-input {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+  }
+
+  .category-modal .category-item {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: rgba(15, 23, 42, 0.65) !important;
+  }
+
+  .product-form-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 14px 14px 0 14px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .product-hero-card {
+    padding: 12px;
+    margin-bottom: 1rem;
+    gap: 8px;
+  }
+
+  .sticky-modal-actions {
+    position: sticky;
+    bottom: 0;
+    margin: auto -14px 0 -14px !important;
+    padding: 12px 14px max(16px, env(safe-area-inset-bottom)) 14px !important;
+    background: rgba(10, 16, 29, 0.96) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5) !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1.6fr !important;
+    gap: 10px !important;
+    z-index: 20 !important;
+  }
+
+  .sticky-modal-actions .btn-primary,
+  .sticky-modal-actions .btn-secondary {
+    min-height: 48px;
+    font-size: 13.5px;
+    justify-content: center;
+  }
+
+  /* Light Theme overrides on mobile */
+  [data-theme='light'] .product-editor-modal {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .product-editor-modal .modal-header {
+    background: #ffffff !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+  }
+
+  [data-theme='light'] .product-editor-modal .modal-header h3 {
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .product-editor-modal .modal-subtitle {
+    color: #64748b !important;
+  }
+
+  [data-theme='light'] .product-editor-modal .form-group input,
+  [data-theme='light'] .product-editor-modal .modal-select,
+  [data-theme='light'] .product-editor-modal .input-with-prefix input,
+  [data-theme='light'] .product-editor-modal .input-with-scan-btn input {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .product-editor-modal .modal-select {
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .product-editor-modal .pricing-margin-section,
+  [data-theme='light'] .product-editor-modal .stock-levels-section,
+  [data-theme='light'] .product-editor-modal .product-hero-card,
+  [data-theme='light'] .product-editor-modal .form-section {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .product-editor-modal .form-group label {
+    color: #475569 !important;
+  }
+
+  [data-theme='light'] .category-modal {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .category-modal .modal-header h3 {
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .category-modal .modal-subtitle {
+    color: #64748b !important;
+  }
+
+  [data-theme='light'] .category-modal .add-category-form input,
+  [data-theme='light'] .category-modal .edit-cat-input {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .category-modal .category-item {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .category-modal .cat-name {
+    color: #0f172a !important;
+  }
+
+  [data-theme='light'] .sticky-modal-actions {
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  [data-theme='light'] .sticky-modal-actions .btn-secondary {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
   }
 }
 

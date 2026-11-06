@@ -69,11 +69,17 @@ const cameraSupported = ref(false)
 const cameraOpen = ref(false)
 const cameraError = ref('')
 const cameraVideo = ref<HTMLVideoElement | null>(null)
+const continuousScanMode = ref(true)
+const cameraScannedCount = ref(0)
+const cameraLastScannedItem = ref('')
+let lastScannedBarcode = ''
+let lastScannedTime = 0
 const shareSale = ref<Sale | null>(null)
 const { isPhone } = usePhoneBreakpoint()
 let cameraControls: IScannerControls | null = null
 let cameraSession = 0
 const search = ref('')
+const searchInputRef = ref<HTMLInputElement | null>(null)
 let savedViewMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_pos_view_mode') : null) as 'list' | 'grid' | null
 const viewMode = ref<'list' | 'grid'>(
   window.matchMedia('(max-width: 639px)').matches ? 'grid' : savedViewMode === 'list' ? 'list' : 'grid',
@@ -91,8 +97,14 @@ watch(isPhone, phone => {
   updatePosGridColumns()
   if (phone) {
     viewMode.value = 'grid'
+    mobileTouch.value = true
+    if (typeof navigator !== 'undefined') {
+      cameraSupported.value = true
+    }
   } else {
     viewMode.value = savedViewMode === 'list' ? 'list' : 'grid'
+    mobileTouch.value = isTouchDevice()
+    cameraSupported.value = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
   }
 })
 
@@ -170,6 +182,7 @@ const onlinePrefs = computed(() => {
   void prefsTick.value
   return readOnlinePrefs()
 })
+const shouldShowPosImages = computed(() => isPhone.value || onlinePrefs.value.applicationSettings?.showPosImages !== false)
 
 // Supervisor PIN Pad state for discounts
 const isDiscountUnlocked = ref(false)
@@ -218,7 +231,7 @@ function handlePrefsUpdated() {
 }
 
 function playScannerBeep() {
-  if (onlinePrefs.value.applicationSettings?.barcodeBeep === false) return
+  if (!isPhone.value && onlinePrefs.value.applicationSettings?.barcodeBeep === false) return
   try {
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     if (!AudioCtx) return
@@ -391,10 +404,21 @@ function addScannedProduct(code: string) {
 }
 
 async function openBarcodeCamera() {
-  if (!cameraSupported.value || cameraOpen.value) return
+  if (cameraOpen.value) return
   cameraError.value = ''
   cameraOpen.value = true
+  cameraScannedCount.value = 0
+  cameraLastScannedItem.value = ''
+  lastScannedBarcode = ''
+  lastScannedTime = 0
   const session = ++cameraSession
+
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    cameraError.value = window.isSecureContext === false
+      ? 'Camera access requires a secure connection (HTTPS or localhost).'
+      : 'Camera is not supported on this browser or device.'
+    return
+  }
 
   try {
     await nextTick()
@@ -407,8 +431,33 @@ async function openBarcodeCamera() {
       result => {
         if (!result || session !== cameraSession || !cameraOpen.value) return
         const code = result.getText().trim()
-        closeBarcodeCamera()
-        addScannedProduct(code)
+        if (!code) return
+
+        const now = Date.now()
+        // Prevent duplicate burst scans of the same code within 1.8 seconds
+        if (code === lastScannedBarcode && now - lastScannedTime < 1800) return
+        lastScannedBarcode = code
+        lastScannedTime = now
+
+        const match = products.value.find(product =>
+          (product.barcode && product.barcode.toLowerCase() === code.toLowerCase())
+          || product.sku.toLowerCase() === code.toLowerCase(),
+        )
+
+        if (match) {
+          playScannerBeep()
+          addToCart(match)
+          cameraScannedCount.value++
+          cameraLastScannedItem.value = `✓ ${match.name}`
+          triggerSuccessToast(`${match.name} added to cart.`)
+        } else {
+          cameraLastScannedItem.value = `⚠ Not found: ${code}`
+          triggerErrorToast(`Barcode not found: "${code}"`)
+        }
+
+        if (!continuousScanMode.value) {
+          closeBarcodeCamera()
+        }
       },
     )
     if (session !== cameraSession || !cameraOpen.value) controls.stop()
@@ -431,13 +480,15 @@ function closeBarcodeCamera() {
   cameraOpen.value = false
   cameraControls?.stop()
   cameraControls = null
+  cameraScannedCount.value = 0
+  cameraLastScannedItem.value = ''
   const stream = cameraVideo.value?.srcObject
   if (stream instanceof MediaStream) stream.getTracks().forEach(track => track.stop())
   if (cameraVideo.value) cameraVideo.value.srcObject = null
 }
 
 function openReceiptShare(sale: Sale) {
-  if (mobileTouch.value) shareSale.value = sale
+  if (mobileTouch.value || isPhone.value) shareSale.value = sale
 }
 
 function handleSearchInputEnter() {
@@ -473,11 +524,15 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     return
   }
   if (showPinPad.value) return
+
   const activeTag = document.activeElement?.tagName
-  if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return
+  if (activeTag === 'TEXTAREA' || activeTag === 'SELECT') return
+  // If focused on a non-search input (e.g. discount, customer name), allow normal typing
+  if (activeTag === 'INPUT' && document.activeElement !== searchInputRef.value) return
 
   const now = Date.now()
-  if (now - lastKeyTime > 50) {
+  // 100ms tolerance accommodates Bluetooth scanner packet delay and Android wedge services
+  if (now - lastKeyTime > 100) {
     barcodeBuffer = ''
   }
 
@@ -493,6 +548,10 @@ function handleGlobalKeydown(event: KeyboardEvent) {
       if (match) {
         playScannerBeep()
         addToCart(match)
+        if (searchInputRef.value && document.activeElement === searchInputRef.value) {
+          search.value = ''
+        }
+        triggerSuccessToast(`${match.name} added to cart.`)
       } else {
         triggerErrorToast(`Barcode not found: "${code}"`)
       }
@@ -646,7 +705,7 @@ async function checkout() {
     completedSale.value = result.sale
     triggerSuccessToast(`Sale #${shortSaleId(result.sale.id)} completed (${formatMoney(result.sale.total, props.currency)})`)
     const prefs = readOnlinePrefs()
-    if (prefs.applicationSettings?.autoClearCart !== false) {
+    if (isPhone.value || prefs.applicationSettings?.autoClearCart !== false) {
       clearCart()
     }
     if (prefs.receiptsSettings?.autoPrint) {
@@ -663,8 +722,8 @@ async function checkout() {
 let gridResizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-  mobileTouch.value = isTouchDevice()
-  cameraSupported.value = mobileTouch.value && window.isSecureContext && !!navigator.mediaDevices?.getUserMedia
+  mobileTouch.value = isTouchDevice() || isPhone.value
+  cameraSupported.value = typeof navigator !== 'undefined' && (!!navigator.mediaDevices?.getUserMedia || isPhone.value)
   loadProducts()
   updatePosGridColumns()
   if (posGridRef.value && typeof ResizeObserver !== 'undefined') {
@@ -689,7 +748,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="pos-container">
+  <div class="pos-container" :class="{ 'has-cart-items': cartUnits > 0 }">
     <!-- Toast Notifications -->
     <div v-if="showErrorToast" class="pos-toast pos-toast-error" role="alert">
       <AlertCircle :size="20" />
@@ -751,13 +810,14 @@ onUnmounted(() => {
           <div class="search-bar">
             <Search class="search-icon" :size="18" />
             <input
+              ref="searchInputRef"
               v-model="search"
               type="text"
               placeholder="Scan barcode or search products..."
               aria-label="Scan barcode or search products"
               @keydown.enter.prevent="handleSearchInputEnter"
             />
-            <div class="scanner-indicator" title="Ready for barcode input">
+            <div class="scanner-indicator" title="Hardware & Bluetooth scanner ready • Sunmi, Zebra, Honeywell & Bluetooth scanners supported">
               <Barcode :size="16" class="scanner-icon" />
               <span class="scanner-dot"></span>
             </div>
@@ -821,6 +881,7 @@ onUnmounted(() => {
                   <div class="product-price">{{ formatMoney(product.sellingPrice, currency) }}</div>
                 </div>
                 <div
+                  v-if="shouldShowPosImages"
                   class="product-image-small"
                   @pointerenter="product.image && updateProductImagePreview($event, product)"
                   @pointermove="product.image && updateProductImagePreview($event, product)"
@@ -841,6 +902,7 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        <div v-if="filteredProducts.length" class="pos-scroll-bottom-spacer" aria-hidden="true"></div>
       </div>
 
       <!-- Product List View -->
@@ -885,6 +947,7 @@ onUnmounted(() => {
             </template>
           </div>
         </div>
+        <div v-if="filteredProducts.length" class="pos-scroll-bottom-spacer" aria-hidden="true"></div>
       </div>
     </div>
 
@@ -932,7 +995,7 @@ onUnmounted(() => {
             title="Clear Cart"
             @click="clearCart"
           >
-            <Trash2 :size="16" />
+            <Trash2 :size="12" />
             <span class="clear-btn-text">Clear</span>
           </button>
           <button
@@ -960,7 +1023,7 @@ onUnmounted(() => {
           <Printer :size="15" /> Print Receipt
         </button>
         <button
-          v-if="mobileTouch"
+          v-if="mobileTouch || isPhone"
           type="button"
           class="mobile-receipt-share"
           @click="openReceiptShare(completedSale)"
@@ -994,7 +1057,7 @@ onUnmounted(() => {
                 aria-label="Decrease quantity"
                 @click="changeQuantity(item, item.quantity - 1)"
               >
-                <Minus :size="14" />
+                <Minus :size="12" />
               </button>
               <input
                 type="number"
@@ -1012,7 +1075,7 @@ onUnmounted(() => {
                 :disabled="item.quantity >= item.product.quantity"
                 @click="changeQuantity(item, item.quantity + 1)"
               >
-                <Plus :size="14" />
+                <Plus :size="12" />
               </button>
             </div>
             <button
@@ -1022,7 +1085,7 @@ onUnmounted(() => {
               aria-label="Remove item"
               @click="removeFromCart(item.product.id)"
             >
-              <Trash2 :size="16" />
+              <Trash2 :size="13" />
             </button>
           </div>
         </div>
@@ -1154,16 +1217,38 @@ onUnmounted(() => {
           <header class="barcode-camera-heading">
             <div>
               <h2 id="barcode-camera-title">Scan product barcode</h2>
-              <p>Hold the barcode inside the frame.</p>
+              <p>Hold barcode inside frame · Auto-adds to cart</p>
             </div>
             <button type="button" class="barcode-camera-close" aria-label="Close barcode scanner" @click="closeBarcodeCamera">
               <X :size="19" />
             </button>
           </header>
-          <video ref="cameraVideo" class="barcode-camera-preview" autoplay muted playsinline></video>
+          <div class="barcode-camera-viewfinder-wrap">
+            <video ref="cameraVideo" class="barcode-camera-preview" autoplay muted playsinline></video>
+            <div class="barcode-scan-reticle">
+              <div class="reticle-corner tl"></div>
+              <div class="reticle-corner tr"></div>
+              <div class="reticle-corner bl"></div>
+              <div class="reticle-corner br"></div>
+              <div class="reticle-laser-line"></div>
+            </div>
+            <div v-if="cameraLastScannedItem" class="barcode-scan-feedback">
+              {{ cameraLastScannedItem }}
+            </div>
+          </div>
           <p v-if="cameraError" class="barcode-camera-error" role="alert">{{ cameraError }}</p>
-          <p v-else class="barcode-camera-status" role="status">Scanning with your rear camera…</p>
-          <button type="button" class="barcode-camera-cancel" @click="closeBarcodeCamera">Cancel scan</button>
+          <div v-else class="barcode-camera-toolbar">
+            <label class="continuous-scan-toggle">
+              <input type="checkbox" v-model="continuousScanMode" />
+              <span>Continuous Scan (Keep open)</span>
+            </label>
+            <span v-if="cameraScannedCount > 0" class="scanned-count-badge">
+              {{ cameraScannedCount }} scanned
+            </span>
+          </div>
+          <button type="button" class="barcode-camera-cancel" @click="closeBarcodeCamera">
+            {{ cameraScannedCount > 0 ? `Done (${cameraScannedCount} added)` : 'Cancel scan' }}
+          </button>
         </section>
       </div>
       <MobileReceiptShare
@@ -1250,6 +1335,10 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.pos-scroll-bottom-spacer {
+  display: none;
 }
 
 .products-panel {
@@ -1437,6 +1526,14 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.barcode-camera-viewfinder-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #020617;
+}
+
 .barcode-camera-preview {
   width: 100%;
   max-height: min(55dvh, 480px);
@@ -1445,6 +1542,95 @@ onUnmounted(() => {
   border-radius: 10px;
   background: #020617;
   object-fit: cover;
+}
+
+.barcode-scan-reticle {
+  position: absolute;
+  inset: 15% 12%;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.reticle-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: #38bdf8;
+  border-style: solid;
+}
+
+.reticle-corner.tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-top-left-radius: 6px; }
+.reticle-corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-top-right-radius: 6px; }
+.reticle-corner.bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-bottom-left-radius: 6px; }
+.reticle-corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
+
+.reticle-laser-line {
+  position: absolute;
+  top: 50%;
+  left: 5%;
+  right: 5%;
+  height: 2px;
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: posLaserSweep 2s ease-in-out infinite alternate;
+}
+
+@keyframes posLaserSweep {
+  0% { transform: translateY(-40px); opacity: 0.7; }
+  100% { transform: translateY(40px); opacity: 1; }
+}
+
+.barcode-scan-feedback {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.barcode-camera-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0;
+  gap: 12px;
+}
+
+.continuous-scan-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #cbd5e1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.continuous-scan-toggle input[type="checkbox"] {
+  accent-color: #0284c7;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.scanned-count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .barcode-camera-status,
@@ -1989,22 +2175,24 @@ onUnmounted(() => {
 .clear-cart-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 650;
   color: #f87171;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.12);
+  border: none !important;
+  outline: none !important;
   cursor: pointer;
-  padding: 0.3rem 0.65rem;
-  border-radius: 7px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 6px;
   transition: all 0.15s;
+  box-sizing: border-box;
 }
 
 .clear-cart-btn:hover {
   color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.18);
-  border-color: rgba(239, 68, 68, 0.35);
+  background-color: rgba(239, 68, 68, 0.24);
 }
 
 .clear-btn-text {
@@ -2158,21 +2346,23 @@ onUnmounted(() => {
 .quantity-controls {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
-  background-color: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 2px;
+  gap: 0.15rem;
+  background-color: rgba(255, 255, 255, 0.06);
+  border: none !important;
+  outline: none !important;
+  border-radius: 6px;
+  padding: 1.5px 2px;
 }
 
 .quantity-controls button {
-  background: rgba(255, 255, 255, 0.05);
-  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: none !important;
+  outline: none !important;
   color: var(--text-secondary);
   cursor: pointer;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
   display: grid;
   place-items: center;
   transition: all 0.15s;
@@ -2184,19 +2374,20 @@ onUnmounted(() => {
 }
 
 .quantity-controls button:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
 .quantity-input {
-  width: 2.8rem;
+  width: 1.9rem;
   text-align: center;
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   background: transparent;
-  border: none;
+  border: none !important;
+  outline: none !important;
   color: #ffffff;
-  padding: 0.1rem 0;
+  padding: 0;
   -moz-appearance: textfield;
 }
 
@@ -2210,28 +2401,28 @@ onUnmounted(() => {
   margin: 0;
   font-weight: 700;
   text-align: right;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   color: #38bdf8;
   white-space: nowrap;
 }
 
 .remove-item-btn {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.12);
+  border: none !important;
+  outline: none !important;
   color: #f87171;
   cursor: pointer;
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
   display: grid;
   place-items: center;
   transition: all 0.15s;
 }
 
 .remove-item-btn:hover {
-  background: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.24);
   color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.35);
 }
 
 .order-summary {
@@ -2293,8 +2484,8 @@ onUnmounted(() => {
 }
 
 [data-theme='light'] .discount-input-wrapper {
-  background-color: #f8fafc;
-  border-color: #cbd5e1;
+  background-color: rgba(15, 23, 42, 0.05);
+  border: none !important;
 }
 
 [data-theme='light'] .discount-input {
@@ -2317,8 +2508,8 @@ onUnmounted(() => {
 }
 
 [data-theme='light'] .quantity-controls {
-  background-color: #f1f5f9;
-  border-color: #e2e8f0;
+  background-color: rgba(15, 23, 42, 0.06);
+  border: none !important;
 }
 
 [data-theme='light'] .quantity-controls button {
@@ -2351,8 +2542,8 @@ onUnmounted(() => {
 }
 
 [data-theme='light'] .tendered-wrapper {
-  background-color: #ffffff;
-  border-color: #cbd5e1;
+  background-color: rgba(15, 23, 42, 0.05);
+  border: none !important;
 }
 
 [data-theme='light'] .tendered-input {
@@ -2444,32 +2635,38 @@ onUnmounted(() => {
 .discount-input-wrapper {
   display: flex;
   align-items: center;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 0.375rem;
-  padding: 0.25rem 0.5rem;
-  width: 130px;
+  background-color: rgba(255, 255, 255, 0.06);
+  border: none !important;
+  outline: none !important;
+  border-radius: 6px;
+  padding: 0 6px;
+  width: 92px;
+  height: 26px;
+  box-sizing: border-box;
+  transition: background-color 0.15s ease;
 }
 
 .discount-input-wrapper:focus-within {
-  border-color: var(--accent-color);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .currency-prefix {
   color: var(--text-muted);
-  font-size: 0.78rem;
-  margin-right: 0.25rem;
+  font-size: 0.7rem;
+  margin-right: 0.2rem;
   user-select: none;
+  font-weight: 600;
 }
 
 .discount-input {
   background: transparent;
-  border: none;
+  border: none !important;
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.78rem;
+  font-weight: 650;
   width: 100%;
   text-align: right;
-  outline: none;
+  outline: none !important;
   -moz-appearance: textfield;
 }
 
@@ -2510,8 +2707,10 @@ onUnmounted(() => {
 }
 
 .tendered-wrapper {
-  width: 145px;
-  background-color: var(--bg-sidebar);
+  width: 148px;
+  min-width: 140px;
+  height: 28px;
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 .tendered-input {
@@ -2769,21 +2968,34 @@ onUnmounted(() => {
 @media (max-width: 639px) {
   .pos-container {
     width: 100%;
+    max-width: 100%;
     margin: 0;
-    height: calc(100dvh - 60px - 64px);
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     gap: 0;
   }
 
   .products-panel {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: none !important;
     border-radius: 0;
-    border-right: 0;
-    border-left: 0;
   }
 
   .panel-header {
     min-height: 60px;
     padding: 10px 12px;
     gap: 8px;
+    border-bottom: none !important;
   }
 
   .panel-title {
@@ -2791,12 +3003,18 @@ onUnmounted(() => {
   }
 
   .header-controls {
-    flex: 0 1 auto;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     gap: 6px;
+    min-width: 0;
   }
 
   .search-bar {
-    width: min(190px, 52vw);
+    flex: 1;
+    min-width: 110px;
+    max-width: 220px;
     height: 38px;
   }
 
@@ -2806,6 +3024,22 @@ onUnmounted(() => {
     min-height: 38px !important;
     padding: 0.4rem 2.25rem 0.4rem 2.25rem;
     font-size: 12px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .mobile-scan-button {
+    height: 38px;
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 12px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    gap: 5px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
   }
 
   .view-switcher {
@@ -2813,10 +3047,39 @@ onUnmounted(() => {
   }
 
   .product-grid {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     display: block;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
-    padding: 8px;
+    padding: 8px 8px 12px 8px;
+  }
+
+  .product-list-container {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .pos-scroll-bottom-spacer {
+    display: block;
+    width: 100%;
+    height: calc(88px + env(safe-area-inset-bottom));
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+
+  .pos-container.has-cart-items .pos-scroll-bottom-spacer {
+    height: calc(148px + env(safe-area-inset-bottom));
   }
 
   .product-card {
@@ -2825,6 +3088,20 @@ onUnmounted(() => {
     min-height: 124px;
     height: 124px;
     padding: 8px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.28) !important;
+  }
+
+  .product-card:hover,
+  .product-card:active {
+    border: none !important;
+    outline: none !important;
+    border-color: transparent !important;
+  }
+
+  [data-theme='light'] .product-card {
+    border: none !important;
   }
 
   .product-card .product-name {
@@ -2836,6 +3113,11 @@ onUnmounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    border: none !important;
+  }
+
+  [data-theme='light'] .product-card .product-category {
+    border: none !important;
   }
 
   .product-card-body {
@@ -2846,6 +3128,26 @@ onUnmounted(() => {
     width: 64px;
     height: 64px;
     flex-basis: 64px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .product-card:hover .product-image-small {
+    border: none !important;
+    border-color: transparent !important;
+  }
+
+  [data-theme='light'] .product-image-small {
+    border: none !important;
+  }
+
+  .product-stock,
+  .product-stock.in-stock,
+  .product-stock.low,
+  .product-stock.out {
+    border: none !important;
+    outline: none !important;
   }
 
   .fallback-icon {

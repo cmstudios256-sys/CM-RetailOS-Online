@@ -4,10 +4,10 @@ import { useDesktopBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import { useBottomSheetDrag } from '../utils/useBottomSheetDrag'
 import {
   BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, Download, FileClock, History, LayoutDashboard,
-  LockKeyhole, LogOut, Menu, Package, PackageCheck, PlusSquare, ReceiptText, Settings as SettingsIcon, Share, ShieldCheck, ShoppingCart,
-  Store, Tag, LineChart, Monitor, X, Zap,
+  LockKeyhole, LogOut, Menu, Moon, Package, PackageCheck, PlusSquare, ReceiptText, Settings as SettingsIcon, Share, ShieldCheck, ShoppingCart,
+  Store, Sun, Tag, LineChart, Monitor, X, Zap,
 } from '@lucide/vue'
-import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPermissions, syncOnlinePrefsFromServer } from '../api'
+import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPermissions, syncOnlinePrefsFromServer, toggleThemeMode } from '../api'
 import AsyncViewLoading from './AsyncViewLoading.vue'
 import DashboardView from './DashboardView.vue'
 import PointOfSaleView from './PointOfSaleView.vue'
@@ -209,6 +209,15 @@ const timeText = computed(() => {
 const userInitials = computed(() => props.user.fullName.trim().split(/\s+/).slice(0, 2).map(part => part[0] ?? '').join('').toUpperCase() || 'U')
 const avatarImageFailed = ref(false)
 const displayRole = computed(() => props.user.role.charAt(0).toUpperCase() + props.user.role.slice(1))
+const isCurrentLight = computed(() => {
+  void prefsTick.value
+  return typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light'
+})
+
+function handleThemeToggle() {
+  toggleThemeMode()
+}
+
 let clockTimer = 0
 
 watch(() => props.user.googlePictureUrl, () => {
@@ -423,7 +432,7 @@ onUnmounted(() => {
     <div class="workspace-main">
       <header class="workspace-topbar">
         <div class="workspace-topbar-title">
-          <span class="mobile-shop-mark"><Store :size="18" /></span>
+          <span v-if="!isPhone" class="mobile-shop-mark"><Store :size="18" /></span>
           <button class="desktop-shop-icon" type="button" aria-label="Toggle sidebar" @click="sidebarCollapsed = !sidebarCollapsed"><Store :size="25" /></button>
           <div><h1>{{ pageTitle }}</h1></div>
           <span v-if="!isOnline" class="offline-chip" role="status" aria-label="Offline mode">
@@ -480,11 +489,24 @@ onUnmounted(() => {
               <div class="popover-profile">
                 <span class="profile-avatar profile-avatar-large">
                   <img v-if="!isGuest && user.googlePictureUrl && !avatarImageFailed" :src="user.googlePictureUrl" alt="" referrerpolicy="no-referrer" @error="avatarImageFailed = true" />
-                  <template v-else>{{ isGuest ? 'D' : userInitials }}</template>
+                  <template v-else>{{ userInitials }}</template>
                 </span>
-                <div><strong>{{ isGuest ? 'Guest workspace' : user.fullName }}</strong><small>{{ isGuest ? 'Data stays on this device' : (user.googleEmail || user.email) }}</small></div>
+                <div class="popover-profile-details">
+                  <strong>{{ isGuest ? 'Guest workspace' : user.fullName }}</strong>
+                  <small>{{ isGuest ? 'Data stays on this device' : (user.googleEmail || user.email) }}</small>
+                </div>
+                <button
+                  type="button"
+                  class="profile-theme-toggle"
+                  :title="isCurrentLight ? 'Switch to dark mode' : 'Switch to light mode'"
+                  :aria-label="isCurrentLight ? 'Switch to dark mode' : 'Switch to light mode'"
+                  @click.stop="handleThemeToggle"
+                >
+                  <Sun v-if="isCurrentLight" :size="17" class="theme-sun-icon" />
+                  <Moon v-else :size="17" class="theme-moon-icon" />
+                </button>
               </div>
-              <div class="popover-role"><ShieldCheck :size="14" /><span>{{ isGuest ? 'Local guest' : displayRole }}</span><i></i><small>{{ isGuest ? 'Demo data' : 'Connected' }}</small></div>
+              <div class="popover-role"><ShieldCheck :size="14" /><span>{{ isGuest ? 'Local guest' : displayRole }}</span><i></i><small>{{ isGuest ? (demoMode ? 'Demo data' : 'Local device') : 'Connected' }}</small></div>
               <div class="popover-menu">
                 <button v-if="hasNavPermission('settings')" type="button" @click="activePage = 'settings'; profileOpen = false"><SettingsIcon :size="15" />Settings</button>
                 <button v-if="isGuest" type="button" @click="profileOpen = false; emit('connect-google', activePage)"><Store :size="15" />Save to cloud</button>
@@ -534,8 +556,10 @@ onUnmounted(() => {
           :aria-current="activePage === item.id ? 'page' : undefined"
           @click="navigateToPage(item.id)"
         >
-          <component :is="item.icon" :size="20" />
-          <span>{{ item.id === 'dashboard' ? 'Dashboard' : item.id === 'products' ? 'Products' : 'POS' }}</span>
+          <span class="nav-icon-container">
+            <component :is="item.icon" :size="20" />
+          </span>
+          <span class="nav-label">{{ item.id === 'dashboard' ? 'Dashboard' : item.id === 'products' ? 'Products' : 'POS' }}</span>
         </button>
         <button
           v-if="mobileMoreNavigation.length"
@@ -546,8 +570,10 @@ onUnmounted(() => {
           aria-controls="mobile-more-menu"
           @click="mobileMoreOpen = !mobileMoreOpen"
         >
-          <Menu :size="20" />
-          <span>More</span>
+          <span class="nav-icon-container">
+            <Menu :size="20" />
+          </span>
+          <span class="nav-label">More</span>
         </button>
         <div
           v-if="mobileMoreOpen"

@@ -16,6 +16,7 @@ import {
   X,
 } from '@lucide/vue'
 import { apiRequest, formatDate, formatMoney, formatTime } from '../api'
+import AppDatePicker from './AppDatePicker.vue'
 import { downloadCsv, escapeHtml, openPrintDocument } from '../utils/reporting'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 import { externalChartTooltipHandler } from '../utils/chartTooltip'
@@ -95,7 +96,7 @@ const isExportDropdownOpen = ref(false)
 
 const categoryPalette = ['#10b981', '#06b6d4', '#6366f1', '#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6']
 
-const activeCurrency = computed(() => dashboard.value?.currency || props.currency)
+const activeCurrency = computed(() => props.currency || dashboard.value?.currency || 'UGX')
 
 const margin = computed(() => {
   const revenue = dashboard.value?.revenue ?? 0
@@ -701,22 +702,12 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <div class="date-filter-wrapper">
-          <label class="filter-btn date-picker-btn" :class="{ 'active-filter': reportDate }">
-            <Calendar :size="15" />
-            <span>{{ reportDate ? formatDate(reportDate) : 'Filter by Date' }}</span>
-            <input v-model="reportDate" type="date" class="hidden-date-input" aria-label="Filter profit analytics by date" />
-          </label>
-          <button
-            v-if="reportDate"
-            type="button"
-            class="clear-date-btn"
-            title="Clear Date Filter"
-            @click="reportDate = ''"
-          >
-            <X :size="14" />
-          </button>
-        </div>
+        <AppDatePicker
+          v-model="reportDate"
+          placeholder="Filter by Date"
+          title="Filter Profit Analytics by Date"
+          aria-label="Filter profit analytics by date"
+        />
       </div>
 
       <div class="export-dropdown-container">
@@ -1230,37 +1221,48 @@ onUnmounted(() => {
 
 .export-dropdown-menu {
   position: absolute;
-  top: calc(100% + 0.4rem);
+  top: calc(100% + 6px);
   right: 0;
   width: 220px;
-  background-color: var(--bg-sidebar);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-  padding: 0.4rem;
-  z-index: 50;
+  background-color: #141f32;
+  border: none !important;
+  outline: none !important;
+  border-radius: 14px;
+  box-shadow: 0 20px 45px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  padding: 6px;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 3px;
 }
 
 .dropdown-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  min-height: 46px;
+  border-radius: 10px;
   background: transparent;
-  border: none;
-  color: var(--text-primary);
+  border: none !important;
+  outline: none !important;
+  color: #e2e8f0;
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: background-color 0.15s ease;
+  font-size: 0.92rem;
+  font-weight: 550;
+  transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
 .dropdown-item:hover {
-  background-color: var(--bg-surface);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.dropdown-item:active {
+  background-color: rgba(255, 255, 255, 0.14);
+  transform: scale(0.98);
 }
 
 .item-icon.csv { color: #22c55e; }

@@ -176,7 +176,14 @@ export type OnlineSettingsPrefs = {
 export function readOnlinePrefs(): OnlineSettingsPrefs {
   try {
     const raw = localStorage.getItem(LOCAL_PREFS_KEY)
-    return raw ? (JSON.parse(raw) as OnlineSettingsPrefs) : {}
+    const prefs = raw ? (JSON.parse(raw) as OnlineSettingsPrefs) : {}
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches) {
+      if (!prefs.applicationSettings) prefs.applicationSettings = {}
+      prefs.applicationSettings.autoClearCart = true
+      prefs.applicationSettings.barcodeBeep = true
+      prefs.applicationSettings.showPosImages = true
+    }
+    return prefs
   } catch {
     return {}
   }
@@ -191,21 +198,32 @@ export async function syncOnlinePrefsFromServer(currentUserId?: string): Promise
     }>('/settings/preferences')
 
     if (result.preferences && Object.keys(result.preferences).length > 0) {
+      const currentPrefs = readOnlinePrefs()
+      const currentIsLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light'
+      const preservedThemeMode = currentPrefs.applicationSettings?.themeMode || (currentIsLight ? 'light' : undefined)
+
       const merged: OnlineSettingsPrefs = {
-        ...readOnlinePrefs(),
+        ...currentPrefs,
         ...result.preferences,
         receiptsSettings: {
-          ...readOnlinePrefs().receiptsSettings,
+          ...currentPrefs.receiptsSettings,
           ...result.preferences.receiptsSettings,
         },
         applicationSettings: {
-          ...readOnlinePrefs().applicationSettings,
+          ...currentPrefs.applicationSettings,
           ...result.preferences.applicationSettings,
+          ...(preservedThemeMode ? { themeMode: preservedThemeMode } : {}),
         },
         localizationSettings: {
-          ...readOnlinePrefs().localizationSettings,
+          ...currentPrefs.localizationSettings,
           ...result.preferences.localizationSettings,
         },
+      }
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches) {
+        if (!merged.applicationSettings) merged.applicationSettings = {}
+        merged.applicationSettings.autoClearCart = true
+        merged.applicationSettings.barcodeBeep = true
+        merged.applicationSettings.showPosImages = true
       }
       localStorage.setItem(LOCAL_PREFS_KEY, JSON.stringify(merged))
     }
@@ -286,6 +304,8 @@ export const getComplementaryColor = (hex: string): string => {
   return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`
 }
 
+let systemThemeListenerRegistered = false
+
 export function applyOnlinePrefsToDom(): void {
   const prefs = readOnlinePrefs()
   const root = document.documentElement
@@ -294,6 +314,18 @@ export function applyOnlinePrefsToDom(): void {
     const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches
     if (prefersLight) root.setAttribute('data-theme', 'light')
     else root.removeAttribute('data-theme')
+
+    if (!systemThemeListenerRegistered && typeof window !== 'undefined' && window.matchMedia) {
+      systemThemeListenerRegistered = true
+      try {
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+          const currentPrefs = readOnlinePrefs()
+          if (currentPrefs.applicationSettings?.themeMode === 'system') {
+            applyOnlinePrefsToDom()
+          }
+        })
+      } catch {}
+    }
   } else if (mode === 'light') {
     root.setAttribute('data-theme', 'light')
   } else {
@@ -313,11 +345,41 @@ export function applyOnlinePrefsToDom(): void {
   }
 
   const isLight = root.getAttribute('data-theme') === 'light'
-  const headerColor = isLight ? '#ffffff' : '#0f172a'
-  const defaultThemeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]:not([media])')
-  if (defaultThemeMeta) {
-    defaultThemeMeta.setAttribute('content', headerColor)
+  const headerColor = isLight ? '#f1f5f9' : '#080e18'
+  const themeMetas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
+  if (themeMetas.length) {
+    themeMetas.forEach(meta => meta.setAttribute('content', headerColor))
+  } else {
+    const meta = document.createElement('meta')
+    meta.name = 'theme-color'
+    meta.content = headerColor
+    document.head.appendChild(meta)
   }
+
+  const statusBarMeta = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-status-bar-style"]')
+  if (statusBarMeta) {
+    statusBarMeta.setAttribute('content', isLight ? 'default' : 'black-translucent')
+  }
+}
+
+export function isLightMode(): boolean {
+  return document.documentElement.getAttribute('data-theme') === 'light'
+}
+
+export function toggleThemeMode(): 'dark' | 'light' {
+  const prefs = readOnlinePrefs()
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light'
+  const nextMode: 'dark' | 'light' = isLight ? 'dark' : 'light'
+  if (!prefs.applicationSettings) prefs.applicationSettings = {}
+  prefs.applicationSettings.themeMode = nextMode
+  localStorage.setItem(LOCAL_PREFS_KEY, JSON.stringify(prefs))
+  applyOnlinePrefsToDom()
+  window.dispatchEvent(new CustomEvent('online-prefs-updated'))
+  void apiRequest('/settings/preferences', {
+    method: 'PUT',
+    body: { preferences: prefs },
+  }).catch(() => undefined)
+  return nextMode
 }
 
 export function formatDate(value: Date | string): string {

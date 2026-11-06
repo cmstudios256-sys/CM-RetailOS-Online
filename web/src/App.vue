@@ -174,14 +174,14 @@ function trapBusinessSetupFocus(event: KeyboardEvent): void {
 
 async function openGuestWorkspace(): Promise<void> {
   setApiMode('guest')
-  const workspace = await apiRequest<{ shopName: string; currency: string; demo: boolean }>('/public/workspace')
+  const workspace = await apiRequest<{ shopName: string; currency: string; ownerName?: string; demo: boolean }>('/public/workspace')
   businessSetupOpen.value = false
   guestMode.value = true
   demoMode.value = workspace.demo
   user.value = {
     id: 'guest',
     shopId: 'guest-device',
-    fullName: 'Shop Owner',
+    fullName: workspace.ownerName || 'Shop Owner',
     email: '',
     role: 'owner',
     shopName: workspace.shopName,
