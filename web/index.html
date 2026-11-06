@@ -3,8 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f5f9" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#080e18" />
     <meta name="theme-color" content="#080e18" />
     <meta name="description" content="View the CM RetailOS Online business dashboard." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -13,7 +11,7 @@
     <script>
       (function() {
         try {
-          var raw = localStorage.getItem('cm_online_preferences_v1');
+          var raw = localStorage.getItem('cm_retailos_online_settings_prefs_v1');
           var theme = 'dark';
           if (raw) {
             var parsed = JSON.parse(raw);

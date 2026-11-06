@@ -80,6 +80,7 @@ let cameraControls: IScannerControls | null = null
 let cameraSession = 0
 const search = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
+const searchPlaceholder = computed(() => isPhone.value ? 'Search products' : 'Scan barcode or search products...')
 let savedViewMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_pos_view_mode') : null) as 'list' | 'grid' | null
 const viewMode = ref<'list' | 'grid'>(
   window.matchMedia('(max-width: 639px)').matches ? 'grid' : savedViewMode === 'list' ? 'list' : 'grid',
@@ -754,7 +755,7 @@ onUnmounted(() => {
       <AlertCircle :size="20" />
       <span>{{ errorToastMessage }}</span>
     </div>
-    <div v-if="showSuccessToast" class="pos-toast pos-toast-success" role="status">
+    <div v-if="showSuccessToast && !isPhone" class="pos-toast pos-toast-success" role="status">
       <CheckCircle2 :size="20" />
       <span>{{ successToastMessage }}</span>
       <button v-if="completedSale" type="button" class="toast-print-btn" @click="printCompletedReceipt(completedSale)">
@@ -813,8 +814,8 @@ onUnmounted(() => {
               ref="searchInputRef"
               v-model="search"
               type="text"
-              placeholder="Scan barcode or search products..."
-              aria-label="Scan barcode or search products"
+              :placeholder="searchPlaceholder"
+              :aria-label="isPhone ? 'Search products' : 'Scan barcode or search products'"
               @keydown.enter.prevent="handleSearchInputEnter"
             />
             <div class="scanner-indicator" title="Hardware & Bluetooth scanner ready • Sunmi, Zebra, Honeywell & Bluetooth scanners supported">
@@ -857,7 +858,7 @@ onUnmounted(() => {
               v-for="product in posGridProducts(virtualRow.index)"
               :key="product.id"
               class="product-card"
-              :class="{ disabled: product.quantity <= 0, 'out-of-stock': product.quantity <= 0, 'no-image': !product.image }"
+              :class="{ disabled: product.quantity <= 0, 'out-of-stock': product.quantity <= 0, 'low-stock': product.quantity > 0 && product.quantity <= product.minStock, 'in-stock': product.quantity > product.minStock, 'no-image': !product.image, 'has-product-image': !!product.image }"
               @click="addToCart(product)"
             >
               <div class="product-name" :title="product.name">{{ product.name }}</div>
@@ -883,8 +884,9 @@ onUnmounted(() => {
                 <div
                   v-if="shouldShowPosImages"
                   class="product-image-small"
-                  @pointerenter="product.image && updateProductImagePreview($event, product)"
-                  @pointermove="product.image && updateProductImagePreview($event, product)"
+                  :class="{ 'has-image': !!product.image }"
+                  @pointerenter="!isPhone && product.image && updateProductImagePreview($event, product)"
+                  @pointermove="!isPhone && product.image && updateProductImagePreview($event, product)"
                   @pointerleave="hideProductImagePreview"
                 >
                   <img
@@ -1260,7 +1262,7 @@ onUnmounted(() => {
     </Teleport>
     <Teleport to="body">
       <div
-        v-if="productImagePreview"
+        v-if="productImagePreview && !isPhone"
         class="product-image-hover-preview"
         :style="{ left: `${productImagePreview.left}px`, top: `${productImagePreview.top}px` }"
         aria-hidden="true"
@@ -2149,11 +2151,11 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  background: rgba(56, 189, 248, 0.12);
+  background: transparent;
   color: #38bdf8;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  border: none;
 }
 
 .cart-count-pill {
@@ -2455,19 +2457,19 @@ onUnmounted(() => {
 
 .summary-total-banner {
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
-  border: 1px solid rgba(56, 189, 248, 0.28);
+  border: none;
   border-radius: 12px;
   padding: 0.75rem 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 [data-theme='light'] .summary-total-banner {
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 8%, #ffffff) 0%, #f8fafc 100%);
-  border: 1px solid color-mix(in srgb, var(--accent-color) 35%, #e2e8f0);
-  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06);
+  border: none;
+  box-shadow: none;
 }
 
 [data-theme='light'] .total-label {
@@ -2561,9 +2563,9 @@ onUnmounted(() => {
 }
 
 [data-theme='light'] .cart-title-badge {
-  background: color-mix(in srgb, var(--accent-color) 12%, transparent) !important;
+  background: transparent !important;
   color: var(--accent-color) !important;
-  border-color: color-mix(in srgb, var(--accent-color) 25%, transparent) !important;
+  border: none !important;
 }
 
 [data-theme='light'] .cart-count-pill {
@@ -3042,6 +3044,13 @@ onUnmounted(() => {
     box-shadow: none !important;
   }
 
+  [data-theme='light'] .mobile-scan-button {
+    border: none !important;
+    color: #ffffff !important;
+    background: var(--accent-color) !important;
+    box-shadow: 0 2px 7px color-mix(in srgb, var(--accent-color) 28%, transparent) !important;
+  }
+
   .view-switcher {
     display: none;
   }
@@ -3091,6 +3100,128 @@ onUnmounted(() => {
     border: none !important;
     outline: none !important;
     box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.28) !important;
+    overflow: hidden;
+    isolation: isolate;
+    transform-style: preserve-3d;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .product-card.has-product-image {
+    border: none !important;
+    box-shadow: 0 14px 24px -8px rgba(0, 0, 0, 0.42), 0 5px 10px rgba(0, 0, 0, 0.24) !important;
+  }
+
+  .product-card::after {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    right: 12px;
+    left: 12px;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: linear-gradient(90deg, transparent, var(--card-status-accent, var(--accent-color)), transparent);
+    content: '';
+    pointer-events: none;
+  }
+
+  .product-card.in-stock { --card-status-accent: #10b981; }
+  .product-card.low-stock { --card-status-accent: #f59e0b; }
+  .product-card.out-of-stock { --card-status-accent: #ef4444; }
+
+  .product-card.has-product-image::before {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(8, 14, 24, 0.58) 0%, rgba(8, 14, 24, 0.34) 48%, rgba(8, 14, 24, 0.04) 100%);
+    content: '';
+    pointer-events: none;
+  }
+
+  .product-card.has-product-image > .product-name,
+  .product-card.has-product-image > .product-category {
+    position: relative;
+    z-index: 2;
+  }
+
+  .product-card.has-product-image > .product-card-body {
+    position: static;
+  }
+
+  .product-card.has-product-image .card-meta {
+    position: relative;
+    z-index: 2;
+  }
+
+  .product-card.has-product-image .product-image-small.has-image {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border: none !important;
+    border-radius: inherit;
+    opacity: 1;
+  }
+
+  [data-theme='light'] .product-card.has-product-image::before {
+    background: linear-gradient(90deg, rgba(15, 23, 42, 0.38) 0%, rgba(15, 23, 42, 0.2) 48%, transparent 82%);
+  }
+
+  [data-theme='light'] .product-card.has-product-image .product-image-small.has-image {
+    opacity: 1;
+  }
+
+  [data-theme='light'] .product-card.has-product-image .product-name,
+  [data-theme='light'] .product-card.has-product-image .product-category,
+  [data-theme='light'] .product-card.has-product-image .product-price {
+    max-width: 76%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.98), 0 0 7px rgba(0, 0, 0, 0.85);
+    box-shadow: none;
+  }
+
+  [data-theme='light'] .product-card.has-product-image .product-name {
+    font-weight: 800;
+  }
+
+  [data-theme='light'] .product-card.has-product-image .product-category {
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  [data-theme='light'] .product-card.has-product-image .product-stock {
+    padding: 3px 6px;
+    border-width: 1px;
+    text-shadow: none;
+    box-shadow: 0 1px 5px rgba(15, 23, 42, 0.12);
+  }
+
+  [data-theme='light'] .product-card.has-product-image .product-stock.in-stock {
+    color: #047857;
+    background: rgba(236, 253, 245, 0.96);
+    border-color: #6ee7b7;
+  }
+
+  [data-theme='light'] .product-card.has-product-image .product-stock.low {
+    color: #92400e;
+    background: rgba(255, 251, 235, 0.97);
+    border-color: #fcd34d;
+  }
+
+  [data-theme='light'] .product-card.has-product-image .product-stock.out {
+    color: #b91c1c;
+    background: rgba(254, 242, 242, 0.97);
+    border-color: #fca5a5;
+  }
+
+  [data-theme='light'] .product-card.has-product-image .product-price {
+    color: #ffd08a !important;
+    font-weight: 850;
   }
 
   .product-card:hover,
@@ -3104,8 +3235,33 @@ onUnmounted(() => {
     border: none !important;
   }
 
+  [data-theme='light'] .product-card.has-product-image {
+    border: none !important;
+    box-shadow: 0 14px 24px -8px rgba(15, 23, 42, 0.28), 0 5px 10px rgba(15, 23, 42, 0.16) !important;
+  }
+
+  .product-card:hover {
+    transform: none;
+  }
+
+  .product-card:active {
+    transform: perspective(700px) rotateX(2deg) rotateY(-1deg) translateY(2px) scale(0.97);
+    box-shadow: 0 4px 8px rgba(15, 23, 42, 0.22) !important;
+  }
+
   .product-card .product-name {
     font-size: 12px;
+  }
+
+  .product-card.has-product-image .product-name {
+    width: fit-content;
+    max-width: 76%;
+    padding: 0;
+    color: #ffffff !important;
+    font-weight: 800;
+    font-size: 14px;
+    line-height: 1.25;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.75);
   }
 
   .product-card .product-category {
@@ -3116,12 +3272,44 @@ onUnmounted(() => {
     border: none !important;
   }
 
+  .product-card.has-product-image .product-category {
+    max-width: 76%;
+    padding: 0;
+    color: #ffffff !important;
+    font-weight: 700;
+    font-size: 10px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 7px rgba(0, 0, 0, 0.8);
+  }
+
   [data-theme='light'] .product-card .product-category {
     border: none !important;
   }
 
   .product-card-body {
     gap: 6px;
+  }
+
+  .product-card.has-product-image .product-stock {
+    padding: 2px 0;
+    font-size: 11px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 7px rgba(0, 0, 0, 0.8);
+  }
+
+  .product-card.has-product-image .product-price {
+    padding: 2px 0;
+    color: #ffb14a !important;
+    font-size: 16px;
+    line-height: 1.15;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.98), 0 0 8px rgba(0, 0, 0, 0.85);
+  }
+
+  .product-card.has-product-image.out-of-stock {
+    opacity: 1;
+    filter: none;
+  }
+
+  .product-card.has-product-image.out-of-stock .real-product-img {
+    filter: grayscale(100%) brightness(0.72);
   }
 
   .product-image-small {
@@ -3134,8 +3322,10 @@ onUnmounted(() => {
   }
 
   .product-card:hover .product-image-small {
+    transform: none;
     border: none !important;
     border-color: transparent !important;
+    box-shadow: none !important;
   }
 
   [data-theme='light'] .product-image-small {
@@ -3153,6 +3343,20 @@ onUnmounted(() => {
   .fallback-icon {
     width: 36px;
     height: 36px;
+  }
+
+  .product-card:hover .fallback-icon {
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .product-card {
+      transition: none;
+    }
+
+    .product-card:active {
+      transform: none;
+    }
   }
 }
 </style>

@@ -868,6 +868,33 @@ onUnmounted(() => {
   opacity: 0.95;
 }
 
+@media (min-width: 1025px) {
+  .stat-card {
+    padding: 0.78rem 0.9rem;
+    min-height: 0;
+  }
+
+  .stat-card-header {
+    margin-bottom: 0.28rem;
+  }
+
+  .stat-icon {
+    width: 28px;
+    height: 28px;
+    padding: 0.34rem;
+    border-radius: 10px;
+  }
+
+  .stat-value {
+    margin-bottom: 4px;
+    line-height: 1.12;
+  }
+
+  .stat-sub-value {
+    font-size: 0.78rem;
+  }
+}
+
 /* Main Dashboard Cards Wrapper */
 .dashboard-cards-wrapper {
   display: grid;
@@ -898,6 +925,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+.sales-overview-card:active,
+.rotating-dashboard-card:active {
+  transform: none;
 }
 
 .tab-header {

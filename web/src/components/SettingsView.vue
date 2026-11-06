@@ -1474,7 +1474,7 @@ onUnmounted(() => {
                 <Check v-if="!isSavingConfig" :size="16" />
                 <span>{{ isSavingConfig ? 'Saving Changes...' : 'Save Changes' }}</span>
               </button>
-              <div v-if="saveFeedback" class="mobile-save-toast" :class="saveFeedback.type">
+              <div v-if="saveFeedback && saveFeedback.type === 'error'" class="mobile-save-toast" :class="saveFeedback.type">
                 {{ saveFeedback.message }}
               </div>
             </div>
@@ -1860,7 +1860,7 @@ onUnmounted(() => {
                   <Check v-if="!isSavingConfig" :size="16" />
                   <span>{{ isSavingConfig ? 'Saving Changes...' : 'Save Receipt Settings' }}</span>
                 </button>
-                <div v-if="saveFeedback" class="mobile-save-toast" :class="saveFeedback.type">
+                <div v-if="saveFeedback && saveFeedback.type === 'error'" class="mobile-save-toast" :class="saveFeedback.type">
                   {{ saveFeedback.message }}
                 </div>
               </div>

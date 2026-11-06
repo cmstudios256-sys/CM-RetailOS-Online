@@ -20,7 +20,6 @@ import {
   Search,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
   X,
 } from '@lucide/vue'
@@ -727,7 +726,7 @@ onUnmounted(() => {
 <template>
   <section class="view-section products-view-section">
     <div v-if="error && !showForm && !adjustingProduct && !showCategoryModal" class="inline-error" role="alert">{{ error }}</div>
-    <div v-if="notice" class="inline-success" role="status">{{ notice }}</div>
+    <div v-if="notice && !isPhone" class="inline-success" role="status">{{ notice }}</div>
 
     <!-- Google Account Connection Gate (when not connected) -->
     <div v-if="false" class="google-required-gate">
@@ -1162,9 +1161,8 @@ onUnmounted(() => {
           <div class="modal-actions sticky-modal-actions">
             <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
             <button type="submit" class="btn-primary btn-save-product" :disabled="saving">
-              <Sparkles v-if="!saving && editingProductId === null" :size="16" />
-              <Check v-else-if="!saving" :size="16" />
-              {{ saving ? 'Saving…' : editingProductId === null ? 'Add Product' : 'Save Changes' }}
+              <Check v-if="!saving && editingProductId !== null" :size="16" />
+              {{ saving ? 'Saving…' : editingProductId === null ? 'Add Product' : isPhone ? 'Save' : 'Save Changes' }}
             </button>
           </div>
         </form>
@@ -3502,6 +3500,9 @@ tbody tr:hover {
     max-height: 100dvh !important;
     padding: 0 !important;
     border-radius: 0 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
     background: #0a0f1d !important;
     overflow: hidden !important;
   }
@@ -3604,10 +3605,10 @@ tbody tr:hover {
     background: rgba(10, 16, 29, 0.96) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5) !important;
+    border-top: none !important;
+    box-shadow: none !important;
     display: grid !important;
-    grid-template-columns: 1fr 1.6fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
     z-index: 20 !important;
   }
@@ -3616,7 +3617,20 @@ tbody tr:hover {
   .sticky-modal-actions .btn-secondary {
     min-height: 48px;
     font-size: 13.5px;
+    font-weight: 700;
     justify-content: center;
+    border-radius: 10px;
+    transition: transform 0.12s ease, filter 0.12s ease;
+  }
+
+  .sticky-modal-actions .btn-secondary {
+    background: rgba(148, 163, 184, 0.14) !important;
+    color: #e2e8f0 !important;
+  }
+
+  .sticky-modal-actions .btn-primary:active,
+  .sticky-modal-actions .btn-secondary:active {
+    filter: brightness(0.9);
   }
 
   /* Light Theme overrides on mobile */
@@ -3692,13 +3706,42 @@ tbody tr:hover {
 
   [data-theme='light'] .sticky-modal-actions {
     background: #ffffff !important;
-    border-top: 1px solid #e2e8f0 !important;
-    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08) !important;
+    border-top: none !important;
+    box-shadow: none !important;
   }
 
   [data-theme='light'] .sticky-modal-actions .btn-secondary {
     background: #f1f5f9 !important;
     color: #0f172a !important;
+  }
+
+  .product-editor-modal .close-btn {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .product-editor-modal .product-hero-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .product-editor-modal .image-upload-frame.has-image {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .product-editor-modal .sticky-modal-actions .btn-secondary {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  [data-theme='light'] .product-editor-modal .product-hero-card {
+    background: transparent !important;
   }
 }
 

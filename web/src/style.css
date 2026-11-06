@@ -558,6 +558,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .workspace-nav-item.active { border-color: color-mix(in srgb, var(--accent-color) 22%, transparent); color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 10%, transparent); }
 .workspace-nav-item.active::before { position: absolute; top: 5px; bottom: 5px; left: -13px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent-color); content: ''; }
 .nav-dot { width: 6px; height: 6px; margin-left: auto; border-radius: 50%; background: var(--accent-color); box-shadow: 0 0 10px color-mix(in srgb, var(--accent-color) 55%, transparent); }
+
+@media (min-width: 1025px) {
+  .workspace-nav-item { width: 100%; box-sizing: border-box; }
+  .workspace-nav-item + .workspace-nav-item { margin-top: 4px; }
+}
+
 .workspace-sidebar-footer { min-height: 52px; margin-top: auto; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid rgba(148, 163, 184, .1); color: var(--text-muted, #7d8ba1); font-size: 10px; }
 .workspace-sidebar-status { min-height: 27px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: 18px; color: #9eacbd; background: var(--bg-surface, #17243a); }
 .workspace-sidebar-status i { width: 6px; height: 6px; border-radius: 50%; background: #34d399; }
@@ -1586,6 +1592,21 @@ input[type=number] {
   background: rgba(120, 53, 15, .16);
   font-size: 12px;
 }
+[data-theme='light'] .claim-notice {
+  border-color: #fcd34d;
+  color: #713f12;
+  background: #fffbeb;
+}
+[data-theme='light'] .claim-notice button {
+  flex: 0 0 auto;
+  border-color: #047857;
+  color: #ffffff;
+  background: #047857;
+  white-space: nowrap;
+}
+[data-theme='light'] .claim-notice button:hover {
+  background: #065f46;
+}
 @media (max-width: 760px) {
   .connection-chip { max-width: 145px; overflow: hidden; text-overflow: ellipsis; }
   .claim-notice { margin: 8px; align-items: flex-start; }
@@ -2106,7 +2127,7 @@ input[type=number] {
     max-height: min(62dvh, 480px);
     padding: 10px;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
     overflow-y: auto;
     border: none !important;
@@ -2118,19 +2139,21 @@ input[type=number] {
 
   .mobile-more-menu button {
     min-width: 0;
-    min-height: 50px;
-    padding: 0 12px;
+    min-height: 56px;
+    padding: 4px 2px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    gap: 4px;
     border: none !important;
     outline: none !important;
     border-radius: 12px;
     color: #f1f5f9;
     background: rgba(255, 255, 255, 0.05);
-    font-size: 13.5px;
+    font-size: 11.5px;
     font-weight: 550;
-    text-align: left;
+    text-align: center;
     transition: background-color 0.15s ease, transform 0.1s ease;
   }
 
@@ -2346,7 +2369,7 @@ input[type=number] {
     position: fixed;
     z-index: 45;
     right: max(10px, env(safe-area-inset-right));
-    bottom: calc(64px + env(safe-area-inset-bottom));
+    bottom: calc(56px + env(safe-area-inset-bottom));
     left: max(10px, env(safe-area-inset-left));
     width: auto;
     max-height: min(84dvh, 720px);
@@ -2387,7 +2410,7 @@ input[type=number] {
     position: fixed;
     z-index: 39;
     right: max(12px, env(safe-area-inset-right));
-    bottom: calc(62px + env(safe-area-inset-bottom));
+    bottom: calc(78px + env(safe-area-inset-bottom));
     left: max(12px, env(safe-area-inset-left));
     width: auto;
     min-height: 54px;

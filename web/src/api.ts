@@ -52,7 +52,7 @@ export async function apiRequest<T>(
   if (!response.ok) {
     const message = payload?.error?.message
       ?? (response.status >= 500
-        ? 'CM RetailOS Online is temporarily unavailable. Please try again shortly.'
+        ? 'CM RetailOS Online is temporarily unavailable. You can keep working locally and retry when the connection is restored.'
         : 'The request could not be completed.')
     throw new ApiError(message, response.status, payload?.error?.code ?? 'request_failed')
   }
@@ -123,6 +123,20 @@ export function formatDateTime(value: string): string {
 const APP_TIME_ZONE = 'Africa/Kampala'
 const LOCAL_PREFS_KEY = 'cm_retailos_online_settings_prefs_v1'
 const LOCAL_STAFF_PERMS_KEY = 'cm_retailos_online_staff_perms_v1'
+const LOCAL_PRINT_JOBS_KEY = 'cm_retailos_online_print_jobs_v1'
+
+export function clearSignedInUserLocalData(): void {
+  for (const key of [LOCAL_PREFS_KEY, LOCAL_STAFF_PERMS_KEY, LOCAL_PRINT_JOBS_KEY]) {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      // Continue clearing other user-scoped keys if storage is unavailable.
+    }
+  }
+  applyOnlinePrefsToDom()
+  window.dispatchEvent(new CustomEvent('online-prefs-updated'))
+  window.dispatchEvent(new CustomEvent('online-printers-updated'))
+}
 
 export function readStaffPermissions(userId: string, role: string): string[] {
   const normalizedRole = role.toLowerCase()

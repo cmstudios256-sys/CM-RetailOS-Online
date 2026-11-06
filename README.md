@@ -55,17 +55,23 @@ The seeder is transaction-based, deterministic, and idempotent: it refuses unles
 
 ## Google sign-in
 
-Use a Google OAuth Web client. For local development, register:
+**Connect Google** and **Save to cloud** use Google OAuth to sign users in with a Gmail/Google account. OAuth must be configured on the API; the buttons cannot complete sign-in when the API or Google credentials are unavailable.
+
+Create a Google OAuth client with application type **Web application**. For the Docker quickstart, configure:
 
 - Redirect URI: `http://localhost:8080/api/v1/auth/google/callback`
-- Application origin: `http://localhost:5180`
+- Authorized JavaScript origin: `http://localhost:8080`
 
-For production, set:
+Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the root `.env` file. Docker Compose passes them to the API along with the local callback and app URL. Restart with `docker compose up --build` after changing the values.
+
+For Vite local development, use application origin `http://localhost:5180` for `APP_BASE_URL`; the callback remains `http://localhost:8080/api/v1/auth/google/callback`. The API must be running on port 8080.
+
+For production, configure the OAuth client with:
 
 - Redirect URI: `https://[DOMAIN]/api/v1/auth/google/callback` when same-origin hosting is used
 - Authorized JavaScript origins: `https://[DOMAIN]`
 
-Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`, and `APP_BASE_URL`. Production mode also requires `COOKIE_SECURE=true`.
+Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`, and `APP_BASE_URL` as API environment variables. Production mode also requires `COOKIE_SECURE=true`. In Google Auth Platform, set the audience to **External** and publish the app to allow Google accounts outside the configured test users; while the consent screen is in testing, only listed test users can sign in.
 
 ## Email via Brevo SMTP
 

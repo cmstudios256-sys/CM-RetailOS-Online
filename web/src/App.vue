@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { ArrowRight, MapPin, Phone, Store } from '@lucide/vue'
-import { ApiError, apiRequest, applyOnlinePrefsToDom, setApiMode, syncOnlinePrefsFromServer } from './api'
+import { ApiError, apiRequest, applyOnlinePrefsToDom, clearSignedInUserLocalData, setApiMode, syncOnlinePrefsFromServer } from './api'
 import { clearGuestDataAfterClaim, exportGuestBundle } from './guestStore'
 import WorkspaceShell from './components/WorkspaceShell.vue'
 
@@ -72,7 +72,22 @@ async function markBusinessSetupComplete(existingPreferences?: Record<string, un
   })
 }
 
-function beginGoogleConnect(requestedPage: string): void {
+async function beginGoogleConnect(requestedPage: string): Promise<void> {
+  claimNotice.value = ''
+  setApiMode('cloud')
+  try {
+    const providers = await apiRequest<{ googleEnabled: boolean }>('/auth/providers')
+    if (!providers.googleEnabled) {
+      claimNotice.value = 'Google sign-in is not configured for this deployment yet.'
+      return
+    }
+  } catch (error) {
+    claimNotice.value = error instanceof Error
+      ? error.message
+      : 'Google sign-in could not be reached. Check your connection and try again.'
+    return
+  }
+
   const params = new URLSearchParams({ next: requestedPage, claim: 'guest' })
   window.location.assign(`/api/v1/auth/google?${params.toString()}`)
 }
@@ -242,6 +257,8 @@ async function signOut(): Promise<void> {
   try {
     setApiMode('cloud')
     await apiRequest<void>('/auth/logout', { method: 'POST' })
+    clearSignedInUserLocalData()
+    claimNotice.value = ''
     await openGuestWorkspace()
   } catch (error) {
     user.value = null
@@ -259,6 +276,7 @@ onMounted(() => {
   <main class="page-shell">
     <WorkspaceShell
       v-if="user"
+      :key="user.id"
       :user="user"
       :guest-mode="guestMode"
       :demo-mode="demoMode"

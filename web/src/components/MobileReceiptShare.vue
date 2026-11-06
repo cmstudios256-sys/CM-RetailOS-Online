@@ -18,7 +18,6 @@ const emit = defineEmits<{ close: [] }>()
 const phone = ref('')
 const error = ref('')
 const isPrintingBt = ref(false)
-const btSuccessMsg = ref('')
 
 const receiptText = computed(() => {
   const sale = props.sale
@@ -60,13 +59,11 @@ const canUseNativeShare = computed(() =>
 watch(() => props.sale, () => {
   phone.value = ''
   error.value = ''
-  btSuccessMsg.value = ''
 })
 
 async function printWithBluetooth() {
   if (!props.sale) return
   error.value = ''
-  btSuccessMsg.value = ''
   const printer = getDefaultBluetoothPrinter()
   if (!printer) {
     error.value = 'No Bluetooth thermal printer configured. Connect your 58mm/80mm printer in More > Settings > Receipt & Printing.'
@@ -79,8 +76,7 @@ async function printWithBluetooth() {
       currency: props.currency,
       paperWidth: printer.paperWidth || '58mm',
     })
-    const res = await sendToBluetoothPrinter(printer, bytes)
-    btSuccessMsg.value = res.message || `Receipt sent to ${printer.name}!`
+    await sendToBluetoothPrinter(printer, bytes)
     window.setTimeout(() => {
       emit('close')
     }, 1500)
@@ -148,8 +144,6 @@ async function shareWithDevice() {
         Used only to open WhatsApp for this receipt; the number is not saved.
       </p>
       <p v-if="error" class="mobile-share-error" role="alert">{{ error }}</p>
-      <p v-if="btSuccessMsg" class="mobile-share-success" role="status">{{ btSuccessMsg }}</p>
-
       <button
         type="button"
         class="mobile-share-bluetooth"
@@ -326,18 +320,6 @@ async function shareWithDevice() {
   font-size: 13px;
 }
 
-.mobile-share-success {
-  margin: 0 0 12px;
-  padding: 8px 12px;
-  background: rgba(34, 197, 94, 0.15);
-  border: none !important;
-  border-radius: 8px;
-  color: #86efac;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-}
-
 .mobile-share-bluetooth {
   width: 100%;
   min-height: 46px;
@@ -511,12 +493,6 @@ async function shareWithDevice() {
 [data-theme='light'] .mobile-share-error {
   color: #dc2626;
   font-weight: 600;
-}
-
-[data-theme='light'] .mobile-share-success {
-  background: #f0fdf4;
-  border: none !important;
-  color: #166534;
 }
 
 [data-theme='light'] .mobile-share-bluetooth {
