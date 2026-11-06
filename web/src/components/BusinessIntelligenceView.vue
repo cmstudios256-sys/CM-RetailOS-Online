@@ -216,6 +216,7 @@ const salesByHourData = computed(() => {
         borderSkipped: 'bottom' as const,
         barPercentage: 0.6,
         categoryPercentage: 0.75,
+        maxBarThickness: 32,
         data: hourBars.value.map(item => item.count),
       },
     ],
@@ -246,6 +247,7 @@ const mostProfitableProductsData = computed(() => {
         borderSkipped: 'left' as const,
         barPercentage: 0.65,
         categoryPercentage: 0.8,
+        maxBarThickness: 28,
         data: profits,
       },
     ],
@@ -290,13 +292,13 @@ const salesCountChartOptions = computed(() => ({
         font: { size: 10.5, weight: 'normal' as const },
         maxRotation: 0,
         minRotation: 0,
-        autoSkip: true,
-        maxTicksLimit: 12,
+        autoSkip: false,
         padding: 8,
       },
     },
     y: {
       beginAtZero: true,
+      suggestedMax: 3,
       grid: {
         color: isLightMode.value ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)',
         borderDash: [3, 4],
@@ -307,6 +309,8 @@ const salesCountChartOptions = computed(() => ({
         color: isLightMode.value ? '#64748b' : '#94a3b8',
         font: { size: 11 },
         padding: 6,
+        stepSize: 1,
+        precision: 0,
         callback: (value: number | string) => {
           const num = Number(value)
           if (num % 1 !== 0) return ''
@@ -321,13 +325,21 @@ const profitBarChartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   indexAxis: 'y' as const,
+  layout: {
+    padding: {
+      top: 4,
+      bottom: 4,
+      left: 4,
+      right: 8,
+    },
+  },
   plugins: {
     legend: { display: false },
     tooltip: {
       enabled: false,
       external: externalChartTooltipHandler,
       callbacks: {
-        label: (context: any) => `Profit: ${props.currency} ${(context.parsed?.x ?? 0).toLocaleString()}`,
+        label: (context: any) => `Profit: ${formatMoney(Number(context.parsed?.x ?? 0), props.currency)}`,
       },
     },
   },
@@ -354,9 +366,9 @@ const profitBarChartOptions = computed(() => ({
         font: { size: 10 },
         callback: (value: number | string) => {
           const num = Number(value)
-          if (num >= 1000000) return `${props.currency} ${num / 1000000}M`
-          if (num >= 1000) return `${props.currency} ${num / 1000}k`
-          return `${num}`
+          if (num >= 1000000) return `${props.currency} ${(num / 1000000).toFixed(1)}M`
+          if (num >= 1000) return `${props.currency} ${(num / 1000).toFixed(0)}k`
+          return `${props.currency} ${num}`
         },
       },
     },
@@ -632,7 +644,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="chart-container" style="position: relative; height: 100%; min-height: 250px;">
+        <div class="chart-container">
           <Bar v-if="!isPhone" :data="salesByHourData" :options="salesCountChartOptions" />
           <Bar
             v-else-if="mobilePeakHours.length"
@@ -660,7 +672,7 @@ onUnmounted(() => {
           </span>
         </div>
 
-        <div class="chart-container" style="position: relative; height: 100%; min-height: 250px;">
+        <div class="chart-container">
           <div v-if="isPhone && !mobileProfitableProducts.length" class="empty-chart-state">
             No profitable product sales recorded for this period.
           </div>
@@ -949,6 +961,7 @@ onUnmounted(() => {
 .bi-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(310px, 1.15fr) minmax(220px, 0.85fr);
   gap: 12px;
   flex: 1;
   min-height: 0;
@@ -964,6 +977,14 @@ onUnmounted(() => {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+}
+
+.bi-chart-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .full-width {
@@ -1115,8 +1136,10 @@ onUnmounted(() => {
 
 .chart-container {
   flex: 1;
-  min-height: 200px;
+  min-height: 0;
   position: relative;
+  width: 100%;
+  overflow: hidden;
 }
 
 .empty-chart-state {
@@ -1327,6 +1350,11 @@ onUnmounted(() => {
 @media (max-width: 1023px) {
   .bi-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .bi-chart-card {
+    min-height: 280px;
   }
 
   .basket-pair-row {
