@@ -823,7 +823,7 @@ onUnmounted(() => {
             </div>
           </div>
           <button
-            v-if="cameraSupported"
+            v-if="cameraSupported && (isPhone || mobileTouch)"
             type="button"
             class="mobile-scan-button"
             @click="openBarcodeCamera"

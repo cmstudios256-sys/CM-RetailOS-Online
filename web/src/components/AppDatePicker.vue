@@ -556,6 +556,9 @@ onUnmounted(() => {
   .mobile-datepicker-backdrop {
     align-items: center;
     padding: 20px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 

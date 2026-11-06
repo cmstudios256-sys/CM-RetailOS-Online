@@ -3,16 +3,16 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   ArrowDownRight,
   ArrowUpRight,
-  BarChart2,
+  BadgePercent,
+  BarChart3,
   Calendar,
   ChevronDown,
-  DollarSign,
   Download,
   FileSpreadsheet,
-  Percent,
   PieChart,
   Printer,
   TrendingUp,
+  Wallet,
   X,
 } from '@lucide/vue'
 import { apiRequest, formatDate, formatMoney, formatTime } from '../api'
@@ -605,7 +605,7 @@ onUnmounted(() => {
             <p class="kpi-value">{{ formatMoney(dashboard?.profit ?? 0, activeCurrency) }}</p>
           </div>
           <div class="kpi-icon icon-gross">
-            <DollarSign :size="20" />
+            <Wallet :size="20" />
           </div>
         </div>
         <div class="kpi-footer">
@@ -651,7 +651,7 @@ onUnmounted(() => {
             <p class="kpi-value">{{ margin.toFixed(1) }}%</p>
           </div>
           <div class="kpi-icon icon-margin">
-            <Percent :size="20" />
+            <BadgePercent :size="20" />
           </div>
         </div>
         <div class="kpi-footer">
@@ -674,7 +674,7 @@ onUnmounted(() => {
             <p class="kpi-value">{{ formatMoney(dashboard?.revenue ?? 0, activeCurrency) }}</p>
           </div>
           <div class="kpi-icon icon-revenue">
-            <BarChart2 :size="20" />
+            <BarChart3 :size="20" />
           </div>
         </div>
         <div class="kpi-footer">
@@ -1054,18 +1054,17 @@ onUnmounted(() => {
   font-weight: 700;
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
+  border: none;
 }
 
 .kpi-change.positive {
   background-color: rgba(16, 185, 129, 0.12);
   color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .kpi-change.negative {
   background-color: rgba(239, 68, 68, 0.12);
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .change-period {

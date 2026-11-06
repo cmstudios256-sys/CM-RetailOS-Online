@@ -665,7 +665,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: 14px;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
 }
@@ -674,7 +674,7 @@ onUnmounted(() => {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .stat-card {
@@ -872,7 +872,7 @@ onUnmounted(() => {
 .dashboard-cards-wrapper {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(290px, 1fr);
-  gap: 12px;
+  gap: 8px;
   align-items: stretch;
   flex: 1;
   min-height: 0;
@@ -1140,6 +1140,8 @@ onUnmounted(() => {
   flex-direction: column;
   min-height: 100%;
   overflow: hidden;
+  padding-left: 0.8rem;
+  padding-right: 0.8rem;
 }
 
 .rotating-card-header {

@@ -74,6 +74,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null)
+const autoInstallRequested = ref(false)
 const isStandalone = ref(false)
 const isInstalled = ref(false)
 const showIosInstallSheet = ref(false)
@@ -317,12 +318,17 @@ function handleDisplayModeChange(e: MediaQueryListEvent) {
 function handleBeforeInstallPrompt(e: Event) {
   e.preventDefault()
   deferredInstallPrompt.value = e as BeforeInstallPromptEvent
+  if (autoInstallRequested.value && !isStandalone.value) {
+    autoInstallRequested.value = false
+    void handleInstallClick()
+  }
 }
 
 function handleAppInstalled() {
   isInstalled.value = true
   deferredInstallPrompt.value = null
   showIosInstallSheet.value = false
+  autoInstallRequested.value = false
 }
 
 onMounted(() => {
@@ -337,6 +343,23 @@ onMounted(() => {
   window.addEventListener('offline', updateOnlineStatus)
 
   const params = new URLSearchParams(window.location.search)
+  const shouldAutoInstall = params.get('install') === '1' || params.get('action') === 'install'
+  if (shouldAutoInstall && !isStandalone.value) {
+    if (isIos.value) {
+      showIosInstallSheet.value = true
+    } else {
+      autoInstallRequested.value = true
+      if (deferredInstallPrompt.value) {
+        autoInstallRequested.value = false
+        void handleInstallClick()
+      }
+    }
+    params.delete('install')
+    params.delete('action')
+    const query = params.toString()
+    window.history.replaceState({}, document.title, `${window.location.pathname}${query ? `?${query}` : ''}`)
+  }
+
   const requestedPage = params.get('page')
   if (requestedPage && (
     navigation.value.some(item => item.id === requestedPage) ||
