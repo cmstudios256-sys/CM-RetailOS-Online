@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -150,10 +151,35 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Serve real files normally and fall back to the SPA entry point.
 	fileName := filepath.Join(s.config.FrontendDir, filepath.FromSlash(strings.TrimPrefix(r.URL.Path, "/")))
 	if info, err := os.Stat(fileName); err == nil && !info.IsDir() {
+		setFrontendContentType(w, filepath.Ext(fileName))
 		s.frontend.ServeHTTP(w, r)
 		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	http.ServeFile(w, r, filepath.Join(s.config.FrontendDir, "index.html"))
+}
+
+func setFrontendContentType(w http.ResponseWriter, extension string) {
+	contentType := mime.TypeByExtension(extension)
+	switch strings.ToLower(extension) {
+	case ".css":
+		contentType = "text/css; charset=utf-8"
+	case ".html":
+		contentType = "text/html; charset=utf-8"
+	case ".js", ".mjs":
+		contentType = "text/javascript; charset=utf-8"
+	case ".json":
+		contentType = "application/json; charset=utf-8"
+	case ".webmanifest":
+		contentType = "application/manifest+json"
+	case ".svg":
+		contentType = "image/svg+xml"
+	case ".webp":
+		contentType = "image/webp"
+	}
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
 }
 
 type responseCapture struct {

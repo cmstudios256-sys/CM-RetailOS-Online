@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -46,6 +48,51 @@ func TestSecurityHeadersAreSet(t *testing.T) {
 		if got := response.Header().Get(name); got != want {
 			t.Errorf("%s = %q, want %q", name, got, want)
 		}
+	}
+}
+
+func TestFrontendFilesHaveBrowserContentTypes(t *testing.T) {
+	frontendDir := t.TempDir()
+	files := map[string]string{
+		"index.html":              "<!doctype html><title>RetailOS</title>",
+		"assets/app.js":           "console.log('app')",
+		"assets/app.css":          "body { color: red }",
+		"manifest.webmanifest":    `{"name":"RetailOS"}`,
+	}
+	for name, content := range files {
+		filePath := filepath.Join(frontendDir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+			t.Fatalf("create frontend directory: %v", err)
+		}
+		if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
+			t.Fatalf("write frontend file: %v", err)
+		}
+	}
+
+	server := New(nil, Config{FrontendDir: frontendDir}).Handler()
+	tests := []struct {
+		path        string
+		contentType string
+	}{
+		{path: "/", contentType: "text/html; charset=utf-8"},
+		{path: "/assets/app.js", contentType: "text/javascript; charset=utf-8"},
+		{path: "/assets/app.css", contentType: "text/css; charset=utf-8"},
+		{path: "/manifest.webmanifest", contentType: "application/manifest+json"},
+		{path: "/unknown-route", contentType: "text/html; charset=utf-8"},
+	}
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, test.path, nil)
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, request)
+
+			if response.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+			}
+			if got := response.Header().Get("Content-Type"); got != test.contentType {
+				t.Errorf("Content-Type = %q, want %q", got, test.contentType)
+			}
+		})
 	}
 }
 
