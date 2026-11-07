@@ -3647,3 +3647,46 @@ body:has(.workspace-shell) {
     border: 1px solid #e2e8f0 !important;
   }
 }
+
+@media (max-width: 639px) {
+  html:has(.workspace-shell) {
+    height: auto;
+    max-height: none;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+  }
+
+  body:has(.workspace-shell),
+  #app:has(.workspace-shell) {
+    height: auto;
+    max-height: none;
+    min-height: 100%;
+    overflow: visible;
+    overscroll-behavior-y: auto;
+  }
+
+  .page-shell:has(.workspace-shell),
+  .page-shell:has(.workspace-shell) .workspace-shell,
+  .page-shell:has(.workspace-shell) .workspace-main {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    overscroll-behavior-y: auto;
+  }
+
+  .page-shell:has(.workspace-shell) .workspace-content {
+    height: auto;
+    min-height: 0;
+    flex: 0 0 auto;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+
+  .page-shell:has(.workspace-shell) .workspace-topbar {
+    position: sticky;
+    top: 0;
+  }
+}

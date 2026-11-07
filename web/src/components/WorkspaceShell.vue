@@ -8,6 +8,7 @@ import {
   Store, Sun, Tag, LineChart, Monitor, X, Zap,
 } from '@lucide/vue'
 import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPermissions, syncOnlinePrefsFromServer, toggleThemeMode } from '../api'
+import { clearChartTooltips } from '../utils/chartTooltip'
 import AsyncViewLoading from './AsyncViewLoading.vue'
 import DashboardView from './DashboardView.vue'
 import PointOfSaleView from './PointOfSaleView.vue'
@@ -305,6 +306,7 @@ function handlePrefsUpdated() {
 }
 
 watch(activePage, () => {
+  clearChartTooltips()
   mobileMoreOpen.value = false
   void loadNotifications()
 })

@@ -980,8 +980,9 @@ onUnmounted(() => {
     </div>
 
     <!-- Add / Edit Product Modal -->
-    <div v-if="showForm" class="modal-backdrop product-modal-backdrop" @click.self="closeForm">
-      <div class="modal-content product-editor-modal">
+    <Teleport to="body">
+      <div v-if="showForm" class="modal-backdrop product-modal-backdrop" @click.self="closeForm">
+        <div class="modal-content product-editor-modal">
         <div class="modal-header">
           <div class="modal-title-group">
             <h3>{{ editingProductId === null ? 'Add New Product' : 'Edit Product' }}</h3>
@@ -1165,9 +1166,10 @@ onUnmounted(() => {
               {{ saving ? 'Saving…' : editingProductId === null ? 'Add Product' : isPhone ? 'Save' : 'Save Changes' }}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- Adjust Stock Modal -->
     <div v-if="adjustingProduct" class="modal-backdrop" @click.self="closeAdjustStock">
@@ -3491,6 +3493,13 @@ tbody tr:hover {
 
   .product-grid-actions button.delete {
     grid-column: 1 / -1;
+  }
+
+  .product-modal-backdrop {
+    z-index: 60;
+    padding: 0;
+    place-items: stretch;
+    overflow: hidden;
   }
 
   .product-editor-modal {

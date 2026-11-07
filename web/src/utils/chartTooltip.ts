@@ -12,6 +12,11 @@ interface ChartTooltipContext {
     caretY: number
   }
 }
+
+export const clearChartTooltips = () => {
+  document.querySelectorAll('[data-chart-tooltip]').forEach(tooltip => tooltip.remove())
+}
+
 export const externalChartTooltipHandler = ({ chart, tooltip }: ChartTooltipContext) => {
   const tooltipSelector = `[data-chart-tooltip="${chart.id}"]`
   let tooltipEl = document.querySelector<HTMLDivElement>(tooltipSelector)
