@@ -90,6 +90,12 @@ docker compose up -d --build
 
 The included PostgreSQL volume is persistent. Replace local placeholder secrets before exposing the service publicly and use HTTPS plus `COOKIE_SECURE=true` in production.
 
+## Render preview deployment
+
+The root `render.yaml` defines a free preview deployment of the combined PWA/API web service and PostgreSQL database. To create it, connect this GitHub repository to Render and create a Blueprint from the repository's `main` branch. Render assigns the app an HTTPS `onrender.com` URL; no custom domain is needed. The service deploys from Git pushes after it is linked.
+
+This Blueprint is for preview only. Render's free web service can sleep when idle, and its free PostgreSQL database expires after 30 days. Do not store real business data in this preview. The preview starts without Google sign-in; configure production OAuth only after choosing persistent paid hosting and confirming the app URL. For Google OAuth, use that URL as the authorized JavaScript origin and set its `/api/v1/auth/google/callback` path as the authorized redirect URI.
+
 ## Verification
 
 ```sh

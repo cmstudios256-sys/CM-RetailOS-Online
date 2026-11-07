@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: cm-retailos-online-preview
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_ENV
+        value: development
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cm-retailos-preview-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_DIR
+        value: /app/web/dist
+
+databases:
+  - name: cm-retailos-preview-db
+    databaseName: cm_retailos_preview
+    user: retailos
+    plan: free
+    postgresMajorVersion: "16"

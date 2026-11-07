@@ -47,6 +47,7 @@ func TestLoadUsesSecureCookieByDefault(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://localhost/retailos")
 	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
 	t.Setenv("HTTP_ADDR", "")
+	t.Setenv("PORT", "")
 	t.Setenv("COOKIE_SECURE", "")
 
 	cfg, err := Load()
@@ -58,6 +59,34 @@ func TestLoadUsesSecureCookieByDefault(t *testing.T) {
 	}
 	if cfg.HTTPAddr != ":8080" {
 		t.Fatalf("HTTPAddr = %q, want :8080", cfg.HTTPAddr)
+	}
+}
+
+func TestLoadUsesPlatformPortWhenHTTPAddrIsUnset(t *testing.T) {
+	setGoogleEnvironment(t, "", "", "", "")
+	t.Setenv("DATABASE_URL", "postgres://localhost/retailos")
+	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
+	t.Setenv("HTTP_ADDR", "")
+	t.Setenv("PORT", "10000")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.HTTPAddr != ":10000" {
+		t.Fatalf("HTTPAddr = %q, want :10000", cfg.HTTPAddr)
+	}
+}
+
+func TestLoadRejectsInvalidPlatformPort(t *testing.T) {
+	setGoogleEnvironment(t, "", "", "", "")
+	t.Setenv("DATABASE_URL", "postgres://localhost/retailos")
+	t.Setenv("JWT_SECRET", "01234567890123456789012345678901")
+	t.Setenv("HTTP_ADDR", "")
+	t.Setenv("PORT", "invalid")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() accepted an invalid PORT")
 	}
 }
 

@@ -52,7 +52,16 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("APP_ENV must be development or production")
 	}
 	if cfg.HTTPAddr == "" {
-		cfg.HTTPAddr = ":8080"
+		port := strings.TrimSpace(os.Getenv("PORT"))
+		if port == "" {
+			cfg.HTTPAddr = ":8080"
+		} else {
+			portNumber, err := strconv.Atoi(port)
+			if err != nil || portNumber < 1 || portNumber > 65535 {
+				return Config{}, fmt.Errorf("PORT must be between 1 and 65535")
+			}
+			cfg.HTTPAddr = ":" + port
+		}
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
