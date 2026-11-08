@@ -25,7 +25,7 @@ import type { IScannerControls } from '@zxing/browser'
 import { apiRequest, formatDate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Product, type Sale } from '../api'
 import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
-import { usePhoneBreakpoint } from '../utils/breakpoints'
+import { usePhoneBreakpoint, useTabletBreakpoint } from '../utils/breakpoints'
 import { escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 import { useBottomSheetDrag } from '../utils/useBottomSheetDrag'
 import {
@@ -76,8 +76,7 @@ let lastScannedBarcode = ''
 let lastScannedTime = 0
 const shareSale = ref<Sale | null>(null)
 const { isPhone } = usePhoneBreakpoint()
-const tabletQuery = window.matchMedia('(min-width: 640px) and (max-width: 1024px)')
-const isTablet = ref(tabletQuery.matches)
+const { isTablet } = useTabletBreakpoint()
 let cameraControls: IScannerControls | null = null
 let cameraSession = 0
 const search = ref('')
@@ -278,10 +277,6 @@ function updatePosGridColumns() {
   } else {
     posGridColumns.value = 3
   }
-}
-
-function updateTabletBreakpoint(event: MediaQueryListEvent) {
-  isTablet.value = event.matches
 }
 
 const posGridRowCount = computed(() =>
@@ -735,7 +730,6 @@ async function checkout() {
 let gridResizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-  tabletQuery.addEventListener('change', updateTabletBreakpoint)
   mobileTouch.value = isTouchDevice() || isPhone.value
   cameraSupported.value = typeof navigator !== 'undefined' && (!!navigator.mediaDevices?.getUserMedia || isPhone.value)
   loadProducts()
@@ -753,7 +747,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   closeBarcodeCamera()
-  tabletQuery.removeEventListener('change', updateTabletBreakpoint)
   gridResizeObserver?.disconnect()
   window.removeEventListener('resize', updatePosGridColumns)
   window.removeEventListener('keydown', handleGlobalKeydown)

@@ -8,7 +8,7 @@ import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
-import { usePhoneBreakpoint, useTabletBreakpoint } from '../utils/breakpoints'
+import { useMobileOrTabletBreakpoint, usePhoneBreakpoint, useTabletBreakpoint } from '../utils/breakpoints'
 import {
   getDefaultBluetoothPrinter,
   buildEscPosReceipt,
@@ -56,7 +56,7 @@ const filteredReceipts = computed(() =>
 
 const { isPhone } = usePhoneBreakpoint()
 const { isTablet } = useTabletBreakpoint()
-const isMobileOrTablet = computed(() => isPhone.value || isTablet.value)
+const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
 const headerRef = ref<HTMLElement | null>(null)
 const receiptsListRef = ref<HTMLElement | null>(null)
 const receiptsListVirtualizer = useVirtualizer(computed(() => ({

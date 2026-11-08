@@ -1,43 +1,126 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 
 export function usePhoneBreakpoint() {
-  const mediaQuery = window.matchMedia('(max-width: 639px)')
-  const isPhone = ref(mediaQuery.matches)
+  const getMatches = () => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth <= 639 || window.matchMedia('(max-width: 639px)').matches
+  }
+  const isPhone = ref(getMatches())
 
-  const update = (event: MediaQueryListEvent | MediaQueryList) => {
-    isPhone.value = event.matches
+  const update = () => {
+    isPhone.value = getMatches()
   }
 
-  onMounted(() => mediaQuery.addEventListener('change', update))
-  onUnmounted(() => mediaQuery.removeEventListener('change', update))
+  onMounted(() => {
+    isPhone.value = getMatches()
+    window.addEventListener('resize', update, { passive: true })
+    window.addEventListener('orientationchange', update, { passive: true })
+    try {
+      window.matchMedia('(max-width: 639px)').addEventListener('change', update)
+    } catch {}
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', update)
+    window.removeEventListener('orientationchange', update)
+    try {
+      window.matchMedia('(max-width: 639px)').removeEventListener('change', update)
+    } catch {}
+  })
 
   return { isPhone }
 }
 
 export function useTabletBreakpoint() {
-  const mediaQuery = window.matchMedia('(min-width: 640px) and (max-width: 1023px)')
-  const isTablet = ref(mediaQuery.matches)
+  const getMatches = () => {
+    if (typeof window === 'undefined') return false
+    const w = window.innerWidth
+    return (w >= 640 && w <= 1024) || window.matchMedia('(min-width: 640px) and (max-width: 1024px)').matches
+  }
+  const isTablet = ref(getMatches())
 
-  const update = (event: MediaQueryListEvent | MediaQueryList) => {
-    isTablet.value = event.matches
+  const update = () => {
+    isTablet.value = getMatches()
   }
 
-  onMounted(() => mediaQuery.addEventListener('change', update))
-  onUnmounted(() => mediaQuery.removeEventListener('change', update))
+  onMounted(() => {
+    isTablet.value = getMatches()
+    window.addEventListener('resize', update, { passive: true })
+    window.addEventListener('orientationchange', update, { passive: true })
+    try {
+      window.matchMedia('(min-width: 640px) and (max-width: 1024px)').addEventListener('change', update)
+    } catch {}
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', update)
+    window.removeEventListener('orientationchange', update)
+    try {
+      window.matchMedia('(min-width: 640px) and (max-width: 1024px)').removeEventListener('change', update)
+    } catch {}
+  })
 
   return { isTablet }
 }
 
-export function useDesktopBreakpoint() {
-  const mediaQuery = window.matchMedia('(min-width: 1024px)')
-  const isDesktop = ref(mediaQuery.matches)
+export function useMobileOrTabletBreakpoint() {
+  const getMatches = () => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth <= 1024 || window.matchMedia('(max-width: 1024px)').matches
+  }
+  const isMobileOrTablet = ref(getMatches())
 
-  const update = (event: MediaQueryListEvent | MediaQueryList) => {
-    isDesktop.value = event.matches
+  const update = () => {
+    isMobileOrTablet.value = getMatches()
   }
 
-  onMounted(() => mediaQuery.addEventListener('change', update))
-  onUnmounted(() => mediaQuery.removeEventListener('change', update))
+  onMounted(() => {
+    isMobileOrTablet.value = getMatches()
+    window.addEventListener('resize', update, { passive: true })
+    window.addEventListener('orientationchange', update, { passive: true })
+    try {
+      window.matchMedia('(max-width: 1024px)').addEventListener('change', update)
+    } catch {}
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', update)
+    window.removeEventListener('orientationchange', update)
+    try {
+      window.matchMedia('(max-width: 1024px)').removeEventListener('change', update)
+    } catch {}
+  })
+
+  return { isMobileOrTablet }
+}
+
+export function useDesktopBreakpoint() {
+  const getMatches = () => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth > 1024 || window.matchMedia('(min-width: 1025px)').matches
+  }
+  const isDesktop = ref(getMatches())
+
+  const update = () => {
+    isDesktop.value = getMatches()
+  }
+
+  onMounted(() => {
+    isDesktop.value = getMatches()
+    window.addEventListener('resize', update, { passive: true })
+    window.addEventListener('orientationchange', update, { passive: true })
+    try {
+      window.matchMedia('(min-width: 1025px)').addEventListener('change', update)
+    } catch {}
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', update)
+    window.removeEventListener('orientationchange', update)
+    try {
+      window.matchMedia('(min-width: 1025px)').removeEventListener('change', update)
+    } catch {}
+  })
 
   return { isDesktop }
 }
