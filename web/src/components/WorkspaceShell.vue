@@ -264,7 +264,10 @@ function toggleProfile() {
   notificationsOpen.value = false
 }
 
+const targetStockAlertProductId = ref<number | null>(null)
+
 function openStockAlert(productId: number) {
+  targetStockAlertProductId.value = productId
   activePage.value = isMobileOrTablet.value ? 'products' : 'stock-levels'
   notificationsOpen.value = false
   const alert = notifications.value.find(item => item.productId === productId)
@@ -568,7 +571,18 @@ onUnmounted(() => {
           </section>
           <DashboardView v-else-if="activePage === 'dashboard'" key="dashboard" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
           <PointOfSaleView v-else-if="activePage === 'pos'" key="pos" :currency="user.currency" :shop-name="user.shopName" :role="user.role" />
-          <ProductsView v-else-if="activePage === 'products'" key="products" :currency="user.currency" :role="user.role" :user-email="user.email" :google-connected="user.googleConnected" @navigate-settings="activePage = 'settings'" />
+          <ProductsView
+            v-else-if="activePage === 'products'"
+            key="products"
+            :currency="user.currency"
+            :role="user.role"
+            :user-email="user.email"
+            :google-connected="user.googleConnected"
+            :target-stock-product-id="targetStockAlertProductId"
+            @navigate-settings="activePage = 'settings'"
+            @clear-target-stock-product="targetStockAlertProductId = null"
+            @stock-adjusted="loadNotifications"
+          />
           <StockLevelsView v-else-if="activePage === 'stock-levels' && !isMobileOrTablet" key="stock-levels" :currency="user.currency" :role="user.role" />
           <ReceiptsView v-else-if="activePage === 'receipts'" key="receipts" :shop-name="user.shopName" :currency="user.currency" />
           <SalesView v-else-if="activePage === 'sales'" key="sales" :shop-name="user.shopName" :currency="user.currency" />

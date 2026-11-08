@@ -34,10 +34,15 @@ import {
 const props = defineProps<{
   currency: string
   role: string
+  userEmail?: string
+  googleConnected?: boolean
+  targetStockProductId?: number | null
 }>()
 
 const emit = defineEmits<{
   'navigate-settings': []
+  'clear-target-stock-product': []
+  'stock-adjusted': []
 }>()
 
 const products = ref<Product[]>([])
@@ -462,6 +467,7 @@ async function loadProducts() {
     ])
     products.value = productResponse.products
     categoryNames.value = categoryResponse.categories
+    checkTargetStockProduct()
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : 'Products could not be loaded.'
   } finally {
@@ -551,6 +557,7 @@ async function saveProduct() {
     }
     closeForm()
     await loadProducts()
+    emit('stock-adjusted')
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : 'Product could not be saved.'
   } finally {
@@ -570,6 +577,27 @@ function openAdjustStock(product: Product) {
 function closeAdjustStock() {
   adjustingProduct.value = null
 }
+
+function checkTargetStockProduct() {
+  if (props.targetStockProductId == null || products.value.length === 0) return
+  const target = products.value.find(p => p.id === props.targetStockProductId)
+  if (target) {
+    selectedCategory.value = 'All Categories'
+    selectedStock.value = 'All Stock'
+    search.value = target.name
+    openAdjustStock(target)
+  }
+  emit('clear-target-stock-product')
+}
+
+watch(
+  () => props.targetStockProductId,
+  (newId) => {
+    if (newId != null) {
+      checkTargetStockProduct()
+    }
+  },
+)
 
 async function submitStockAdjustment() {
   if (!adjustingProduct.value) return
@@ -597,6 +625,7 @@ async function submitStockAdjustment() {
     closeAdjustStock()
     notice.value = `Stock updated for ${adjustedName}.`
     await loadProducts()
+    emit('stock-adjusted')
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : 'Stock could not be adjusted.'
   } finally {
