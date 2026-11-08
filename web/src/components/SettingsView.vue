@@ -1937,13 +1937,14 @@ onUnmounted(() => {
         </div>
 
         <!-- Add / Edit Printer Modal -->
-        <div v-if="showAddPrinterModal" class="modal-overlay" @click.self="showAddPrinterModal = false">
-          <div class="modal-content" style="max-width: 580px;">
+        <Teleport to="body">
+          <div v-if="showAddPrinterModal" class="modal-overlay printer-modal-overlay" @click.self="showAddPrinterModal = false">
+            <div class="modal-content printer-modal-content" style="max-width: 580px;">
             <div class="modal-header">
               <h3>{{ isPhone ? (isEditingPrinter ? 'Edit Bluetooth Printer' : 'Connect Bluetooth Thermal Printer') : (isEditingPrinter ? 'Edit POS Printer' : 'Add ESC/POS Thermal Printer') }}</h3>
               <button @click="showAddPrinterModal = false" class="close-btn"><X :size="20" /></button>
             </div>
-            <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1;">
+            <div class="modal-body printer-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1;">
               <div class="input-group full-width">
                 <label>Printer Display Name *</label>
                 <input type="text" v-model="printerForm.name" :placeholder="isPhone ? 'e.g. POS-58 Portable Bluetooth' : 'e.g. Main Counter POS-80'" />
@@ -2175,15 +2176,16 @@ onUnmounted(() => {
                 </label>
               </div>
 
-              <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
-                <button type="button" class="btn btn-outline cancel-printer-btn" @click="showAddPrinterModal = false">Cancel</button>
-                <button type="button" class="btn btn-primary save-printer-btn" @click="handleSavePrinterForm">
-                  {{ isEditingPrinter ? 'Update Printer' : 'Save Printer' }}
-                </button>
-              </div>
+            </div>
+            <div class="printer-modal-actions">
+              <button type="button" class="btn btn-outline cancel-printer-btn" @click="showAddPrinterModal = false">Cancel</button>
+              <button type="button" class="btn btn-primary save-printer-btn" @click="handleSavePrinterForm">
+                {{ isEditingPrinter ? 'Update Printer' : 'Save Printer' }}
+              </button>
             </div>
           </div>
-        </div>
+          </div>
+        </Teleport>
 
         <!-- Spooler Queue / Print History Modal -->
         <div v-if="showJobsModal" class="modal-overlay" @click.self="showJobsModal = false">
@@ -4121,6 +4123,35 @@ input:checked + .slider:before {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
+.printer-modal-content {
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+}
+
+.printer-modal-content > .modal-header {
+  flex: 0 0 auto;
+}
+
+.printer-modal-body {
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.printer-modal-actions {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.printer-modal-actions .btn {
+  min-height: 44px;
+}
+
 .modal-header {
   padding: 16px 24px;
   border-bottom: 1px solid var(--border-subtle);
@@ -4258,6 +4289,29 @@ input:checked + .slider:before {
 }
 
 @media (max-width: 639px) {
+  .printer-modal-overlay {
+    overflow-y: auto;
+    padding: max(8px, env(safe-area-inset-top)) 12px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .printer-modal-content {
+    max-height: calc(100vh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  .printer-modal-body {
+    padding: 16px !important;
+  }
+
+  .printer-modal-actions {
+    padding: 10px 16px max(10px, env(safe-area-inset-bottom));
+  }
+
+  .printer-modal-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
   .settings-page {
     display: flex;
     height: 100%;
