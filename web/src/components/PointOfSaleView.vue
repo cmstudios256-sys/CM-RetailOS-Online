@@ -3021,15 +3021,16 @@ onUnmounted(() => {
     display: flex !important;
     position: fixed;
     z-index: 45;
-    bottom: 0;
+    bottom: calc(58px + env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%);
-    width: min(580px, calc(100% - 32px));
-    max-height: min(85dvh, 740px);
-    min-height: 0;
+    width: min(600px, calc(100% - 32px));
+    height: min(82dvh, 880px);
+    max-height: min(86dvh, 920px);
+    min-height: min(68dvh, 600px);
     flex-direction: column;
     overflow: hidden;
-    border-radius: 20px 20px 0 0;
+    border-radius: 24px;
     background: #0d1527;
     border: 1px solid rgba(56, 189, 248, 0.28);
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), 0 0 24px rgba(56, 189, 248, 0.12);
@@ -3169,8 +3170,11 @@ onUnmounted(() => {
   }
 
   .tablet-pos .cart-items {
+    flex: 1 1 auto;
+    min-height: 220px;
+    max-height: none;
     gap: 8px;
-    padding: 8px;
+    padding: 8px 12px;
   }
 
   .tablet-pos .cart-item {

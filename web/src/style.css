@@ -2615,12 +2615,24 @@ input[type=number] {
       width: min(92vw, 620px) !important;
     }
 
-    .pos-container .cart-panel.mobile-cart-open {
+    .pos-container .cart-panel.mobile-cart-open,
+    .workspace-content .pos-container .cart-panel.mobile-cart-open {
       left: 50% !important;
       right: auto !important;
       transform: translateX(-50%) !important;
-      width: min(94vw, 620px) !important;
-      border-radius: 24px 24px 0 0 !important;
+      width: min(600px, calc(100% - 32px)) !important;
+      height: min(82dvh, 880px) !important;
+      max-height: min(86dvh, 920px) !important;
+      min-height: min(68dvh, 600px) !important;
+      bottom: calc(58px + env(safe-area-inset-bottom)) !important;
+      border-radius: 24px !important;
+    }
+
+    .workspace-content .pos-container .mobile-cart-open .cart-items,
+    .pos-container .mobile-cart-open .cart-items {
+      max-height: none !important;
+      flex: 1 1 auto !important;
+      min-height: 220px !important;
     }
   }
 
@@ -2750,7 +2762,7 @@ input[type=number] {
 
   .workspace-content .pos-container .mobile-cart-open .cart-items {
     flex: 1 1 auto;
-    max-height: 28dvh;
+    max-height: 44dvh;
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 8px 10px;
