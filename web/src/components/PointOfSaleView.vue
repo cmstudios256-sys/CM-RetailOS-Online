@@ -730,8 +730,8 @@ async function checkout() {
 let gridResizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-  mobileTouch.value = isTouchDevice() || isPhone.value
-  cameraSupported.value = typeof navigator !== 'undefined' && (!!navigator.mediaDevices?.getUserMedia || isPhone.value)
+  mobileTouch.value = isTouchDevice() || isPhone.value || isTablet.value
+  cameraSupported.value = typeof navigator !== 'undefined' && (!!navigator.mediaDevices?.getUserMedia || isPhone.value || isTablet.value)
   loadProducts()
   updatePosGridColumns()
   if (posGridRef.value && typeof ResizeObserver !== 'undefined') {

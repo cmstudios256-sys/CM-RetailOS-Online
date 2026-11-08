@@ -1700,7 +1700,7 @@ input[type=number] {
   display: none;
 }
 
-@media (min-width: 640px) and (max-width: 1023px) {
+@media (min-width: 640px) and (max-width: 1024px) {
   .page-shell.authenticated-shell {
     height: 100dvh;
     min-height: 0;
@@ -1708,17 +1708,14 @@ input[type=number] {
   }
 
   .workspace-shell {
+    width: 100%;
     height: 100%;
     min-height: 0;
-    display: grid;
-    grid-template-columns: 72px minmax(0, 1fr);
+    display: block;
   }
 
   .workspace-sidebar {
-    display: flex;
-    min-width: 0;
-    height: 100%;
-    overflow: hidden;
+    display: none !important;
   }
 
   .workspace-brand {
@@ -1816,9 +1813,20 @@ input[type=number] {
     gap: 4px;
   }
 
-  .mobile-bottom-nav,
+  .mobile-bottom-nav {
+    display: grid !important;
+  }
+
   .mobile-more-menu {
-    display: none !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(94vw, 560px) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .page-shell:has(.workspace-shell) .workspace-content {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important;
   }
 
   .workspace-content button,
@@ -1990,7 +1998,7 @@ input[type=number] {
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: 1024px) {
   .page-shell.authenticated-shell {
     width: 100%;
     height: 100dvh;
@@ -2569,6 +2577,23 @@ input[type=number] {
     box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.22), 0 4px 14px rgba(15, 23, 42, 0.1);
   }
 
+  @media (min-width: 640px) and (max-width: 1024px) {
+    .workspace-content .pos-container .mobile-cart-toggle {
+      left: 50% !important;
+      right: auto !important;
+      transform: translateX(-50%) !important;
+      width: min(92vw, 620px) !important;
+    }
+
+    .pos-container .cart-panel.mobile-cart-open {
+      left: 50% !important;
+      right: auto !important;
+      transform: translateX(-50%) !important;
+      width: min(94vw, 620px) !important;
+      border-radius: 24px 24px 0 0 !important;
+    }
+  }
+
   .mobile-cart-slide-enter-active,
   .mobile-cart-slide-leave-active {
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease-out;
@@ -2750,7 +2775,7 @@ input[type=number] {
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: 1024px) {
   .workspace-content .date-picker-btn.date-picker-btn {
     width: 40px;
     min-width: 40px;
@@ -3195,6 +3220,14 @@ body:has(.workspace-shell) {
   }
 }
 
+@media (min-width: 640px) and (max-width: 1024px) {
+  .products-skeleton-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    padding: 8px 4px;
+  }
+}
+
 /* Bottom Sheet Drag Area */
 .mobile-sheet-drag-area {
   display: flex;
@@ -3512,7 +3545,7 @@ body:has(.workspace-shell) {
   border-top: 1px solid var(--border-subtle);
 }
 
-@media (max-width: 639px) {
+@media (max-width: 1024px) {
   .workspace-content .card {
     padding: 12px 10px;
     border-radius: 12px;
@@ -3659,7 +3692,7 @@ body:has(.workspace-shell) {
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: 1024px) {
   html:has(.workspace-shell) {
     height: auto;
     max-height: none;

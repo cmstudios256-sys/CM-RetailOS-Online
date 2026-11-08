@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
-import { usePhoneBreakpoint } from '../utils/breakpoints'
+import { useMobileOrTabletBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 import {
   AlertTriangle,
@@ -54,7 +54,8 @@ const error = ref('')
 const notice = ref('')
 const isDropdownOpen = ref(false)
 const { isPhone } = usePhoneBreakpoint()
-const viewMode = computed<'grid' | 'list'>(() => (isPhone.value ? 'grid' : 'list'))
+const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
+const viewMode = computed<'grid' | 'list'>(() => (isMobileOrTablet.value ? 'grid' : 'list'))
 
 const showForm = ref(false)
 const editingProductId = ref<number | null>(null)
@@ -334,10 +335,16 @@ const filteredProducts = computed(() => {
 
 const productsGridRef = ref<HTMLElement | null>(null)
 const productsGridColumns = ref(3)
-const productsGridRowHeight = computed(() => isPhone.value ? 234 : 360)
+const productsGridRowHeight = computed(() => isPhone.value ? 234 : 252)
 
 function updateProductsGridColumns() {
-  productsGridColumns.value = isPhone.value ? 2 : 3
+  if (isPhone.value) {
+    productsGridColumns.value = 2
+  } else if (isMobileOrTablet.value) {
+    productsGridColumns.value = window.innerWidth >= 768 ? 3 : 2
+  } else {
+    productsGridColumns.value = 3
+  }
 }
 
 const productsGridRowCount = computed(() =>
@@ -708,7 +715,7 @@ async function confirmDeleteProduct() {
 }
 
 onMounted(() => {
-  cameraSupported.value = typeof navigator !== 'undefined' && (!!navigator.mediaDevices?.getUserMedia || isPhone.value)
+  cameraSupported.value = typeof navigator !== 'undefined' && (!!navigator.mediaDevices?.getUserMedia || isMobileOrTablet.value)
   void loadProducts()
   updateProductsGridColumns()
   window.addEventListener('click', closeDropdown)
@@ -851,7 +858,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-if="isPhone" ref="productsGridRef" class="products-grid">
+      <div v-if="isMobileOrTablet" ref="productsGridRef" class="products-grid">
         <div v-if="showSkeleton" class="products-skeleton-grid">
           <div v-for="i in 6" :key="i" class="product-grid-card">
             <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
@@ -883,7 +890,7 @@ onUnmounted(() => {
             class="virtual-grid-row products-virtual-row"
             :style="{
               transform: `translateY(${virtualRow.start}px)`,
-              height: isPhone ? '226px' : '348px',
+              height: isPhone ? '226px' : '248px',
               gridTemplateColumns: `repeat(${productsGridColumns}, minmax(0, 1fr))`,
             }"
           >

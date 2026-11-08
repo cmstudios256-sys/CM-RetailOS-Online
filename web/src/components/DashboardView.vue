@@ -12,7 +12,7 @@ import { apiRequest, formatAxisValue, formatQuantity, type Product } from '../ap
 import { getThemeColors, hexToRgba } from '../utils/chartColors'
 import AppDatePicker from './AppDatePicker.vue'
 import DashboardSalesChart from './DashboardSalesChart.vue'
-import { usePhoneBreakpoint } from '../utils/breakpoints'
+import { useMobileOrTabletBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 
 type Period = 'Daily' | 'Weekly' | 'Monthly'
@@ -24,6 +24,7 @@ type ChartPoint = {
 }
 
 const { isPhone } = usePhoneBreakpoint()
+const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
 
 type TopProduct = {
   name: string
@@ -460,7 +461,7 @@ onUnmounted(() => {
               <p class="card-subtitle">{{ selectedPeriod }} revenue & profitability timeline</p>
             </div>
             <AppDatePicker
-              v-if="isPhone"
+              v-if="isMobileOrTablet"
               v-model="reportDate"
               placeholder="Filter by date"
               title="Filter Sales Overview by Date"
@@ -505,7 +506,7 @@ onUnmounted(() => {
               </button>
             </div>
             <AppDatePicker
-              v-if="!isPhone"
+              v-if="!isMobileOrTablet"
               v-model="reportDate"
               placeholder="Filter chart by date"
               title="Filter Sales Overview by Date"
@@ -520,7 +521,7 @@ onUnmounted(() => {
             <DashboardSalesChart
               :chart-data="salesChartData"
               :currency-symbol="activeCurrency"
-              :is-phone="isPhone"
+              :is-phone="isMobileOrTablet"
             />
           </div>
 
@@ -533,7 +534,7 @@ onUnmounted(() => {
             >
               <div class="stat-badge-row">
                 <span class="chart-stat-label">{{ stat.label }}</span>
-                <span v-if="!isPhone" class="stat-badge">{{ stat.sub }}</span>
+                <span v-if="!isMobileOrTablet" class="stat-badge">{{ stat.sub }}</span>
               </div>
               <span class="chart-stat-value">{{ stat.value }}</span>
             </div>
@@ -549,7 +550,7 @@ onUnmounted(() => {
             <div class="title-with-icon">
               <h3 class="card-title">Top Selling Products</h3>
               <AppDatePicker
-                v-if="!isPhone"
+                v-if="!isMobileOrTablet"
                 v-model="topSellingDate"
                 placeholder="Filter by date"
                 title="Filter Top Selling Products by Date"
@@ -558,7 +559,7 @@ onUnmounted(() => {
               />
             </div>
             <button
-              v-if="!isPhone"
+              v-if="!isMobileOrTablet"
               type="button"
               class="rotation-switch is-off"
               role="switch"
@@ -592,7 +593,7 @@ onUnmounted(() => {
           <div class="rotating-card-header">
             <h3 class="card-title">Stock Alerts</h3>
             <button
-              v-if="!isPhone"
+              v-if="!isMobileOrTablet"
               type="button"
               class="rotation-switch is-on"
               role="switch"
