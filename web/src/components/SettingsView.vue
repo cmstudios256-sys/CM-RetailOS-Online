@@ -40,10 +40,12 @@ import {
   sendToBluetoothPrinter,
   isWebBluetoothSupported,
 } from '../utils/bluetoothPrinter'
-import { usePhoneBreakpoint } from '../utils/breakpoints'
+import { useMobileOrTabletBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import CustomSelect from './CustomSelect.vue'
 
 const { isPhone } = usePhoneBreakpoint()
+const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
+const isMobile = computed(() => isMobileOrTablet.value || isPhone.value)
 
 const props = defineProps<{
   shopName: string
@@ -387,7 +389,7 @@ const filteredSettingsMenu = computed(() => {
   return settingsMenu.map(category => ({
     ...category,
     items: category.items.filter(item => {
-      if (isPhone.value && (item.id === 'appearance-theme' || item.id === 'pos-config')) {
+      if (isMobile.value && (item.id === 'appearance-theme' || item.id === 'pos-config')) {
         return false
       }
       return true
@@ -395,8 +397,8 @@ const filteredSettingsMenu = computed(() => {
   })).filter(category => category.items.length > 0)
 })
 
-watch(isPhone, (phone) => {
-  if (phone) {
+watch(isMobile, (mobile) => {
+  if (mobile) {
     if (activeTab.value === 'appearance-theme' || activeTab.value === 'pos-config') {
       activeTab.value = 'business-info'
     }
@@ -537,7 +539,7 @@ function loadLocalPrefs() {
     if (parsed.localizationSettings) {
       Object.assign(appSettings.value.localizationSettings, parsed.localizationSettings)
     }
-    if (isPhone.value) {
+    if (isMobile.value) {
       appSettings.value.applicationSettings.autoClearCart = true
       appSettings.value.applicationSettings.barcodeBeep = true
       appSettings.value.applicationSettings.showPosImages = true
@@ -720,11 +722,11 @@ const printerToDelete = ref<PrinterConfig | null>(null)
 
 const selectedPaperWidth = computed(() => {
   const defaultPrinter = configuredPrinters.value.find(p => p.isDefault) || configuredPrinters.value[0]
-  return defaultPrinter?.paperWidth || appSettings.value.receiptsSettings.paperWidth || (isPhone.value ? '58mm' : '80mm')
+  return defaultPrinter?.paperWidth || appSettings.value.receiptsSettings.paperWidth || (isMobile.value ? '58mm' : '80mm')
 })
 
 const displayedPrinters = computed(() => {
-  if (isPhone.value) {
+  if (isMobile.value) {
     return configuredPrinters.value.filter(p => p.connectionType === 'bluetooth')
   }
   return configuredPrinters.value
@@ -817,17 +819,17 @@ function selectDiscoveredPrinter(dp: { name: string; port: string; connectionTyp
 
 function openAddPrinter() {
   isEditingPrinter.value = false
-  const defaultConn = isPhone.value ? 'bluetooth' : 'winraw'
-  const defaultWidth = isPhone.value ? '58mm' : '80mm'
+  const defaultConn = isMobile.value ? 'bluetooth' : 'winraw'
+  const defaultWidth = isMobile.value ? '58mm' : '80mm'
   printerForm.value = {
     id: `prn-${Date.now()}`,
-    name: isPhone.value ? 'POS-58 Bluetooth Thermal Printer' : '',
+    name: isMobile.value ? 'POS-58 Bluetooth Thermal Printer' : '',
     protocol: 'escpos',
     connectionType: defaultConn,
-    address: isPhone.value ? 'POS-58' : '',
+    address: isMobile.value ? 'POS-58' : '',
     paperWidth: defaultWidth,
     characterWidth: defaultWidth === '58mm' ? 32 : 48,
-    isDefault: configuredPrinters.value.length === 0 || isPhone.value,
+    isDefault: configuredPrinters.value.length === 0 || isMobile.value,
     capabilities: {
       supportsCut: true,
       supportsQRCode: true,
@@ -935,7 +937,7 @@ function confirmDeletePrinter() {
 
 async function handleTestPrinterCard(printer: PrinterConfig) {
   isTestingPrinterId.value = printer.id
-  if (printer.connectionType === 'bluetooth' || isPhone.value) {
+  if (printer.connectionType === 'bluetooth' || isMobile.value) {
     const width = (printer.paperWidth === '80mm' ? '80mm' : '58mm') as '58mm' | '80mm'
     const bytes = buildEscPosTestPrint(printer.name, width)
     const res = await sendToBluetoothPrinter(printer as any, bytes)
@@ -1441,7 +1443,7 @@ onUnmounted(() => {
                 <div class="card-body">
                   <div class="input-group full-width">
                     <label>Country</label>
-                    <select v-if="isPhone" v-model="selectedCountry" class="mobile-country-select">
+                    <select v-if="isMobile" v-model="selectedCountry" class="mobile-country-select">
                       <option v-for="c in countryOptions" :key="c.value" :value="c.value">{{ c.label }}</option>
                     </select>
                     <CustomSelect v-else v-model="selectedCountry" :options="countryOptions" :fullWidth="true" />
@@ -1464,7 +1466,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Mobile Action Bar -->
-            <div v-if="isPhone" class="mobile-save-section">
+            <div v-if="isMobile" class="mobile-save-section">
               <button
                 type="button"
                 class="btn btn-primary mobile-save-btn"
@@ -1486,7 +1488,7 @@ onUnmounted(() => {
       <template v-else-if="activeTab === 'receipt-printing'">
         <div class="receipt-tab-container" style="display: flex; flex-direction: column; gap: 16px; width: 100%; flex-shrink: 0;">
           <!-- Mobile Unified Bluetooth Printer Card -->
-          <div v-if="isPhone" class="form-card full-width mobile-bt-unified-card">
+          <div v-if="isMobile" class="form-card full-width mobile-bt-unified-card">
             <div class="mobile-bt-header">
               <div class="mobile-bt-header-left">
                 <div class="mobile-bt-icon-bubble">
@@ -1850,7 +1852,7 @@ onUnmounted(() => {
               </div>
 
               <!-- Mobile Save Button for Receipt Settings -->
-              <div v-if="isPhone" class="mobile-save-section" style="margin-top: 14px;">
+              <div v-if="isMobile" class="mobile-save-section" style="margin-top: 14px;">
                 <button
                   type="button"
                   class="btn btn-primary mobile-save-btn"
@@ -1867,7 +1869,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Live Preview Side (Desktop Only) -->
-            <div v-if="!isPhone" class="preview-column">
+            <div v-if="!isMobile" class="preview-column">
               <div class="preview-container">
                 <div class="receipt-preview-wrapper">
                   <div :class="['receipt-paper', selectedPaperWidth === '58mm' ? 'paper-58mm' : 'paper-80mm']">
@@ -1941,17 +1943,17 @@ onUnmounted(() => {
           <div v-if="showAddPrinterModal" class="modal-overlay printer-modal-overlay" @click.self="showAddPrinterModal = false">
             <div class="modal-content printer-modal-content" style="max-width: 580px;">
             <div class="modal-header">
-              <h3>{{ isPhone ? (isEditingPrinter ? 'Edit Bluetooth Printer' : 'Connect Bluetooth Thermal Printer') : (isEditingPrinter ? 'Edit POS Printer' : 'Add ESC/POS Thermal Printer') }}</h3>
+              <h3>{{ isMobile ? (isEditingPrinter ? 'Edit Bluetooth Printer' : 'Connect Bluetooth Thermal Printer') : (isEditingPrinter ? 'Edit POS Printer' : 'Add ESC/POS Thermal Printer') }}</h3>
               <button @click="showAddPrinterModal = false" class="close-btn"><X :size="20" /></button>
             </div>
             <div class="modal-body printer-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; flex: 1;">
               <div class="input-group full-width">
                 <label>Printer Display Name *</label>
-                <input type="text" v-model="printerForm.name" :placeholder="isPhone ? 'e.g. POS-58 Portable Bluetooth' : 'e.g. Main Counter POS-80'" />
+                <input type="text" v-model="printerForm.name" :placeholder="isMobile ? 'e.g. POS-58 Portable Bluetooth' : 'e.g. Main Counter POS-80'" />
               </div>
 
               <!-- Connection Protocol / Transport (Desktop Only) -->
-              <div v-if="!isPhone" class="input-group full-width">
+              <div v-if="!isMobile" class="input-group full-width">
                 <label>Connection Protocol / Transport</label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
                   <button
@@ -1995,7 +1997,7 @@ onUnmounted(() => {
 
               <!-- Bluetooth Thermal Printer Section (Always on mobile, or when Bluetooth chosen) -->
               <div
-                v-if="isPhone || printerForm.connectionType === 'bluetooth'"
+                v-if="isMobile || printerForm.connectionType === 'bluetooth'"
                 style="background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px;"
               >
                 <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
@@ -2269,7 +2271,7 @@ onUnmounted(() => {
       </template>
 
       <!-- POS Configuration -->
-      <template v-else-if="!isPhone && activeTab === 'pos-config'">
+      <template v-else-if="!isMobile && activeTab === 'pos-config'">
         <div class="form-grid">
           <!-- Checkout Workflow -->
           <div class="form-card">
@@ -2332,7 +2334,7 @@ onUnmounted(() => {
               <h3>Display</h3>
             </div>
             <div class="card-body toggle-list">
-              <div v-if="!isPhone" class="toggle-group">
+              <div v-if="!isMobile" class="toggle-group">
                 <div class="toggle-info">
                   <span class="toggle-label">Enlarge Product Image on Hover</span>
                   <span class="toggle-desc">Show a larger image when hovering over a product in the POS grid.</span>
@@ -2368,7 +2370,7 @@ onUnmounted(() => {
       </template>
 
       <!-- Appearance & Theme -->
-      <template v-else-if="!isPhone && activeTab === 'appearance-theme'">
+      <template v-else-if="!isMobile && activeTab === 'appearance-theme'">
         <div class="form-grid">
           <div class="form-card full-width theme-selection-card">
             <div class="card-header">
@@ -4337,6 +4339,33 @@ input:checked + .slider:before {
     min-height: 0;
     flex: 1 1 auto;
     overflow-y: auto;
+  }
+
+  .mobile-country-select {
+    width: 100% !important;
+    min-height: 44px !important;
+    font-size: 14px !important;
+    border-radius: 8px !important;
+    padding: 9px 12px !important;
+    box-sizing: border-box !important;
+    border: 1px solid var(--border-subtle) !important;
+    background-color: rgba(30, 41, 59, 0.72) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .mobile-save-section {
+    padding: 16px 0 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .mobile-save-btn {
+    width: 100% !important;
+    max-width: 320px !important;
+    min-height: 44px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
   }
 }
 
