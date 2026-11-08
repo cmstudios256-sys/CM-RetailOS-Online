@@ -1637,6 +1637,8 @@ onUnmounted(() => {
   gap: 0.5rem;
   align-items: center;
   flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
 }
 
 .summary-badge {
@@ -1647,6 +1649,9 @@ onUnmounted(() => {
   display: flex;
   align-items: baseline;
   gap: 0.4rem;
+  pointer-events: none;
+  user-select: none;
+  cursor: default;
 }
 
 .summary-badge:nth-child(2) {
@@ -1721,6 +1726,7 @@ onUnmounted(() => {
   height: 100%;
   box-sizing: border-box;
   overflow: hidden;
+  cursor: default;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
@@ -3346,6 +3352,8 @@ tbody tr:hover {
     gap: 6px !important;
     margin: 0 !important;
     padding: 0 !important;
+    pointer-events: none !important;
+    user-select: none !important;
   }
 
   .summary-badge {
@@ -3354,6 +3362,9 @@ tbody tr:hover {
     padding: 6px 8px !important;
     border: none !important;
     border-left: none !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    cursor: default !important;
   }
 
   .summary-badge:nth-child(2) {

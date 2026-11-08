@@ -199,6 +199,12 @@ const isDesktopLockedPage = computed(() =>
 const isMobileLockedStockLevels = computed(() =>
   isMobileOrTablet.value && activePage.value === 'stock-levels',
 )
+
+function isPageDisabled(pageId: string): boolean {
+  if (isMobileOrTablet.value && pageId === 'stock-levels') return true
+  if (!isDesktop.value && Object.prototype.hasOwnProperty.call(desktopOnlyPages, pageId)) return true
+  return false
+}
 const pageTitle = computed(() => props.user.shopName || 'My Business')
 const now = ref(new Date())
 const dateText = computed(() => {
@@ -281,6 +287,13 @@ watch(isMobileOrTablet, (mobileOrTablet) => {
 })
 
 function navigateToPage(pageId: string) {
+  if (activePage.value === pageId) {
+    mobileMoreOpen.value = false
+    return
+  }
+  if (isPageDisabled(pageId)) {
+    return
+  }
   activePage.value = pageId
   mobileMoreOpen.value = false
 }
@@ -429,10 +442,11 @@ onUnmounted(() => {
             v-for="item in group.items"
             :key="item.id"
             type="button"
-            :class="['workspace-nav-item', { active: activePage === item.id }]"
+            :class="['workspace-nav-item', { active: activePage === item.id, disabled: activePage === item.id || isPageDisabled(item.id) }]"
             :aria-current="activePage === item.id ? 'page' : undefined"
+            :disabled="activePage === item.id || isPageDisabled(item.id)"
             :title="item.label"
-            @click="activePage = item.id"
+            @click="navigateToPage(item.id)"
           >
             <component :is="item.icon" :size="19" />
             <span>{{ item.label }}</span>
@@ -598,8 +612,9 @@ onUnmounted(() => {
           v-for="item in mobilePrimaryNavigation"
           :key="item.id"
           type="button"
-          :class="{ active: activePage === item.id }"
+          :class="{ active: activePage === item.id, disabled: activePage === item.id || isPageDisabled(item.id) }"
           :aria-current="activePage === item.id ? 'page' : undefined"
+          :disabled="activePage === item.id || isPageDisabled(item.id)"
           @click="navigateToPage(item.id)"
         >
           <span class="nav-icon-container">
@@ -633,8 +648,9 @@ onUnmounted(() => {
             :key="item.id"
             type="button"
             role="menuitem"
-            :class="{ active: activePage === item.id }"
+            :class="{ active: activePage === item.id, disabled: activePage === item.id || isPageDisabled(item.id) }"
             :aria-current="activePage === item.id ? 'page' : undefined"
+            :disabled="activePage === item.id || isPageDisabled(item.id)"
             @click="navigateToPage(item.id)"
           >
             <component :is="item.icon" :size="18" />

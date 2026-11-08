@@ -38,9 +38,8 @@ input[type="month"] {
 
 button:active:not(:disabled),
 .button:active:not(:disabled),
-.mobile-bottom-nav > button:active,
-.mobile-more-menu button:active,
-.card:active,
+.mobile-bottom-nav > button:not(:disabled):not(.active):active,
+.mobile-more-menu button:not(:disabled):not(.active):active,
 .stat-card:active,
 .action-button:active,
 .product-card:active {
@@ -2281,8 +2280,18 @@ input[type=number] {
     font-weight: 600;
   }
 
-  .mobile-bottom-nav > button:active .nav-icon-container {
+  .mobile-bottom-nav > button:not(:disabled):not(.active):active .nav-icon-container {
     transform: scale(0.92);
+  }
+
+  .mobile-bottom-nav > button:disabled,
+  .mobile-bottom-nav > button.active {
+    cursor: default;
+  }
+
+  .mobile-bottom-nav > button:disabled:active .nav-icon-container,
+  .mobile-bottom-nav > button.active:active .nav-icon-container {
+    transform: none !important;
   }
 
   .mobile-more-menu {
