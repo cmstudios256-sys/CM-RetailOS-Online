@@ -113,6 +113,10 @@ watch([isPhone, isTablet], ([phone, tablet]) => {
 const productImagePreview = ref<{ src: string; alt: string; left: number; top: number } | null>(null)
 
 function updateProductImagePreview(event: MouseEvent, product: Product) {
+  if (isPhone.value || isTablet.value || mobileTouch.value) {
+    hideProductImagePreview()
+    return
+  }
   if (!product.image) {
     hideProductImagePreview()
     return
@@ -892,8 +896,8 @@ onUnmounted(() => {
                   v-if="shouldShowPosImages"
                   class="product-image-small"
                   :class="{ 'has-image': !!product.image }"
-                  @pointerenter="!isPhone && product.image && updateProductImagePreview($event, product)"
-                  @pointermove="!isPhone && product.image && updateProductImagePreview($event, product)"
+                  @pointerenter="!isPhone && !isTablet && !mobileTouch && product.image && updateProductImagePreview($event, product)"
+                  @pointermove="!isPhone && !isTablet && !mobileTouch && product.image && updateProductImagePreview($event, product)"
                   @pointerleave="hideProductImagePreview"
                 >
                   <img
@@ -1268,7 +1272,7 @@ onUnmounted(() => {
     </Teleport>
     <Teleport to="body">
       <div
-        v-if="productImagePreview && !isPhone"
+        v-if="productImagePreview && !isPhone && !isTablet && !mobileTouch"
         class="product-image-hover-preview"
         :style="{ left: `${productImagePreview.left}px`, top: `${productImagePreview.top}px` }"
         aria-hidden="true"
@@ -1874,12 +1878,6 @@ onUnmounted(() => {
   border: 1px solid #cbd5e1;
 }
 
-.product-card:hover .product-image-small {
-  transform: scale(1.04);
-  border-color: rgba(14, 165, 233, 0.35);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-}
-
 .real-product-img {
   width: 100%;
   height: 100%;
@@ -1913,10 +1911,37 @@ onUnmounted(() => {
   transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
-.product-card:hover .fallback-icon {
-  color: var(--accent-color, #38bdf8);
-  opacity: 1;
-  transform: scale(1.06);
+@media (hover: hover) and (pointer: fine) and (min-width: 1081px) {
+  .product-card:hover .product-image-small {
+    transform: scale(1.04);
+    border-color: rgba(14, 165, 233, 0.35);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+
+  .product-card:hover .fallback-icon {
+    color: var(--accent-color, #38bdf8);
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@media (max-width: 1080px), (hover: none), (pointer: coarse) {
+  .product-card:hover .product-image-small,
+  .product-card:active .product-image-small,
+  .product-image-small {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .product-card:hover .fallback-icon,
+  .product-card:active .fallback-icon,
+  .fallback-icon {
+    transform: none !important;
+  }
+
+  .product-image-hover-preview {
+    display: none !important;
+  }
 }
 
 /* Floating Hover Preview */
