@@ -4448,7 +4448,6 @@ input:checked + .slider:before {
   }
 
   .category-title,
-  .menu-category:last-child,
   .sidebar-menu + .sidebar-feedback,
   .settings-sidebar > div[style],
   .settings-sidebar > div:not(.sidebar-feedback):last-child {
@@ -4840,6 +4839,71 @@ input:checked + .slider:before {
     background: rgba(239, 68, 68, 0.15);
     border: 1px solid rgba(239, 68, 68, 0.35);
     color: #ef4444;
+  }
+
+  /* Mobile About Page Optimization */
+  .about-grid {
+    gap: 12px;
+    padding-bottom: 32px;
+  }
+
+  .about-hero-card {
+    padding: 18px 16px;
+    gap: 16px;
+  }
+
+  .app-logo-block {
+    gap: 14px;
+  }
+
+  .app-logo-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .app-identity h2 {
+    font-size: 19px;
+  }
+
+  .app-tagline {
+    font-size: 12px;
+  }
+
+  .version-badges {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .version-badge {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 10px 8px;
+    text-align: center;
+  }
+
+  .mvd-item {
+    padding: 18px 16px;
+    gap: 14px;
+  }
+
+  .mvd-divider {
+    margin: 0 16px;
+  }
+
+  .mvd-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+  }
+
+  .mvd-text h3 {
+    font-size: 16px;
+  }
+
+  .mvd-text p {
+    font-size: 13px;
+    line-height: 1.55;
   }
 }
 
