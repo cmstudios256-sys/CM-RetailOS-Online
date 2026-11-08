@@ -144,19 +144,19 @@ const gradientPlugin = {
       if (!chartArea) return
       const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom)
       const border = String(lineDataset.borderColor || '').toLowerCase()
-      const { complement } = getThemeColors()
+      const { accent } = getThemeColors()
 
-      // If this dataset represents the sales revenue line/fill, use complementary color with alpha gradient
+      // If this dataset represents the sales revenue line/fill, use blue/accent gradient
       const isProfit = border.includes('10b981') || border.includes('16, 185, 129')
       if (isProfit) {
         gradient.addColorStop(0, hexToRgba('#10b981', 0.38))
         gradient.addColorStop(0.5, hexToRgba('#10b981', 0.1))
         gradient.addColorStop(1, hexToRgba('#10b981', 0.0))
       } else {
-        // Use complementary color for the gradient fill matching mother repo
-        gradient.addColorStop(0, hexToRgba(complement, 0.4))
-        gradient.addColorStop(0.5, hexToRgba(complement, 0.1))
-        gradient.addColorStop(1, hexToRgba(complement, 0.0))
+        const color = accent || '#0ea5e9'
+        gradient.addColorStop(0, hexToRgba(color, 0.38))
+        gradient.addColorStop(0.5, hexToRgba(color, 0.12))
+        gradient.addColorStop(1, hexToRgba(color, 0.0))
       }
       lineDataset.backgroundColor = gradient
     }
