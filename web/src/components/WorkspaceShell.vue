@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useDesktopBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
+import { useDesktopBreakpoint, useMobileOrTabletBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import { useBottomSheetDrag } from '../utils/useBottomSheetDrag'
 import {
   BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, Download, FileClock, History, LayoutDashboard,
@@ -57,6 +57,7 @@ const emit = defineEmits<{
 const activePage = ref('dashboard')
 const { isDesktop } = useDesktopBreakpoint()
 const { isPhone } = usePhoneBreakpoint()
+const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
 const isGuest = computed(() => props.guestMode === true)
 const sidebarCollapsed = ref(false)
 const mobileMoreOpen = ref(false)
@@ -174,7 +175,7 @@ const visibleNavigationGroups = computed(() => navigationGroups
     items: group.items.filter(item =>
       hasNavPermission(item.id) &&
       (isDesktop.value || !['profit-analytics', 'business-intelligence', 'audit-logs'].includes(item.id)) &&
-      (!isPhone.value || item.id !== 'stock-levels'),
+      (!isMobileOrTablet.value || item.id !== 'stock-levels'),
     ),
   }))
   .filter(group => group.items.length > 0))
@@ -195,8 +196,8 @@ const desktopLockedPageName = computed(() => desktopOnlyPages[activePage.value] 
 const isDesktopLockedPage = computed(() =>
   !isDesktop.value && Object.prototype.hasOwnProperty.call(desktopOnlyPages, activePage.value),
 )
-const isPhoneLockedStockLevels = computed(() =>
-  isPhone.value && activePage.value === 'stock-levels',
+const isMobileLockedStockLevels = computed(() =>
+  isMobileOrTablet.value && activePage.value === 'stock-levels',
 )
 const pageTitle = computed(() => props.user.shopName || 'My Business')
 const now = ref(new Date())
@@ -264,11 +265,17 @@ function toggleProfile() {
 }
 
 function openStockAlert(productId: number) {
-  activePage.value = isPhone.value ? 'products' : 'stock-levels'
+  activePage.value = isMobileOrTablet.value ? 'products' : 'stock-levels'
   notificationsOpen.value = false
   const alert = notifications.value.find(item => item.productId === productId)
   if (alert) alert.read = true
 }
+
+watch(isMobileOrTablet, (mobileOrTablet) => {
+  if (mobileOrTablet && activePage.value === 'stock-levels') {
+    activePage.value = 'products'
+  }
+})
 
 function navigateToPage(pageId: string) {
   activePage.value = pageId
@@ -299,7 +306,7 @@ function handlePrefsUpdated() {
   applyOnlinePrefsToDom()
   if (!navigation.value.some(item => item.id === activePage.value)
     && !Object.prototype.hasOwnProperty.call(desktopOnlyPages, activePage.value)
-    && !isPhoneLockedStockLevels.value
+    && !isMobileLockedStockLevels.value
     && navigation.value.length > 0) {
     activePage.value = navigation.value[0].id
   }
@@ -366,9 +373,9 @@ onMounted(() => {
   if (requestedPage && (
     navigation.value.some(item => item.id === requestedPage) ||
     Object.prototype.hasOwnProperty.call(desktopOnlyPages, requestedPage) ||
-    (isPhone.value && requestedPage === 'stock-levels')
+    (isMobileOrTablet.value && requestedPage === 'stock-levels')
   )) {
-    activePage.value = requestedPage
+    activePage.value = isMobileOrTablet.value && requestedPage === 'stock-levels' ? 'products' : requestedPage
     if (params.get('claim') !== 'guest') params.delete('page')
     params.delete('google_linked')
     const query = params.toString()
@@ -378,7 +385,7 @@ onMounted(() => {
   void syncOnlinePrefsFromServer(props.user.id)
   if (!navigation.value.some(item => item.id === activePage.value)
     && !Object.prototype.hasOwnProperty.call(desktopOnlyPages, activePage.value)
-    && !isPhoneLockedStockLevels.value
+    && !isMobileLockedStockLevels.value
     && navigation.value.length > 0) {
     activePage.value = navigation.value[0].id
   }
@@ -549,10 +556,10 @@ onUnmounted(() => {
 
       <main class="workspace-content">
         <Transition name="view-fade" mode="out-in">
-          <section v-if="isPhoneLockedStockLevels" key="phone-locked" class="desktop-only-state" role="status" aria-live="polite">
+          <section v-if="isMobileLockedStockLevels" key="mobile-stock-locked" class="desktop-only-state" role="status" aria-live="polite">
             <div class="desktop-only-icon"><Boxes :size="30" /></div>
             <h2>Stock Levels</h2>
-            <p>Stock Levels is available from the Products page on mobile — use product stock controls instead.</p>
+            <p>Stock Levels is available on desktop. Use Products to view and adjust stock on tablet and mobile.</p>
           </section>
           <section v-else-if="isDesktopLockedPage" key="desktop-locked" class="desktop-only-state" role="status" aria-live="polite">
             <div class="desktop-only-icon"><Monitor :size="30" /></div>
@@ -562,7 +569,7 @@ onUnmounted(() => {
           <DashboardView v-else-if="activePage === 'dashboard'" key="dashboard" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
           <PointOfSaleView v-else-if="activePage === 'pos'" key="pos" :currency="user.currency" :shop-name="user.shopName" :role="user.role" />
           <ProductsView v-else-if="activePage === 'products'" key="products" :currency="user.currency" :role="user.role" :user-email="user.email" :google-connected="user.googleConnected" @navigate-settings="activePage = 'settings'" />
-          <StockLevelsView v-else-if="activePage === 'stock-levels'" key="stock-levels" :currency="user.currency" :role="user.role" />
+          <StockLevelsView v-else-if="activePage === 'stock-levels' && !isMobileOrTablet" key="stock-levels" :currency="user.currency" :role="user.role" />
           <ReceiptsView v-else-if="activePage === 'receipts'" key="receipts" :shop-name="user.shopName" :currency="user.currency" />
           <SalesView v-else-if="activePage === 'sales'" key="sales" :shop-name="user.shopName" :currency="user.currency" />
           <ProfitAnalyticsView v-else-if="activePage === 'profit-analytics'" key="profit-analytics" :shop-name="user.shopName" :currency="user.currency" />
