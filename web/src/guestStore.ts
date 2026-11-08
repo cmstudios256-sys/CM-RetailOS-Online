@@ -21,7 +21,7 @@ export type GuestSettings = {
 }
 
 export type GuestBundle = {
-  schemaVersion: 1 | 2 | 3 | 4 | 5
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6
   guestDeviceId: string
   idempotencyKey: string
   products: Product[]
@@ -81,16 +81,590 @@ export function getGuestDeviceId(): string {
   return deviceId
 }
 
+function generateEan13(index: number): string {
+  const base = `640000${String(index).padStart(6, '0')}`
+  let sum = 0
+  for (let i = 0; i < 12; i++) {
+    sum += Number(base[i]) * (i % 2 === 0 ? 1 : 3)
+  }
+  const checksum = (10 - (sum % 10)) % 10
+  return `${base}${checksum}`
+}
+
+export function createDemoProducts(): Product[] {
+  const items: Array<{
+    name: string
+    category: string
+    unit: string
+    sellingPrice: number
+    costPrice: number
+    quantity: number
+    minStock: number
+    sku: string
+    image?: string
+  }> = [
+    // 1-3: Footwear
+    {
+      name: 'Classic Red Sneakers',
+      category: 'Footwear',
+      unit: 'pair',
+      sellingPrice: 125000,
+      costPrice: 85000,
+      quantity: 18,
+      minStock: 5,
+      sku: 'FTW-SNK-001',
+      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'White Canvas Low-Tops',
+      category: 'Footwear',
+      unit: 'pair',
+      sellingPrice: 85000,
+      costPrice: 55000,
+      quantity: 12,
+      minStock: 4,
+      sku: 'FTW-CNV-002',
+      image: 'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Leather Oxford Dress Shoes',
+      category: 'Footwear',
+      unit: 'pair',
+      sellingPrice: 180000,
+      costPrice: 120000,
+      quantity: 8,
+      minStock: 3,
+      sku: 'FTW-OXF-003',
+      image: 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=400&auto=format&fit=crop&q=80',
+    },
+
+    // 4-10: Electronics
+    {
+      name: 'Studio Wireless Headphones',
+      category: 'Electronics',
+      unit: 'pcs',
+      sellingPrice: 185000,
+      costPrice: 120000,
+      quantity: 7,
+      minStock: 3,
+      sku: 'ELC-HDP-004',
+      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Instant Film Camera',
+      category: 'Electronics',
+      unit: 'pcs',
+      sellingPrice: 320000,
+      costPrice: 230000,
+      quantity: 5,
+      minStock: 2,
+      sku: 'ELC-CAM-005',
+      image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Bluetooth Speaker Mini',
+      category: 'Electronics',
+      unit: 'pcs',
+      sellingPrice: 75000,
+      costPrice: 48000,
+      quantity: 14,
+      minStock: 4,
+      sku: 'ELC-SPK-006',
+      image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'True Wireless Earbuds',
+      category: 'Electronics',
+      unit: 'pcs',
+      sellingPrice: 95000,
+      costPrice: 60000,
+      quantity: 16,
+      minStock: 4,
+      sku: 'ELC-EAR-007',
+      image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'USB-C Fast Charging Cable',
+      category: 'Electronics',
+      unit: 'pcs',
+      sellingPrice: 15000,
+      costPrice: 7500,
+      quantity: 45,
+      minStock: 10,
+      sku: 'ELC-CBL-008',
+    },
+    {
+      name: '20W USB-C Power Adapter',
+      category: 'Electronics',
+      unit: 'pcs',
+      sellingPrice: 35000,
+      costPrice: 20000,
+      quantity: 22,
+      minStock: 5,
+      sku: 'ELC-ADP-009',
+    },
+    {
+      name: '20000mAh Power Bank',
+      category: 'Electronics',
+      unit: 'pcs',
+      sellingPrice: 85000,
+      costPrice: 55000,
+      quantity: 11,
+      minStock: 3,
+      sku: 'ELC-PWR-010',
+    },
+
+    // 11-15: Accessories
+    {
+      name: 'Everyday Water Bottle',
+      category: 'Accessories',
+      unit: 'pcs',
+      sellingPrice: 28000,
+      costPrice: 16000,
+      quantity: 24,
+      minStock: 8,
+      sku: 'ACC-BTL-011',
+      image: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Minimalist Wristwatch',
+      category: 'Accessories',
+      unit: 'pcs',
+      sellingPrice: 95000,
+      costPrice: 62000,
+      quantity: 2,
+      minStock: 5,
+      sku: 'ACC-WCH-012',
+      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Polarized Sunglasses',
+      category: 'Accessories',
+      unit: 'pcs',
+      sellingPrice: 45000,
+      costPrice: 26000,
+      quantity: 15,
+      minStock: 5,
+      sku: 'ACC-SUN-013',
+      image: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Classic Canvas Backpack',
+      category: 'Accessories',
+      unit: 'pcs',
+      sellingPrice: 75000,
+      costPrice: 48000,
+      quantity: 10,
+      minStock: 3,
+      sku: 'ACC-BPK-014',
+      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Genuine Leather Bi-fold Wallet',
+      category: 'Accessories',
+      unit: 'pcs',
+      sellingPrice: 55000,
+      costPrice: 32000,
+      quantity: 14,
+      minStock: 4,
+      sku: 'ACC-WLT-015',
+    },
+
+    // 16-30: Groceries
+    {
+      name: 'Medium Roast Coffee Beans 500g',
+      category: 'Groceries',
+      unit: 'pack',
+      sellingPrice: 42000,
+      costPrice: 26000,
+      quantity: 9,
+      minStock: 3,
+      sku: 'GRO-COF-016',
+      image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Pure Granulated Sugar 1kg',
+      category: 'Groceries',
+      unit: 'pack',
+      sellingPrice: 4500,
+      costPrice: 3200,
+      quantity: 65,
+      minStock: 15,
+      sku: 'GRO-SUG-017',
+    },
+    {
+      name: 'Premium Long Grain Rice 2kg',
+      category: 'Groceries',
+      unit: 'pack',
+      sellingPrice: 8500,
+      costPrice: 6000,
+      quantity: 42,
+      minStock: 10,
+      sku: 'GRO-RIC-018',
+    },
+    {
+      name: 'Pure Vegetable Cooking Oil 1L',
+      category: 'Groceries',
+      unit: 'bottle',
+      sellingPrice: 11500,
+      costPrice: 7800,
+      quantity: 30,
+      minStock: 8,
+      sku: 'GRO-OIL-019',
+    },
+    {
+      name: 'Fortified Maize Flour 2kg',
+      category: 'Groceries',
+      unit: 'pack',
+      sellingPrice: 4800,
+      costPrice: 3400,
+      quantity: 50,
+      minStock: 12,
+      sku: 'GRO-MAZ-020',
+    },
+    {
+      name: 'Sliced Whole Wheat Bread 800g',
+      category: 'Groceries',
+      unit: 'loaf',
+      sellingPrice: 4200,
+      costPrice: 2700,
+      quantity: 25,
+      minStock: 6,
+      sku: 'GRO-BRD-021',
+    },
+    {
+      name: 'Fresh Farm Egg Tray (30 pcs)',
+      category: 'Groceries',
+      unit: 'tray',
+      sellingPrice: 13500,
+      costPrice: 9500,
+      quantity: 18,
+      minStock: 5,
+      sku: 'GRO-EGG-022',
+    },
+    {
+      name: 'Full Cream Milk Powder 400g',
+      category: 'Groceries',
+      unit: 'tin',
+      sellingPrice: 14500,
+      costPrice: 10500,
+      quantity: 20,
+      minStock: 5,
+      sku: 'GRO-MLK-023',
+    },
+    {
+      name: 'Iodized Table Salt 1kg',
+      category: 'Groceries',
+      unit: 'pack',
+      sellingPrice: 2800,
+      costPrice: 2000,
+      quantity: 80,
+      minStock: 20,
+      sku: 'GRO-SLT-024',
+    },
+    {
+      name: 'Organic Black Tea Leaves 250g',
+      category: 'Groceries',
+      unit: 'pack',
+      sellingPrice: 4500,
+      costPrice: 2900,
+      quantity: 34,
+      minStock: 8,
+      sku: 'GRO-TEA-025',
+    },
+    {
+      name: 'Tomato Puree & Paste 400g',
+      category: 'Groceries',
+      unit: 'can',
+      sellingPrice: 3500,
+      costPrice: 2100,
+      quantity: 38,
+      minStock: 10,
+      sku: 'GRO-TOM-026',
+    },
+    {
+      name: 'Dry Red Haricot Beans 1kg',
+      category: 'Groceries',
+      unit: 'pack',
+      sellingPrice: 5200,
+      costPrice: 3400,
+      quantity: 40,
+      minStock: 10,
+      sku: 'GRO-BEN-027',
+    },
+    {
+      name: 'Roasted Groundnuts 500g',
+      category: 'Groceries',
+      unit: 'pack',
+      sellingPrice: 7500,
+      costPrice: 4500,
+      quantity: 28,
+      minStock: 6,
+      sku: 'GRO-GNT-028',
+    },
+    {
+      name: 'Pure Blossom Honey 500g',
+      category: 'Groceries',
+      unit: 'jar',
+      sellingPrice: 16000,
+      costPrice: 10000,
+      quantity: 15,
+      minStock: 4,
+      sku: 'GRO-HNY-029',
+    },
+    {
+      name: 'Rolled Oats Cereal 1kg',
+      category: 'Groceries',
+      unit: 'pack',
+      sellingPrice: 14000,
+      costPrice: 9000,
+      quantity: 19,
+      minStock: 5,
+      sku: 'GRO-OAT-030',
+    },
+
+    // 31-38: Beverages
+    {
+      name: 'Sparkling Mineral Water 500ml',
+      category: 'Beverages',
+      unit: 'bottle',
+      sellingPrice: 1500,
+      costPrice: 900,
+      quantity: 96,
+      minStock: 24,
+      sku: 'BEV-WTR-031',
+    },
+    {
+      name: 'Cola Carbonated Soft Drink 500ml',
+      category: 'Beverages',
+      unit: 'bottle',
+      sellingPrice: 1500,
+      costPrice: 950,
+      quantity: 72,
+      minStock: 20,
+      sku: 'BEV-COL-032',
+    },
+    {
+      name: 'Orange Citrus Soda 500ml',
+      category: 'Beverages',
+      unit: 'bottle',
+      sellingPrice: 1500,
+      costPrice: 950,
+      quantity: 60,
+      minStock: 20,
+      sku: 'BEV-ORN-033',
+    },
+    {
+      name: 'Fresh Passion Fruit Juice 1L',
+      category: 'Beverages',
+      unit: 'carton',
+      sellingPrice: 6500,
+      costPrice: 4000,
+      quantity: 22,
+      minStock: 6,
+      sku: 'BEV-PSN-034',
+    },
+    {
+      name: 'Mango Nectar Juice 500ml',
+      category: 'Beverages',
+      unit: 'bottle',
+      sellingPrice: 3500,
+      costPrice: 2100,
+      quantity: 35,
+      minStock: 10,
+      sku: 'BEV-MNG-035',
+    },
+    {
+      name: 'Premium Energy Drink 400ml',
+      category: 'Beverages',
+      unit: 'can',
+      sellingPrice: 4000,
+      costPrice: 2600,
+      quantity: 45,
+      minStock: 12,
+      sku: 'BEV-ENG-036',
+    },
+    {
+      name: 'Fresh Pasteurized Milk 500ml',
+      category: 'Beverages',
+      unit: 'pack',
+      sellingPrice: 2200,
+      costPrice: 1400,
+      quantity: 30,
+      minStock: 8,
+      sku: 'BEV-MLK-037',
+    },
+    {
+      name: 'Strawberry Drinking Yoghurt 500ml',
+      category: 'Beverages',
+      unit: 'bottle',
+      sellingPrice: 3800,
+      costPrice: 2400,
+      quantity: 24,
+      minStock: 6,
+      sku: 'BEV-YGH-038',
+    },
+
+    // 39-43: Snacks
+    {
+      name: 'Salted Potato Crisps 120g',
+      category: 'Snacks',
+      unit: 'pack',
+      sellingPrice: 3500,
+      costPrice: 1800,
+      quantity: 40,
+      minStock: 10,
+      sku: 'SNK-POT-039',
+    },
+    {
+      name: 'Cheddar Cheese Crackers 150g',
+      category: 'Snacks',
+      unit: 'pack',
+      sellingPrice: 4500,
+      costPrice: 2300,
+      quantity: 32,
+      minStock: 8,
+      sku: 'SNK-CHK-040',
+    },
+    {
+      name: 'Dark Chocolate Bar 100g',
+      category: 'Snacks',
+      unit: 'piece',
+      sellingPrice: 5500,
+      costPrice: 3000,
+      quantity: 28,
+      minStock: 6,
+      sku: 'SNK-CHB-041',
+    },
+    {
+      name: 'Butter Shortbread Cookies 200g',
+      category: 'Snacks',
+      unit: 'pack',
+      sellingPrice: 6000,
+      costPrice: 3200,
+      quantity: 25,
+      minStock: 6,
+      sku: 'SNK-CKI-042',
+    },
+    {
+      name: 'Sweet Caramel Popcorn 100g',
+      category: 'Snacks',
+      unit: 'pack',
+      sellingPrice: 2500,
+      costPrice: 1200,
+      quantity: 45,
+      minStock: 12,
+      sku: 'SNK-POP-043',
+    },
+
+    // 44-47: Personal Care
+    {
+      name: 'Herbal Toothpaste 100ml',
+      category: 'Personal Care',
+      unit: 'tube',
+      sellingPrice: 5500,
+      costPrice: 3400,
+      quantity: 35,
+      minStock: 8,
+      sku: 'PER-TPS-044',
+    },
+    {
+      name: 'Soft Bristle Toothbrush 2-Pack',
+      category: 'Personal Care',
+      unit: 'pack',
+      sellingPrice: 4500,
+      costPrice: 2200,
+      quantity: 40,
+      minStock: 10,
+      sku: 'PER-TBR-045',
+    },
+    {
+      name: 'Antibacterial Body Soap 150g',
+      category: 'Personal Care',
+      unit: 'piece',
+      sellingPrice: 3500,
+      costPrice: 1900,
+      quantity: 55,
+      minStock: 15,
+      sku: 'PER-SOP-046',
+    },
+    {
+      name: 'Nourishing Cocoa Body Lotion 400ml',
+      category: 'Personal Care',
+      unit: 'bottle',
+      sellingPrice: 13500,
+      costPrice: 8500,
+      quantity: 18,
+      minStock: 5,
+      sku: 'PER-LTN-047',
+    },
+
+    // 48-50: Household
+    {
+      name: 'Bio Laundry Detergent Powder 1kg',
+      category: 'Household',
+      unit: 'pack',
+      sellingPrice: 9500,
+      costPrice: 6200,
+      quantity: 26,
+      minStock: 6,
+      sku: 'HOU-DET-048',
+    },
+    {
+      name: 'Lemon Antibacterial Dish Soap 500ml',
+      category: 'Household',
+      unit: 'bottle',
+      sellingPrice: 4500,
+      costPrice: 2600,
+      quantity: 34,
+      minStock: 8,
+      sku: 'HOU-DSH-049',
+    },
+    {
+      name: 'Multi-Surface Floor Cleaner 1L',
+      category: 'Household',
+      unit: 'bottle',
+      sellingPrice: 12000,
+      costPrice: 7500,
+      quantity: 20,
+      minStock: 5,
+      sku: 'HOU-FLR-050',
+    },
+  ]
+
+  return items.map((item, index) => ({
+    id: index + 1,
+    sku: item.sku,
+    name: item.name,
+    category: item.category,
+    barcode: generateEan13(index + 1),
+    unit: item.unit,
+    sellingPrice: item.sellingPrice,
+    costPrice: item.costPrice,
+    quantity: item.quantity,
+    minStock: item.minStock,
+    image: item.image,
+    active: true,
+  }))
+}
+
 function seedState(): GuestState {
+  const demo = createDemoProducts()
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     guestDeviceId: getGuestDeviceId(),
     idempotencyKey: uuid(),
     demoData: false,
-    products: [],
-    categories: [],
+    products: demo,
+    categories: Array.from(new Set(demo.map(p => p.category))).sort(),
     sales: [],
-    stockMovements: [],
+    stockMovements: demo.map(p => ({
+      id: uuid(),
+      productId: p.id,
+      quantityDelta: p.quantity,
+      reason: 'Opening stock',
+      createdAt: new Date().toISOString(),
+    })),
     settings: {
       shopName: 'My Shop',
       currency: 'UGX',
@@ -120,14 +694,15 @@ function readState(): GuestState {
     || !Array.isArray(state.categories)) {
     throw new Error('Guest data could not be read. Clear this browser’s CM RetailOS guest data and reload.')
   }
-  // Auto-clear legacy seeded demo data to initialize a clean production workspace
-  if (state.demoData) {
-    const clean = seedState()
-    writeState(clean)
-    return clean
+  if (state.products.length === 0 || (state.schemaVersion && state.schemaVersion < 6)) {
+    const demo = createDemoProducts()
+    state.products = demo
+    state.categories = Array.from(new Set(demo.map(p => p.category))).sort()
+    state.schemaVersion = 6
+    writeState(state)
   }
-  if (state.schemaVersion !== 5) {
-    state.schemaVersion = 5
+  if (state.schemaVersion !== 6) {
+    state.schemaVersion = 6
     writeState(state)
   }
   return state
