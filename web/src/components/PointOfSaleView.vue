@@ -82,7 +82,7 @@ let cameraControls: IScannerControls | null = null
 let cameraSession = 0
 const search = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
-const searchPlaceholder = computed(() => isPhone.value ? 'Search products' : 'Scan barcode or search products...')
+const searchPlaceholder = computed(() => isPhone.value || isTablet.value ? 'Search products' : 'Scan barcode or search products...')
 let savedViewMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_pos_view_mode') : null) as 'list' | 'grid' | null
 const viewMode = ref<'list' | 'grid'>(
   isPhone.value || isTablet.value ? 'grid' : savedViewMode === 'list' ? 'list' : 'grid',
@@ -98,16 +98,12 @@ function setViewMode(mode: 'list' | 'grid') {
 
 watch([isPhone, isTablet], ([phone, tablet]) => {
   updatePosGridColumns()
-  if (phone) {
+  if (phone || tablet) {
     viewMode.value = 'grid'
-    mobileTouch.value = true
+    mobileTouch.value = isTouchDevice() || phone || tablet
     if (typeof navigator !== 'undefined') {
       cameraSupported.value = true
     }
-  } else if (tablet) {
-    viewMode.value = 'grid'
-    mobileTouch.value = isTouchDevice()
-    cameraSupported.value = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
   } else {
     viewMode.value = savedViewMode === 'list' ? 'list' : 'grid'
     mobileTouch.value = isTouchDevice()
@@ -272,10 +268,16 @@ const filteredProducts = computed(() => {
 
 const posGridRef = ref<HTMLElement | null>(null)
 const posGridColumns = ref(3)
-const posGridRowHeight = computed(() => isPhone.value ? 132 : isTablet.value ? 126 : 158)
+const posGridRowHeight = computed(() => isPhone.value ? 132 : isTablet.value ? 132 : 158)
 
 function updatePosGridColumns() {
-  posGridColumns.value = isPhone.value ? 2 : 3
+  if (isPhone.value) {
+    posGridColumns.value = 2
+  } else if (isTablet.value) {
+    posGridColumns.value = window.innerWidth >= 768 ? 4 : 3
+  } else {
+    posGridColumns.value = 3
+  }
 }
 
 function updateTabletBreakpoint(event: MediaQueryListEvent) {
@@ -498,7 +500,7 @@ function closeBarcodeCamera() {
 }
 
 function openReceiptShare(sale: Sale) {
-  if (mobileTouch.value || isPhone.value) shareSale.value = sale
+  if (mobileTouch.value || isPhone.value || isTablet.value) shareSale.value = sale
 }
 
 function handleSearchInputEnter() {
@@ -601,7 +603,7 @@ function printCompletedReceipt(sale: Sale) {
   const settings = shopSettings.value
   const storeTitle = settings?.shopName || props.shopName
 
-  if (isPhone.value) {
+  if (isPhone.value || isTablet.value) {
     const btPrinter = getDefaultBluetoothPrinter()
     if (btPrinter) {
       const bytes = buildEscPosReceipt(sale, {
@@ -715,8 +717,9 @@ async function checkout() {
     completedSale.value = result.sale
     triggerSuccessToast(`Sale #${shortSaleId(result.sale.id)} completed (${formatMoney(result.sale.total, props.currency)})`)
     const prefs = readOnlinePrefs()
-    if (isPhone.value || prefs.applicationSettings?.autoClearCart !== false) {
+    if (isPhone.value || isTablet.value || prefs.applicationSettings?.autoClearCart !== false) {
       clearCart()
+      mobileCartOpen.value = false
     }
     if (prefs.receiptsSettings?.autoPrint) {
       printCompletedReceipt(result.sale)
@@ -826,7 +829,7 @@ onUnmounted(() => {
               v-model="search"
               type="text"
               :placeholder="searchPlaceholder"
-              :aria-label="isPhone ? 'Search products' : 'Scan barcode or search products'"
+              :aria-label="isPhone || isTablet ? 'Search products' : 'Scan barcode or search products'"
               @keydown.enter.prevent="handleSearchInputEnter"
             />
             <div class="scanner-indicator" title="Hardware & Bluetooth scanner ready • Sunmi, Zebra, Honeywell & Bluetooth scanners supported">
@@ -835,7 +838,7 @@ onUnmounted(() => {
             </div>
           </div>
           <button
-            v-if="cameraSupported && (isPhone || mobileTouch)"
+            v-if="cameraSupported && (isPhone || isTablet || mobileTouch)"
             type="button"
             class="mobile-scan-button"
             @click="openBarcodeCamera"
@@ -862,7 +865,7 @@ onUnmounted(() => {
             class="virtual-grid-row"
             :style="{
               transform: `translateY(${virtualRow.start}px)`,
-              gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : isTablet ? 'repeat(3, minmax(0, 1fr))' : 'repeat(3, minmax(0, 185px))',
+              gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : isTablet ? `repeat(${posGridColumns}, minmax(0, 1fr))` : 'repeat(3, minmax(0, 185px))',
             }"
           >
             <div
@@ -1035,7 +1038,7 @@ onUnmounted(() => {
           <Printer :size="15" /> Print Receipt
         </button>
         <button
-          v-if="mobileTouch || isPhone"
+          v-if="mobileTouch || isPhone || isTablet"
           type="button"
           class="mobile-receipt-share"
           @click="openReceiptShare(completedSale)"
@@ -2966,25 +2969,167 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-@media (min-width: 640px) and (max-width: 960px) {
-  .pos-container {
-    flex-direction: row;
-    gap: 8px;
-    overflow: hidden;
-  }
-
-  .products-panel {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-
-  .cart-panel {
-    flex: 0 0 38%;
-    min-width: 220px;
-  }
-}
-
 @media (min-width: 640px) and (max-width: 1024px) {
+  .pos-container.tablet-pos {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  .tablet-pos .products-panel {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: none !important;
+    border-radius: 0;
+  }
+
+  .tablet-pos .cart-panel {
+    display: none;
+  }
+
+  .tablet-pos .cart-panel.mobile-cart-open {
+    display: flex !important;
+    position: fixed;
+    z-index: 45;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(580px, calc(100% - 32px));
+    max-height: min(85dvh, 740px);
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 20px 20px 0 0;
+    background: #0d1527;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), 0 0 24px rgba(56, 189, 248, 0.12);
+    backdrop-filter: blur(16px);
+    animation: mobileCartSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  [data-theme='light'] .tablet-pos .cart-panel.mobile-cart-open {
+    background: #ffffff;
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22), 0 0 24px rgba(14, 165, 233, 0.1);
+  }
+
+  .tablet-pos .mobile-cart-toggle {
+    display: flex !important;
+    position: fixed;
+    z-index: 39;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(540px, calc(100% - 120px));
+    min-height: 54px;
+    padding: 0 18px 0 16px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: none !important;
+    outline: none !important;
+    border-radius: 9999px;
+    color: #f1f5f9;
+    background: #111b2d;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+    font-size: 13.5px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: transform 0.14s ease, box-shadow 0.16s ease;
+  }
+
+  [data-theme='light'] .tablet-pos .mobile-cart-toggle {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.22), 0 4px 14px rgba(15, 23, 42, 0.1);
+  }
+
+  .tablet-pos .mobile-cart-backdrop {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 44;
+  }
+
+  [data-theme='light'] .tablet-pos .mobile-cart-backdrop {
+    background: rgba(15, 23, 42, 0.45);
+  }
+
+  .tablet-pos .mobile-cart-close {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  .tablet-pos .mobile-sheet-drag-area {
+    display: block !important;
+    padding: 8px 0 4px;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .tablet-pos .mobile-sheet-drag-handle {
+    display: block !important;
+    width: 44px;
+    height: 4px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.25);
+    margin: 0 auto;
+  }
+
+  [data-theme='light'] .tablet-pos .mobile-sheet-drag-handle {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .tablet-pos.has-cart-items .pos-scroll-bottom-spacer {
+    display: block !important;
+    height: 90px;
+    flex-shrink: 0;
+  }
+
+  .tablet-pos .mobile-scan-button {
+    height: 38px;
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 12px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    gap: 6px;
+    display: inline-flex;
+    align-items: center;
+    border: none !important;
+    outline: none !important;
+    background: rgba(14, 165, 233, 0.18);
+    color: #38bdf8;
+    cursor: pointer;
+  }
+
+  [data-theme='light'] .tablet-pos .mobile-scan-button {
+    background: var(--accent-color) !important;
+    color: #ffffff !important;
+  }
+
   .tablet-pos .panel-header {
     min-height: 56px;
     padding: 8px 10px;
@@ -3076,7 +3221,6 @@ onUnmounted(() => {
   }
 
   .tablet-pos .virtual-grid-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 8px;
   }
 
