@@ -204,7 +204,8 @@ const salesSummaryStats = computed(() => {
 
 const displayedTopProducts = computed(() => {
   const list = dashboard.value?.topProducts || []
-  return isPhone.value ? list.slice(0, 3) : list
+  if (isPhone.value) return list.slice(0, 3)
+  return list.slice(0, 10)
 })
 
 const salesChartData = computed(() => {

@@ -1307,7 +1307,7 @@ func loadTopProducts(ctx context.Context, db *sql.DB, shopID string, start, end 
 		WHERE s.shop_id = $1
 		GROUP BY si.product_id, si.product_name
 		ORDER BY sum(si.quantity) DESC, sum(si.line_total) DESC
-		LIMIT 5`
+		LIMIT 15`
 	args := []any{shopID}
 	if start != nil && end != nil {
 		query = `
@@ -1318,7 +1318,7 @@ func loadTopProducts(ctx context.Context, db *sql.DB, shopID string, start, end 
 			WHERE s.shop_id = $1 AND s.completed_at >= $2 AND s.completed_at < $3
 			GROUP BY si.product_id, si.product_name
 			ORDER BY sum(si.quantity) DESC, sum(si.line_total) DESC
-			LIMIT 5`
+			LIMIT 15`
 		args = append(args, *start, *end)
 	}
 	rows, err := db.QueryContext(ctx, query, args...)

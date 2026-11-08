@@ -21,7 +21,7 @@ export type GuestSettings = {
 }
 
 export type GuestBundle = {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7
   guestDeviceId: string
   idempotencyKey: string
   products: Product[]
@@ -648,16 +648,267 @@ export function createDemoProducts(): Product[] {
   }))
 }
 
+export function createDemoSales(products: Product[]): Sale[] {
+  const prodMap = new Map(products.map(p => [p.id, p]))
+  const now = new Date()
+
+  const getTime = (daysAgo: number, hour: number, minute: number): string => {
+    const d = new Date(now)
+    d.setDate(d.getDate() - daysAgo)
+    d.setHours(hour, minute, 0, 0)
+    return d.toISOString()
+  }
+
+  const rawSales: Array<{
+    id: string
+    customer: string
+    payment: 'cash' | 'mobile_money' | 'card'
+    completedAt: string
+    discount?: number
+    items: Array<{ productId: number; quantity: number }>
+  }> = [
+    // Today's Sales
+    {
+      id: 'SALE-801',
+      customer: 'Sarah Kigozi',
+      payment: 'mobile_money',
+      completedAt: getTime(0, 8, 30),
+      items: [
+        { productId: 26, quantity: 2 }, // Whole Wheat Bread
+        { productId: 31, quantity: 1 }, // Premium Ground Coffee
+      ],
+    },
+    {
+      id: 'SALE-802',
+      customer: 'David Mukasa',
+      payment: 'cash',
+      completedAt: getTime(0, 9, 45),
+      items: [
+        { productId: 5, quantity: 1 },  // Wireless Headphones
+        { productId: 7, quantity: 1 },  // 20W Power Adapter
+      ],
+    },
+    {
+      id: 'SALE-803',
+      customer: 'Amina Nalubega',
+      payment: 'mobile_money',
+      completedAt: getTime(0, 11, 15),
+      items: [
+        { productId: 22, quantity: 2 }, // Basmati Rice 5kg
+        { productId: 25, quantity: 1 }, // Sunflower Cooking Oil
+        { productId: 41, quantity: 3 }, // Antibacterial Body Soap
+      ],
+    },
+    {
+      id: 'SALE-804',
+      customer: 'Brian Okello',
+      payment: 'cash',
+      completedAt: getTime(0, 12, 40),
+      items: [
+        { productId: 1, quantity: 1 },  // Classic Red Sneakers
+        { productId: 17, quantity: 1 }, // Everyday Water Bottle
+      ],
+    },
+    {
+      id: 'SALE-805',
+      customer: 'Grace Tumusiime',
+      payment: 'card',
+      completedAt: getTime(0, 14, 20),
+      discount: 10000,
+      items: [
+        { productId: 15, quantity: 1 }, // Stainless Steel Watch
+        { productId: 12, quantity: 1 }, // Polarized Sunglasses
+      ],
+    },
+    {
+      id: 'SALE-806',
+      customer: 'Patrick Waiswa',
+      payment: 'mobile_money',
+      completedAt: getTime(0, 15, 50),
+      items: [
+        { productId: 8, quantity: 2 },  // 20000mAh Power Bank
+        { productId: 6, quantity: 1 },  // Bluetooth Speaker Mini
+      ],
+    },
+    {
+      id: 'SALE-807',
+      customer: 'Ritah Atuhaire',
+      payment: 'cash',
+      completedAt: getTime(0, 17, 10),
+      items: [
+        { productId: 11, quantity: 1 }, // Classic Canvas Backpack
+        { productId: 37, quantity: 2 }, // Dark Chocolate Bar
+      ],
+    },
+    {
+      id: 'SALE-808',
+      customer: 'Walk-in Customer',
+      payment: 'cash',
+      completedAt: getTime(0, 18, 30),
+      items: [
+        { productId: 6, quantity: 1 },  // Bluetooth Speaker Mini
+        { productId: 7, quantity: 1 },  // 20W Power Adapter
+      ],
+    },
+
+    // Yesterday's Sales
+    {
+      id: 'SALE-701',
+      customer: 'Fatuma Kemigisha',
+      payment: 'mobile_money',
+      completedAt: getTime(1, 9, 20),
+      items: [
+        { productId: 5, quantity: 2 },  // Wireless Headphones
+        { productId: 11, quantity: 1 }, // Canvas Backpack
+      ],
+    },
+    {
+      id: 'SALE-702',
+      customer: 'Samuel Egesa',
+      payment: 'cash',
+      completedAt: getTime(1, 11, 40),
+      items: [
+        { productId: 3, quantity: 1 },  // Leather Oxford Shoes
+      ],
+    },
+    {
+      id: 'SALE-703',
+      customer: 'John Baptist',
+      payment: 'card',
+      completedAt: getTime(1, 14, 15),
+      items: [
+        { productId: 1, quantity: 2 },  // Classic Red Sneakers
+        { productId: 8, quantity: 1 },  // Power Bank
+      ],
+    },
+    {
+      id: 'SALE-704',
+      customer: 'Walk-in Customer',
+      payment: 'cash',
+      completedAt: getTime(1, 16, 50),
+      items: [
+        { productId: 22, quantity: 3 }, // Basmati Rice
+        { productId: 25, quantity: 2 }, // Sunflower Cooking Oil
+      ],
+    },
+
+    // Earlier This Week
+    {
+      id: 'SALE-601',
+      customer: 'Christine Nabatanzi',
+      payment: 'mobile_money',
+      completedAt: getTime(2, 10, 10),
+      items: [
+        { productId: 15, quantity: 2 }, // Stainless Steel Watch
+      ],
+    },
+    {
+      id: 'SALE-602',
+      customer: 'Moses Kato',
+      payment: 'cash',
+      completedAt: getTime(2, 13, 30),
+      items: [
+        { productId: 3, quantity: 1 },  // Leather Oxford Shoes
+        { productId: 1, quantity: 1 },  // Classic Red Sneakers
+      ],
+    },
+    {
+      id: 'SALE-603',
+      customer: 'Doreen Namutebi',
+      payment: 'card',
+      completedAt: getTime(2, 16, 0),
+      items: [
+        { productId: 6, quantity: 2 },  // Bluetooth Speaker Mini
+        { productId: 8, quantity: 1 },  // Power Bank
+      ],
+    },
+    {
+      id: 'SALE-501',
+      customer: 'Isaac Mugisha',
+      payment: 'cash',
+      completedAt: getTime(3, 11, 20),
+      items: [
+        { productId: 5, quantity: 1 },  // Wireless Headphones
+        { productId: 12, quantity: 2 }, // Polarized Sunglasses
+      ],
+    },
+    {
+      id: 'SALE-502',
+      customer: 'Hellen Kyomugisha',
+      payment: 'mobile_money',
+      completedAt: getTime(3, 15, 10),
+      items: [
+        { productId: 1, quantity: 1 },  // Classic Red Sneakers
+        { productId: 11, quantity: 1 }, // Canvas Backpack
+        { productId: 17, quantity: 2 }, // Water Bottle
+      ],
+    },
+    {
+      id: 'SALE-401',
+      customer: 'Robert Asiimwe',
+      payment: 'card',
+      completedAt: getTime(4, 12, 15),
+      items: [
+        { productId: 22, quantity: 1 }, // Basmati Rice
+        { productId: 25, quantity: 2 }, // Cooking Oil
+        { productId: 31, quantity: 2 }, // Ground Coffee
+      ],
+    },
+    {
+      id: 'SALE-301',
+      customer: 'Agnes Mbabazi',
+      payment: 'mobile_money',
+      completedAt: getTime(5, 14, 45),
+      items: [
+        { productId: 17, quantity: 2 }, // Water Bottle
+        { productId: 37, quantity: 4 }, // Dark Chocolate
+      ],
+    },
+  ]
+
+  return rawSales.map(s => {
+    const saleItems: SaleItem[] = s.items.map(it => {
+      const prod = prodMap.get(it.productId)
+      const unitPrice = prod?.sellingPrice || 10000
+      const unitCost = prod?.costPrice || 6000
+      const lineTotal = it.quantity * unitPrice
+      return {
+        productId: it.productId,
+        productName: prod?.name || `Product #${it.productId}`,
+        quantity: it.quantity,
+        unitPrice,
+        unitCost,
+        lineTotal,
+      }
+    })
+    const subtotal = saleItems.reduce((sum, item) => sum + item.lineTotal, 0)
+    const discount = s.discount || 0
+    const total = Math.max(0, subtotal - discount)
+    return {
+      id: s.id,
+      cashierName: 'Shop Owner',
+      customerName: s.customer,
+      subtotal,
+      discount,
+      total,
+      paymentMethod: s.payment,
+      completedAt: s.completedAt,
+      items: saleItems,
+    }
+  })
+}
+
 function seedState(): GuestState {
   const demo = createDemoProducts()
+  const sales = createDemoSales(demo)
   return {
-    schemaVersion: 6,
+    schemaVersion: 7,
     guestDeviceId: getGuestDeviceId(),
     idempotencyKey: uuid(),
     demoData: false,
     products: demo,
     categories: Array.from(new Set(demo.map(p => p.category))).sort(),
-    sales: [],
+    sales,
     stockMovements: demo.map(p => ({
       id: uuid(),
       productId: p.id,
@@ -694,15 +945,18 @@ function readState(): GuestState {
     || !Array.isArray(state.categories)) {
     throw new Error('Guest data could not be read. Clear this browser’s CM RetailOS guest data and reload.')
   }
-  if (state.products.length === 0 || (state.schemaVersion && state.schemaVersion < 6)) {
-    const demo = createDemoProducts()
+  if (state.products.length === 0 || !state.sales || state.sales.length === 0 || (state.schemaVersion && state.schemaVersion < 7)) {
+    const demo = state.products.length >= 50 ? state.products : createDemoProducts()
     state.products = demo
     state.categories = Array.from(new Set(demo.map(p => p.category))).sort()
-    state.schemaVersion = 6
+    if (!state.sales || state.sales.length === 0 || (state.schemaVersion && state.schemaVersion < 7)) {
+      state.sales = createDemoSales(demo)
+    }
+    state.schemaVersion = 7
     writeState(state)
   }
-  if (state.schemaVersion !== 6) {
-    state.schemaVersion = 6
+  if (state.schemaVersion !== 7) {
+    state.schemaVersion = 7
     writeState(state)
   }
   return state
@@ -874,7 +1128,7 @@ function dashboardFor(state: GuestState, url: URL) {
     previousOrders: previousSales.length,
     unitsSold: selected.reduce((sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0),
     chart,
-    topProducts: [...productTotals.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5),
+    topProducts: [...productTotals.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 15),
     profitByCategory: [...categoryTotals.entries()]
       .map(([name, value]) => ({ name, value: Math.max(0, Math.round(value)) }))
       .sort((a, b) => b.value - a.value)
