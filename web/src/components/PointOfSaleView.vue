@@ -2962,7 +2962,7 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-@media (min-width: 640px) and (max-width: 1024px) {
+@media (min-width: 640px) and (max-width: 1080px) {
   .pos-container.tablet-pos {
     width: 100%;
     max-width: 100%;

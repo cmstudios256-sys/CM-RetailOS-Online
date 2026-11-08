@@ -35,7 +35,7 @@ export function useTabletBreakpoint() {
   const getMatches = () => {
     if (typeof window === 'undefined') return false
     const w = window.innerWidth
-    return (w >= 640 && w <= 1024) || window.matchMedia('(min-width: 640px) and (max-width: 1024px)').matches
+    return (w >= 640 && w <= 1080) || window.matchMedia('(min-width: 640px) and (max-width: 1080px)').matches
   }
   const isTablet = ref(getMatches())
 
@@ -48,7 +48,7 @@ export function useTabletBreakpoint() {
     window.addEventListener('resize', update, { passive: true })
     window.addEventListener('orientationchange', update, { passive: true })
     try {
-      window.matchMedia('(min-width: 640px) and (max-width: 1024px)').addEventListener('change', update)
+      window.matchMedia('(min-width: 640px) and (max-width: 1080px)').addEventListener('change', update)
     } catch {}
   })
 
@@ -56,7 +56,7 @@ export function useTabletBreakpoint() {
     window.removeEventListener('resize', update)
     window.removeEventListener('orientationchange', update)
     try {
-      window.matchMedia('(min-width: 640px) and (max-width: 1024px)').removeEventListener('change', update)
+      window.matchMedia('(min-width: 640px) and (max-width: 1080px)').removeEventListener('change', update)
     } catch {}
   })
 
@@ -66,7 +66,7 @@ export function useTabletBreakpoint() {
 export function useMobileOrTabletBreakpoint() {
   const getMatches = () => {
     if (typeof window === 'undefined') return false
-    return window.innerWidth <= 1024 || window.matchMedia('(max-width: 1024px)').matches
+    return window.innerWidth <= 1080 || window.matchMedia('(max-width: 1080px)').matches
   }
   const isMobileOrTablet = ref(getMatches())
 
@@ -79,7 +79,7 @@ export function useMobileOrTabletBreakpoint() {
     window.addEventListener('resize', update, { passive: true })
     window.addEventListener('orientationchange', update, { passive: true })
     try {
-      window.matchMedia('(max-width: 1024px)').addEventListener('change', update)
+      window.matchMedia('(max-width: 1080px)').addEventListener('change', update)
     } catch {}
   })
 
@@ -87,7 +87,7 @@ export function useMobileOrTabletBreakpoint() {
     window.removeEventListener('resize', update)
     window.removeEventListener('orientationchange', update)
     try {
-      window.matchMedia('(max-width: 1024px)').removeEventListener('change', update)
+      window.matchMedia('(max-width: 1080px)').removeEventListener('change', update)
     } catch {}
   })
 
@@ -97,7 +97,7 @@ export function useMobileOrTabletBreakpoint() {
 export function useDesktopBreakpoint() {
   const getMatches = () => {
     if (typeof window === 'undefined') return false
-    return window.innerWidth > 1024 || window.matchMedia('(min-width: 1025px)').matches
+    return window.innerWidth > 1080 || window.matchMedia('(min-width: 1081px)').matches
   }
   const isDesktop = ref(getMatches())
 
@@ -110,7 +110,7 @@ export function useDesktopBreakpoint() {
     window.addEventListener('resize', update, { passive: true })
     window.addEventListener('orientationchange', update, { passive: true })
     try {
-      window.matchMedia('(min-width: 1025px)').addEventListener('change', update)
+      window.matchMedia('(min-width: 1081px)').addEventListener('change', update)
     } catch {}
   })
 
@@ -118,7 +118,7 @@ export function useDesktopBreakpoint() {
     window.removeEventListener('resize', update)
     window.removeEventListener('orientationchange', update)
     try {
-      window.matchMedia('(min-width: 1025px)').removeEventListener('change', update)
+      window.matchMedia('(min-width: 1081px)').removeEventListener('change', update)
     } catch {}
   })
 

@@ -1577,7 +1577,7 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1080px) {
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

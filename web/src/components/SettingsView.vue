@@ -4245,7 +4245,7 @@ input:checked + .slider:before {
   }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1080px) {
   .settings-page {
     flex-direction: column;
     overflow: visible;
@@ -4282,7 +4282,7 @@ input:checked + .slider:before {
   }
 }
 
-@media (min-width: 640px) and (max-width: 1024px) {
+@media (min-width: 640px) and (max-width: 1080px) {
   .settings-page {
     height: 100%;
     min-height: 0;

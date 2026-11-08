@@ -1347,7 +1347,7 @@ onUnmounted(() => {
 /* ==========================================================================
    Responsive Breakpoints
    ========================================================================== */
-@media (max-width: 1023px) {
+@media (max-width: 1080px) {
   .bi-grid {
     grid-template-columns: 1fr;
     grid-template-rows: auto;

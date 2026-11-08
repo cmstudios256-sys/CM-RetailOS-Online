@@ -869,7 +869,7 @@ onUnmounted(() => {
   opacity: 0.95;
 }
 
-@media (min-width: 1025px) {
+@media (min-width: 1081px) {
   .stat-card {
     padding: 0.78rem 0.9rem;
     min-height: 0;
@@ -1505,7 +1505,7 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1080px) {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
