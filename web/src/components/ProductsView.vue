@@ -949,9 +949,9 @@ onUnmounted(() => {
                 </div>
               </dl>
               <div v-if="canManage" class="product-grid-actions" :aria-label="`${product.name} actions`">
-                <button type="button" @click="openEditForm(product)"><Edit :size="15" /> Edit</button>
-                <button type="button" @click="openAdjustStock(product)"><SlidersHorizontal :size="15" /> Adjust Stock</button>
-                <button type="button" class="delete" @click="promptDeleteProduct(product)"><Trash2 :size="15" /> Delete</button>
+                <button type="button" @click="openEditForm(product)"><Edit :size="14" /> <span>Edit</span></button>
+                <button type="button" @click="openAdjustStock(product)"><SlidersHorizontal :size="14" /> <span>Adjust</span></button>
+                <button type="button" class="delete" @click="promptDeleteProduct(product)"><Trash2 :size="14" /> <span>Delete</span></button>
               </div>
             </article>
           </div>
@@ -1720,6 +1720,7 @@ onUnmounted(() => {
   box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.45);
   height: 100%;
   box-sizing: border-box;
+  overflow: hidden;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
@@ -1733,38 +1734,50 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.65rem;
+  gap: 0.5rem;
+  min-height: 40px;
 }
 
 .product-grid-name {
+  flex: 1;
   min-width: 0;
 }
 
 .product-grid-name h3 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 0.95rem;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .product-grid-name > span {
   display: block;
-  margin-top: 0.25rem;
+  margin-top: 0.2rem;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .product-grid-header .stock-badge {
-  flex: 0 0 auto;
-  white-space: normal;
-  text-align: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 
 .product-grid-details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.5rem 0.65rem;
   margin: 0;
 }
 
@@ -1778,7 +1791,7 @@ onUnmounted(() => {
 }
 
 .product-grid-details dd {
-  margin: 0.2rem 0 0;
+  margin: 0.15rem 0 0;
   color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 600;
@@ -1787,28 +1800,32 @@ onUnmounted(() => {
 
 .product-grid-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding-top: 0.75rem;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding-top: 8px;
   border-top: 1px solid var(--border-subtle);
 }
 
 .product-grid-actions button {
   display: inline-flex;
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-width: 0;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0.4rem 0.55rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.45rem;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 4px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
   color: var(--text-secondary);
   background: var(--bg-sidebar);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 11.5px;
+  font-weight: 550;
+  white-space: nowrap;
   cursor: pointer;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .product-grid-actions button:hover {
@@ -1818,6 +1835,11 @@ onUnmounted(() => {
 
 .product-grid-actions button.delete {
   color: #f87171;
+}
+
+.product-grid-actions button.delete:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 .products-grid-empty {
