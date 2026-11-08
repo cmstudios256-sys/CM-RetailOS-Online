@@ -3022,10 +3022,10 @@ onUnmounted(() => {
     display: flex !important;
     position: fixed;
     z-index: 39;
-    bottom: 22px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
     left: 50%;
     transform: translateX(-50%);
-    width: min(540px, calc(100% - 120px));
+    width: min(580px, calc(100% - 32px));
     min-height: 54px;
     padding: 0 18px 0 16px;
     align-items: center;
