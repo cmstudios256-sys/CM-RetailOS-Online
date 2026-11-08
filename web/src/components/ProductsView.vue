@@ -1208,138 +1208,155 @@ onUnmounted(() => {
     </Teleport>
 
     <!-- Adjust Stock Modal -->
-    <div v-if="adjustingProduct" class="modal-backdrop" @click.self="closeAdjustStock">
-      <div class="modal-content" style="max-width: 460px;">
-        <div class="modal-header">
-          <div class="modal-title-group">
-            <h3>Adjust Stock</h3>
-            <p class="modal-subtitle">{{ adjustingProduct.name }} · Current: {{ formatQuantity(adjustingProduct.quantity) }} {{ adjustingProduct.unit }}</p>
+    <Teleport to="body">
+      <div v-if="adjustingProduct" class="modal-backdrop adjust-stock-backdrop" @click.self="closeAdjustStock">
+        <div class="modal-content adjust-stock-modal" style="max-width: 490px;">
+          <div class="modal-header adjust-stock-header">
+            <div class="modal-title-with-icon">
+              <div class="modal-icon-badge">
+                <SlidersHorizontal :size="20" />
+              </div>
+              <div class="modal-title-group">
+                <h3>Adjust Stock</h3>
+                <p class="modal-subtitle">
+                  <span class="adjust-product-name">{{ adjustingProduct.name }}</span>
+                  <span class="adjust-stock-badge">Current: {{ formatQuantity(adjustingProduct.quantity) }} {{ adjustingProduct.unit }}</span>
+                </p>
+              </div>
+            </div>
+            <button type="button" class="close-btn" @click="closeAdjustStock" aria-label="Close dialog">
+              <X :size="20" />
+            </button>
           </div>
-          <button type="button" class="close-btn" @click="closeAdjustStock">
-            <X :size="20" />
-          </button>
-        </div>
 
-        <form @submit.prevent="submitStockAdjustment">
+          <form @submit.prevent="submitStockAdjustment" class="adjust-stock-form">
+            <div v-if="error" class="inline-error" role="alert" style="margin-bottom: 1rem;">{{ error }}</div>
+
+            <div class="form-grid">
+              <div class="form-group span-2">
+                <label>Adjustment Type</label>
+                <select v-model="adjustmentMode" class="modal-select">
+                  <option value="add">Add to stock</option>
+                  <option value="remove">Remove from stock</option>
+                  <option value="set">Set exact stock count</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>{{ adjustmentMode === 'set' ? 'New Stock Quantity' : 'Quantity' }}</label>
+                <input v-model.number="adjustmentQuantity" type="number" min="0" step="0.001" required />
+              </div>
+
+              <div class="form-group">
+                <label>Resulting Stock</label>
+                <div class="resulting-stock-box">
+                  <span class="resulting-stock-val">{{ formatQuantity(resultingStock) }}</span>
+                  <span class="resulting-stock-unit">{{ adjustingProduct.unit }}</span>
+                </div>
+              </div>
+
+              <div class="form-group span-2">
+                <label>Reason</label>
+                <input v-model.trim="adjustmentReason" type="text" maxlength="140" required placeholder="Stock count, restock, damaged item…" />
+              </div>
+            </div>
+
+            <div class="modal-actions adjust-stock-actions">
+              <button type="button" class="btn-secondary" @click="closeAdjustStock">Cancel</button>
+              <button type="submit" class="btn-primary adjust-submit-btn" :disabled="adjusting || resultingStock < 0 || adjustmentDelta === 0">
+                {{ adjusting ? 'Updating…' : 'Apply Adjustment' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Category Management Modal -->
+    <Teleport to="body">
+      <div v-if="showCategoryModal" class="modal-backdrop" @click.self="closeCategoryManagement">
+        <div class="modal-content category-modal">
+          <div class="modal-header">
+            <div class="modal-title-group">
+              <h3>Manage Categories</h3>
+              <p class="modal-subtitle">Add, rename, or delete product categories.</p>
+            </div>
+            <button type="button" class="close-btn" @click="closeCategoryManagement">
+              <X :size="20" />
+            </button>
+          </div>
+
           <div v-if="error" class="inline-error" role="alert" style="margin-bottom: 1rem;">{{ error }}</div>
 
-          <div class="form-grid">
-            <div class="form-group span-2">
-              <label>Adjustment Type</label>
-              <select v-model="adjustmentMode" class="modal-select">
-                <option value="add">Add to stock</option>
-                <option value="remove">Remove from stock</option>
-                <option value="set">Set exact stock count</option>
-              </select>
-            </div>
+          <form class="add-category-form" @submit.prevent="createCategory">
+            <input v-model.trim="newCategoryName" type="text" maxlength="80" placeholder="New category name..." />
+            <button type="submit" class="btn-primary" :disabled="categoryBusy || !newCategoryName.trim()">
+              <Plus :size="18" /> Add
+            </button>
+          </form>
 
-            <div class="form-group">
-              <label>{{ adjustmentMode === 'set' ? 'New Stock Quantity' : 'Quantity' }}</label>
-              <input v-model.number="adjustmentQuantity" type="number" min="0" step="0.001" required />
-            </div>
-
-            <div class="form-group">
-              <label>Resulting Stock</label>
-              <input :value="`${formatQuantity(resultingStock)} ${adjustingProduct.unit}`" disabled />
-            </div>
-
-            <div class="form-group span-2">
-              <label>Reason</label>
-              <input v-model.trim="adjustmentReason" type="text" maxlength="140" required placeholder="Stock count, restock, damaged item…" />
+          <div class="category-list">
+            <div v-if="!categories.length" class="empty-categories">No categories available.</div>
+            <div v-for="category in categories" :key="category" class="category-item">
+              <div v-if="editingCategory === category" class="edit-category-mode">
+                <input
+                  v-model.trim="editedCategoryName"
+                  type="text"
+                  maxlength="80"
+                  class="edit-cat-input"
+                  @keyup.enter="saveCategoryEdit(category)"
+                />
+                <div class="cat-actions">
+                  <button type="button" class="action-btn save" title="Save" :disabled="categoryBusy" @click="saveCategoryEdit(category)">
+                    <Check :size="16" />
+                  </button>
+                  <button type="button" class="action-btn cancel" title="Cancel" @click="editingCategory = null">
+                    <X :size="16" />
+                  </button>
+                </div>
+              </div>
+              <div v-else class="view-category-mode">
+                <span class="cat-name">{{ category }}</span>
+                <div class="cat-actions">
+                  <button type="button" class="action-btn" title="Rename" :disabled="categoryBusy" @click="startCategoryEdit(category)">
+                    <Edit :size="16" />
+                  </button>
+                  <button type="button" class="action-btn delete" title="Delete" :disabled="categoryBusy" @click="removeCategory(category)">
+                    <Trash2 :size="16" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
           <div class="modal-actions">
-            <button type="button" class="btn-secondary" @click="closeAdjustStock">Cancel</button>
-            <button type="submit" class="btn-primary" :disabled="adjusting || resultingStock < 0 || adjustmentDelta === 0">
-              {{ adjusting ? 'Updating…' : 'Apply Adjustment' }}
-            </button>
+            <button type="button" class="btn-secondary" @click="closeCategoryManagement">Done</button>
           </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Category Management Modal -->
-    <div v-if="showCategoryModal" class="modal-backdrop" @click.self="closeCategoryManagement">
-      <div class="modal-content category-modal">
-        <div class="modal-header">
-          <div class="modal-title-group">
-            <h3>Manage Categories</h3>
-            <p class="modal-subtitle">Add, rename, or delete product categories.</p>
-          </div>
-          <button type="button" class="close-btn" @click="closeCategoryManagement">
-            <X :size="20" />
-          </button>
-        </div>
-
-        <div v-if="error" class="inline-error" role="alert" style="margin-bottom: 1rem;">{{ error }}</div>
-
-        <form class="add-category-form" @submit.prevent="createCategory">
-          <input v-model.trim="newCategoryName" type="text" maxlength="80" placeholder="New category name..." />
-          <button type="submit" class="btn-primary" :disabled="categoryBusy || !newCategoryName.trim()">
-            <Plus :size="18" /> Add
-          </button>
-        </form>
-
-        <div class="category-list">
-          <div v-if="!categories.length" class="empty-categories">No categories available.</div>
-          <div v-for="category in categories" :key="category" class="category-item">
-            <div v-if="editingCategory === category" class="edit-category-mode">
-              <input
-                v-model.trim="editedCategoryName"
-                type="text"
-                maxlength="80"
-                class="edit-cat-input"
-                @keyup.enter="saveCategoryEdit(category)"
-              />
-              <div class="cat-actions">
-                <button type="button" class="action-btn save" title="Save" :disabled="categoryBusy" @click="saveCategoryEdit(category)">
-                  <Check :size="16" />
-                </button>
-                <button type="button" class="action-btn cancel" title="Cancel" @click="editingCategory = null">
-                  <X :size="16" />
-                </button>
-              </div>
-            </div>
-            <div v-else class="view-category-mode">
-              <span class="cat-name">{{ category }}</span>
-              <div class="cat-actions">
-                <button type="button" class="action-btn" title="Rename" :disabled="categoryBusy" @click="startCategoryEdit(category)">
-                  <Edit :size="16" />
-                </button>
-                <button type="button" class="action-btn delete" title="Delete" :disabled="categoryBusy" @click="removeCategory(category)">
-                  <Trash2 :size="16" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn-secondary" @click="closeCategoryManagement">Done</button>
         </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- Delete Product Confirmation Modal -->
-    <div v-if="productToDelete" class="modal-backdrop" @click.self="productToDelete = null">
-      <div class="modal-content delete-confirm-modal">
-        <div class="delete-warning-icon">
-          <AlertTriangle :size="32" />
-        </div>
-        <h3>Delete Product?</h3>
-        <p>
-          Are you sure you want to delete <strong>{{ productToDelete.name }}</strong>?
-          Existing sales history for this item will be preserved.
-        </p>
-        <div class="delete-confirm-actions">
-          <button type="button" class="btn-secondary" @click="productToDelete = null">Cancel</button>
-          <button type="button" class="btn-danger" :disabled="deleting" @click="confirmDeleteProduct">
-            {{ deleting ? 'Deleting…' : 'Yes, Delete' }}
-          </button>
+    <Teleport to="body">
+      <div v-if="productToDelete" class="modal-backdrop" @click.self="productToDelete = null">
+        <div class="modal-content delete-confirm-modal">
+          <div class="delete-warning-icon">
+            <AlertTriangle :size="32" />
+          </div>
+          <h3>Delete Product?</h3>
+          <p>
+            Are you sure you want to delete <strong>{{ productToDelete.name }}</strong>?
+            Existing sales history for this item will be preserved.
+          </p>
+          <div class="delete-confirm-actions">
+            <button type="button" class="btn-secondary" @click="productToDelete = null">Cancel</button>
+            <button type="button" class="btn-danger" :disabled="deleting" @click="confirmDeleteProduct">
+              {{ deleting ? 'Deleting…' : 'Yes, Delete' }}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- Product Camera Scanner Modal -->
     <Teleport to="body">
@@ -3129,6 +3146,259 @@ tbody tr:hover {
   text-align: center;
   padding: 1.5rem;
   color: var(--text-muted);
+}
+
+/* Adjust Stock Modal - Stand Out on Tablets & Desktop */
+.adjust-stock-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 24px !important;
+  background: rgba(3, 7, 18, 0.78) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+}
+
+.adjust-stock-modal {
+  position: relative !important;
+  width: min(92vw, 490px) !important;
+  max-width: 490px !important;
+  height: auto !important;
+  max-height: 92dvh !important;
+  margin: auto !important;
+  padding: 26px !important;
+  border-radius: 22px !important;
+  background: linear-gradient(180deg, #131f36 0%, #0c1424 100%) !important;
+  border: 1px solid rgba(56, 189, 248, 0.28) !important;
+  box-shadow: 0 25px 65px -12px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 32px rgba(56, 189, 248, 0.14) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+}
+
+[data-theme='light'] .adjust-stock-backdrop {
+  background: rgba(15, 23, 42, 0.52) !important;
+}
+
+[data-theme='light'] .adjust-stock-modal {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.adjust-stock-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: 20px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15) !important;
+}
+
+[data-theme='light'] .adjust-stock-header {
+  border-bottom-color: #e2e8f0 !important;
+}
+
+.modal-title-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.modal-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  flex-shrink: 0;
+}
+
+[data-theme='light'] .modal-icon-badge {
+  background: rgba(2, 132, 199, 0.1);
+  color: #0284c7;
+  border-color: rgba(2, 132, 199, 0.25);
+}
+
+.adjust-stock-header h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.adjust-stock-header .modal-subtitle {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.adjust-product-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.adjust-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.24);
+}
+
+[data-theme='light'] .adjust-stock-badge {
+  color: #0369a1;
+  background: #e0f2fe;
+  border-color: #bae6fd;
+}
+
+.resulting-stock-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-sizing: border-box;
+}
+
+.resulting-stock-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.resulting-stock-unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+[data-theme='light'] .resulting-stock-box {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+[data-theme='light'] .resulting-stock-val {
+  color: #0284c7;
+}
+
+.adjust-stock-form .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.adjust-stock-form .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.adjust-stock-form .form-group.span-2 {
+  grid-column: 1 / -1;
+}
+
+.adjust-stock-form .form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+[data-theme='light'] .adjust-stock-form .form-group label {
+  color: #64748b;
+}
+
+.adjust-stock-form .modal-select,
+.adjust-stock-form .form-group input {
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.65);
+  font-size: 14px;
+  color: var(--text-primary);
+  padding: 0 12px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.adjust-stock-form .modal-select:focus,
+.adjust-stock-form .form-group input:focus {
+  border-color: #38bdf8;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+[data-theme='light'] .adjust-stock-form .modal-select,
+[data-theme='light'] .adjust-stock-form .form-group input {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.adjust-stock-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+[data-theme='light'] .adjust-stock-actions {
+  border-top-color: #e2e8f0;
+}
+
+.adjust-stock-actions .btn-secondary {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.adjust-stock-actions .adjust-submit-btn {
+  min-height: 44px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4) !important;
+  border: none !important;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.adjust-stock-actions .adjust-submit-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.5) !important;
+}
+
+.adjust-stock-actions .adjust-submit-btn:not(:disabled):active {
+  transform: translateY(0);
 }
 
 /* Delete Confirm Modal */
