@@ -8,7 +8,7 @@ import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
-import { usePhoneBreakpoint } from '../utils/breakpoints'
+import { usePhoneBreakpoint, useTabletBreakpoint } from '../utils/breakpoints'
 import {
   getDefaultBluetoothPrinter,
   buildEscPosReceipt,
@@ -54,6 +54,8 @@ const filteredSales = computed(() =>
 )
 
 const { isPhone } = usePhoneBreakpoint()
+const { isTablet } = useTabletBreakpoint()
+const isMobileOrTablet = computed(() => isPhone.value || isTablet.value)
 const headerRef = ref<HTMLElement | null>(null)
 const salesListRef = ref<HTMLElement | null>(null)
 const salesListVirtualizer = useVirtualizer(computed(() => ({
@@ -111,7 +113,7 @@ function closeDetailModal() {
 }
 
 function shareSaleOnMobile(sale: Sale) {
-  if (mobileTouch.value || isPhone.value) saleToShare.value = sale
+  if (mobileTouch.value || isMobileOrTablet.value) saleToShare.value = sale
 }
 
 function exportSalesHistory() {
@@ -175,7 +177,7 @@ function printReceipt(sale: Sale) {
   const settings = shopSettings.value
   const storeTitle = settings?.shopName || props.shopName
 
-  if (isPhone.value) {
+  if (isMobileOrTablet.value) {
     const btPrinter = getDefaultBluetoothPrinter()
     if (btPrinter) {
       const bytes = buildEscPosReceipt(sale, {
@@ -313,8 +315,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Mobile Card Layout (<640px) -->
-      <div v-if="isPhone" ref="mobileSalesListRef" class="mobile-cards-scroll-body">
+      <!-- Mobile / Tablet Card Layout (<1024px) -->
+      <div v-if="isMobileOrTablet" ref="mobileSalesListRef" class="mobile-cards-scroll-body">
         <div v-if="showSkeleton" class="mobile-skeleton-cards">
           <div v-for="i in 4" :key="i" class="mobile-skeleton-card">
             <div class="mobile-skel-header">
@@ -569,7 +571,7 @@ onMounted(() => {
         <div class="modal-footer">
           <button type="button" class="btn-secondary" @click="closeDetailModal">Close</button>
           <button
-            v-if="isPhone || mobileTouch"
+            v-if="isMobileOrTablet || mobileTouch"
             type="button"
             class="btn-secondary mobile-sales-share-button"
             @click="shareSaleOnMobile(selectedSale)"

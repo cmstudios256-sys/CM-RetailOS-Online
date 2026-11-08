@@ -8,7 +8,7 @@ import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId } from '../utils/reporting'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
-import { usePhoneBreakpoint } from '../utils/breakpoints'
+import { usePhoneBreakpoint, useTabletBreakpoint } from '../utils/breakpoints'
 import {
   getDefaultBluetoothPrinter,
   buildEscPosReceipt,
@@ -55,6 +55,8 @@ const filteredReceipts = computed(() =>
 )
 
 const { isPhone } = usePhoneBreakpoint()
+const { isTablet } = useTabletBreakpoint()
+const isMobileOrTablet = computed(() => isPhone.value || isTablet.value)
 const headerRef = ref<HTMLElement | null>(null)
 const receiptsListRef = ref<HTMLElement | null>(null)
 const receiptsListVirtualizer = useVirtualizer(computed(() => ({
@@ -108,7 +110,7 @@ function closeModal() {
 }
 
 function shareReceiptOnMobile(sale: Sale) {
-  if (mobileTouch.value || isPhone.value) receiptToShare.value = sale
+  if (mobileTouch.value || isMobileOrTablet.value) receiptToShare.value = sale
 }
 
 function exportReceipts() {
@@ -172,7 +174,7 @@ const onlinePrefs = computed(() => {
 function printSingleReceipt(sale: Sale) {
   const storeTitle = settings.value?.shopName || props.shopName
 
-  if (isPhone.value) {
+  if (isMobileOrTablet.value) {
     const btPrinter = getDefaultBluetoothPrinter()
     if (btPrinter) {
       const bytes = buildEscPosReceipt(sale, {
@@ -324,8 +326,8 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Mobile Card Layout (<640px) -->
-      <div v-if="isPhone" ref="mobileReceiptsListRef" class="mobile-cards-scroll-body">
+      <!-- Mobile / Tablet Card Layout (<1024px) -->
+      <div v-if="isMobileOrTablet" ref="mobileReceiptsListRef" class="mobile-cards-scroll-body">
         <div v-if="showSkeleton" class="mobile-skeleton-cards">
           <div v-for="i in 4" :key="i" class="mobile-skeleton-card">
             <div class="mobile-skel-header">
@@ -584,7 +586,7 @@ onUnmounted(() => {
         <div class="receipt-modal-actions">
           <button type="button" class="btn-secondary receipt-close-btn" @click="closeModal">Close</button>
           <button
-            v-if="isPhone || mobileTouch"
+            v-if="isMobileOrTablet || mobileTouch"
             type="button"
             class="btn-secondary mobile-receipt-share-button"
             @click="shareReceiptOnMobile(selectedReceipt)"
