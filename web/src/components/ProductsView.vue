@@ -340,7 +340,7 @@ const filteredProducts = computed(() => {
 
 const productsGridRef = ref<HTMLElement | null>(null)
 const productsGridColumns = ref(3)
-const productsGridRowHeight = computed(() => isPhone.value ? 234 : 252)
+const productsGridRowHeight = computed(() => isPhone.value ? 240 : 264)
 
 function updateProductsGridColumns() {
   if (isPhone.value) {
@@ -1685,14 +1685,12 @@ onUnmounted(() => {
 
 .products-grid {
   display: block;
-  display: block;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-content: start;
-  gap: 0.75rem;
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  padding: 8px 12px 90px 12px !important;
+  box-sizing: border-box;
 }
 
 .virtual-grid-spacer {
@@ -1706,21 +1704,29 @@ onUnmounted(() => {
   right: 0;
   top: 0;
   display: grid;
-  gap: 0.75rem;
+  gap: 16px;
 }
 
 .product-grid-card {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 0.9rem;
+  gap: 0.75rem;
   min-width: 0;
-  padding: 1rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem;
-  background: var(--bg-surface);
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: #111c2e;
+  box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.45);
   height: 100%;
   box-sizing: border-box;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+[data-theme='light'] .product-grid-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08) !important;
 }
 
 .product-grid-header {
