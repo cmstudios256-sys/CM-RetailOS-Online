@@ -1393,7 +1393,8 @@ input[type=number] {
 [data-theme='light'] .connect-google-button {
   background: rgba(16, 185, 129, 0.1) !important;
   color: #047857 !important;
-  border-color: rgba(16, 185, 129, 0.3) !important;
+  border: none !important;
+  outline: none !important;
 }
 
 [data-theme='light'] .connect-google-button:hover {
@@ -1568,7 +1569,8 @@ input[type=number] {
 .claim-notice button {
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid rgba(52, 211, 153, .4);
+  border: none;
+  outline: none;
   border-radius: 9px;
   color: #d1fae5;
   background: rgba(5, 150, 105, .2);
@@ -1586,20 +1588,23 @@ input[type=number] {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  border: 1px solid rgba(251, 191, 36, .28);
+  border: none;
+  outline: none;
   border-radius: 10px;
   color: #fde68a;
   background: rgba(120, 53, 15, .16);
   font-size: 12px;
 }
 [data-theme='light'] .claim-notice {
-  border-color: #fcd34d;
+  border: none !important;
+  outline: none !important;
   color: #713f12;
   background: #fffbeb;
 }
 [data-theme='light'] .claim-notice button {
   flex: 0 0 auto;
-  border-color: #047857;
+  border: none !important;
+  outline: none !important;
   color: #ffffff;
   background: #047857;
   white-space: nowrap;

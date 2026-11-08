@@ -76,6 +76,8 @@ let lastScannedBarcode = ''
 let lastScannedTime = 0
 const shareSale = ref<Sale | null>(null)
 const { isPhone } = usePhoneBreakpoint()
+const tabletQuery = window.matchMedia('(min-width: 640px) and (max-width: 1024px)')
+const isTablet = ref(tabletQuery.matches)
 let cameraControls: IScannerControls | null = null
 let cameraSession = 0
 const search = ref('')
@@ -83,10 +85,10 @@ const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchPlaceholder = computed(() => isPhone.value ? 'Search products' : 'Scan barcode or search products...')
 let savedViewMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_pos_view_mode') : null) as 'list' | 'grid' | null
 const viewMode = ref<'list' | 'grid'>(
-  window.matchMedia('(max-width: 639px)').matches ? 'grid' : savedViewMode === 'list' ? 'list' : 'grid',
+  isPhone.value || isTablet.value ? 'grid' : savedViewMode === 'list' ? 'list' : 'grid',
 )
 function setViewMode(mode: 'list' | 'grid') {
-  if (isPhone.value) return
+  if (isPhone.value || isTablet.value) return
   viewMode.value = mode
   savedViewMode = mode
   try {
@@ -94,7 +96,7 @@ function setViewMode(mode: 'list' | 'grid') {
   } catch {}
 }
 
-watch(isPhone, phone => {
+watch([isPhone, isTablet], ([phone, tablet]) => {
   updatePosGridColumns()
   if (phone) {
     viewMode.value = 'grid'
@@ -102,6 +104,10 @@ watch(isPhone, phone => {
     if (typeof navigator !== 'undefined') {
       cameraSupported.value = true
     }
+  } else if (tablet) {
+    viewMode.value = 'grid'
+    mobileTouch.value = isTouchDevice()
+    cameraSupported.value = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
   } else {
     viewMode.value = savedViewMode === 'list' ? 'list' : 'grid'
     mobileTouch.value = isTouchDevice()
@@ -266,11 +272,14 @@ const filteredProducts = computed(() => {
 
 const posGridRef = ref<HTMLElement | null>(null)
 const posGridColumns = ref(3)
-const posGridRowHeight = computed(() => isPhone.value ? 132 : 158)
+const posGridRowHeight = computed(() => isPhone.value ? 132 : isTablet.value ? 126 : 158)
 
 function updatePosGridColumns() {
-  // Mobile phone is 2 columns, iPad / tablet and desktop strictly use 3 columns
   posGridColumns.value = isPhone.value ? 2 : 3
+}
+
+function updateTabletBreakpoint(event: MediaQueryListEvent) {
+  isTablet.value = event.matches
 }
 
 const posGridRowCount = computed(() =>
@@ -723,6 +732,7 @@ async function checkout() {
 let gridResizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
+  tabletQuery.addEventListener('change', updateTabletBreakpoint)
   mobileTouch.value = isTouchDevice() || isPhone.value
   cameraSupported.value = typeof navigator !== 'undefined' && (!!navigator.mediaDevices?.getUserMedia || isPhone.value)
   loadProducts()
@@ -740,6 +750,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   closeBarcodeCamera()
+  tabletQuery.removeEventListener('change', updateTabletBreakpoint)
   gridResizeObserver?.disconnect()
   window.removeEventListener('resize', updatePosGridColumns)
   window.removeEventListener('keydown', handleGlobalKeydown)
@@ -749,7 +760,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="pos-container" :class="{ 'has-cart-items': cartUnits > 0 }">
+  <div class="pos-container" :class="{ 'has-cart-items': cartUnits > 0, 'tablet-pos': isTablet }">
     <!-- Toast Notifications -->
     <div v-if="showErrorToast" class="pos-toast pos-toast-error" role="alert">
       <AlertCircle :size="20" />
@@ -851,7 +862,7 @@ onUnmounted(() => {
             class="virtual-grid-row"
             :style="{
               transform: `translateY(${virtualRow.start}px)`,
-              gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 185px))',
+              gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : isTablet ? 'repeat(3, minmax(0, 1fr))' : 'repeat(3, minmax(0, 185px))',
             }"
           >
             <div
@@ -997,7 +1008,6 @@ onUnmounted(() => {
             title="Clear Cart"
             @click="clearCart"
           >
-            <Trash2 :size="12" />
             <span class="clear-btn-text">Clear</span>
           </button>
           <button
@@ -2956,14 +2966,254 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-@media (max-width: 960px) {
+@media (min-width: 640px) and (max-width: 960px) {
   .pos-container {
-    flex-direction: column;
-    height: auto;
+    flex-direction: row;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .products-panel {
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .cart-panel {
+    flex: 0 0 38%;
+    min-width: 220px;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1024px) {
+  .tablet-pos .panel-header {
+    min-height: 56px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .tablet-pos .panel-title {
+    font-size: 14px;
+  }
+
+  .tablet-pos .header-controls {
+    flex: 1;
     min-width: 0;
+    gap: 8px;
+  }
+
+  .tablet-pos .view-switcher {
+    display: none;
+  }
+
+  .tablet-pos .cart-items {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .tablet-pos .cart-item {
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+  }
+
+  .tablet-pos .cart-item-bottom {
+    padding-top: 6px;
+  }
+
+  .tablet-pos .quantity-controls button,
+  .tablet-pos .remove-item-btn,
+  .tablet-pos .clear-cart-btn {
+    width: 30px;
+    min-width: 30px;
+    min-height: 26px;
+    height: 26px;
+  }
+
+  .tablet-pos .clear-cart-btn {
+    width: auto;
+    min-width: 48px;
+    gap: 4px;
+    padding: 0 6px;
+    font-size: 10px;
+  }
+
+  .tablet-pos .quantity-controls .quantity-input {
+    min-height: 26px !important;
+    height: 26px !important;
+  }
+
+  .tablet-pos .item-name {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .tablet-pos .item-price {
+    margin-top: 2px;
+    font-size: 10px;
+  }
+
+  .tablet-pos .item-total {
+    font-size: 12px;
+  }
+
+  .tablet-pos .search-bar {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tablet-pos .search-bar input {
+    width: 100%;
+  }
+
+  .tablet-pos .product-grid {
+    min-height: 0;
+    flex: 1 1 0%;
+    padding: 8px 10px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .tablet-pos .virtual-grid-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px;
+  }
+
+  .tablet-pos .product-card {
+    min-width: 0;
+    max-width: none;
+    min-height: 118px;
+    height: 118px;
+    padding: 7px 8px;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .tablet-pos .product-card::after {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    right: 12px;
+    left: 12px;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: linear-gradient(90deg, transparent, var(--card-status-accent, var(--accent-color)), transparent);
+    content: '';
+    pointer-events: none;
+  }
+
+  .tablet-pos .product-card.in-stock { --card-status-accent: #10b981; }
+  .tablet-pos .product-card.low-stock { --card-status-accent: #f59e0b; }
+  .tablet-pos .product-card.out-of-stock { --card-status-accent: #ef4444; }
+
+  .tablet-pos .product-card .product-name {
+    font-size: 12px;
+  }
+
+  .tablet-pos .product-card.has-product-image::before {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(8, 14, 24, 0.58) 0%, rgba(8, 14, 24, 0.34) 48%, rgba(8, 14, 24, 0.04) 100%);
+    content: '';
+    pointer-events: none;
+  }
+
+  .tablet-pos .product-card.has-product-image > .product-name,
+  .tablet-pos .product-card.has-product-image > .product-category,
+  .tablet-pos .product-card.has-product-image .card-meta {
+    position: relative;
+    z-index: 2;
+  }
+
+  .tablet-pos .product-card.has-product-image > .product-card-body {
+    position: static;
+  }
+
+  .tablet-pos .product-card.has-product-image .product-name,
+  .tablet-pos .product-card.has-product-image .product-category,
+  .tablet-pos .product-card.has-product-image .product-price {
+    max-width: 90%;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: #ffffff !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.75);
+  }
+
+  .tablet-pos .product-card.has-product-image .product-name {
+    width: fit-content;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .tablet-pos .product-card.has-product-image .product-category {
+    font-size: 9px;
+    font-weight: 650;
+  }
+
+  .tablet-pos .product-card.has-product-image .product-stock {
+    position: relative;
+    z-index: 2;
+    padding: 1px 0;
+    border: 0;
+    background: transparent;
+    color: #ffffff;
+    font-size: 9.5px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 7px rgba(0, 0, 0, 0.8);
+  }
+
+  .tablet-pos .product-card.has-product-image .product-price {
+    color: #ffb14a !important;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.15;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.98), 0 0 8px rgba(0, 0, 0, 0.85);
+  }
+
+  .tablet-pos .product-card.has-product-image .product-image-small.has-image {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border: 0;
+    border-radius: inherit;
+    opacity: 1;
+  }
+
+  .tablet-pos .product-card.has-product-image.out-of-stock {
+    opacity: 1;
+    filter: none;
+  }
+
+  .tablet-pos .product-card.has-product-image.out-of-stock .real-product-img {
+    filter: grayscale(100%) brightness(0.72);
+  }
+
+  [data-theme='light'] .tablet-pos .product-card.has-product-image::before {
+    background: linear-gradient(90deg, rgba(15, 23, 42, 0.38) 0%, rgba(15, 23, 42, 0.2) 48%, transparent 82%);
+  }
+
+  [data-theme='light'] .tablet-pos .product-card.has-product-image .product-stock.in-stock {
+    color: #047857;
+  }
+
+  [data-theme='light'] .tablet-pos .product-card.has-product-image .product-stock.low {
+    color: #92400e;
+  }
+
+  [data-theme='light'] .tablet-pos .product-card.has-product-image .product-stock.out {
+    color: #b91c1c;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tablet-pos .product-card {
+      transition: none;
+    }
   }
 }
 
