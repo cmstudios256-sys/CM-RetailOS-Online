@@ -12,7 +12,7 @@ import { apiRequest, formatAxisValue, formatQuantity, type Product } from '../ap
 import { getThemeColors, hexToRgba } from '../utils/chartColors'
 import AppDatePicker from './AppDatePicker.vue'
 import DashboardSalesChart from './DashboardSalesChart.vue'
-import { useMobileOrTabletBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
+import { useMobileOrTabletBreakpoint, usePhoneBreakpoint, useTabletBreakpoint } from '../utils/breakpoints'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 
 type Period = 'Daily' | 'Weekly' | 'Monthly'
@@ -24,6 +24,7 @@ type ChartPoint = {
 }
 
 const { isPhone } = usePhoneBreakpoint()
+const { isTablet } = useTabletBreakpoint()
 const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
 
 type TopProduct = {
@@ -205,6 +206,7 @@ const salesSummaryStats = computed(() => {
 const displayedTopProducts = computed(() => {
   const list = dashboard.value?.topProducts || []
   if (isPhone.value) return list.slice(0, 3)
+  if (isTablet.value) return list.slice(0, 4)
   return list.slice(0, 5)
 })
 
