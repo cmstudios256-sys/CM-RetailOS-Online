@@ -1464,22 +1464,6 @@ onUnmounted(() => {
                 </div>
               </section>
             </div>
-
-            <!-- Mobile Action Bar -->
-            <div v-if="isMobile" class="mobile-save-section">
-              <button
-                type="button"
-                class="btn btn-primary mobile-save-btn"
-                @click="saveConfigurations"
-                :disabled="isSavingConfig || settingsLoading"
-              >
-                <Check v-if="!isSavingConfig" :size="16" />
-                <span>{{ isSavingConfig ? 'Saving Changes...' : 'Save Changes' }}</span>
-              </button>
-              <div v-if="saveFeedback && saveFeedback.type === 'error'" class="mobile-save-toast" :class="saveFeedback.type">
-                {{ saveFeedback.message }}
-              </div>
-            </div>
           </div>
         </div>
       </template>
@@ -1848,22 +1832,6 @@ onUnmounted(() => {
                       @change="handleReceiptSettingChange"
                     />
                   </div>
-                </div>
-              </div>
-
-              <!-- Mobile Save Button for Receipt Settings -->
-              <div v-if="isMobile" class="mobile-save-section" style="margin-top: 14px;">
-                <button
-                  type="button"
-                  class="btn btn-primary mobile-save-btn"
-                  @click="saveConfigurations"
-                  :disabled="isSavingConfig || settingsLoading"
-                >
-                  <Check v-if="!isSavingConfig" :size="16" />
-                  <span>{{ isSavingConfig ? 'Saving Changes...' : 'Save Receipt Settings' }}</span>
-                </button>
-                <div v-if="saveFeedback && saveFeedback.type === 'error'" class="mobile-save-toast" :class="saveFeedback.type">
-                  {{ saveFeedback.message }}
                 </div>
               </div>
             </div>
@@ -4415,7 +4383,7 @@ input:checked + .slider:before {
     width: 100%;
     min-height: auto;
     height: auto;
-    flex-direction: row;
+    flex-direction: column;
     border: none !important;
     border-radius: 0;
     background: transparent !important;
@@ -4447,11 +4415,18 @@ input:checked + .slider:before {
     display: contents;
   }
 
-  .category-title,
-  .sidebar-menu + .sidebar-feedback,
-  .settings-sidebar > div[style],
-  .settings-sidebar > div:not(.sidebar-feedback):last-child {
+  .category-title {
     display: none !important;
+  }
+
+  .settings-sidebar > div[style] {
+    width: 100%;
+    margin-top: 0 !important;
+    padding: 8px 0 0 !important;
+  }
+
+  .sidebar-feedback {
+    margin: 8px 0 0 !important;
   }
 
   .menu-group-card {
