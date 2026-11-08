@@ -1321,11 +1321,11 @@ onUnmounted(() => {
         </div>
       </nav>
 
-      <div v-if="saveFeedback" class="sidebar-feedback" :class="saveFeedback.type">
+      <div v-if="saveFeedback && activeTab !== 'about'" class="sidebar-feedback" :class="saveFeedback.type">
         {{ saveFeedback.message }}
       </div>
 
-      <div style="padding: 16px; margin-top: auto;">
+      <div v-if="activeTab !== 'about'" style="padding: 16px; margin-top: auto;">
         <button
           class="btn btn-primary"
           style="width: 100%; display: flex; justify-content: center; padding: 12px;"
@@ -2574,10 +2574,11 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- Product Description -->
           <div class="form-card" style="padding: 24px;">
             <h3 style="font-size: 1.1rem; color: var(--text-primary); margin-bottom: 12px; font-weight: 600;">About CM RetailOS</h3>
             <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
-              CM RetailOS is a professional Point-of-Sale, inventory, sales and business management system developed for modern retail businesses across Africa.
+              CM RetailOS is a professional offline-first Point-of-Sale, inventory, sales and business management system developed for modern retail businesses across Africa.
             </p>
             <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
               It brings together Point of Sale, Product Management, Inventory Management, Categories, Sales &amp; Receipts, Profit Analytics, Business Intelligence, User Management, Audit Logs, and System Settings.
@@ -2587,20 +2588,22 @@ onUnmounted(() => {
             </p>
           </div>
 
+          <!-- Developer Credits (Portrait Layout) -->
           <div class="form-card" style="padding: 32px 24px; display: flex; flex-direction: column; align-items: center; text-align: center;">
-            <p style="color: var(--text-muted); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 16px;">Built by</p>
-            <img
-              src="/cmretailos-brand-logo.png"
-              alt="CM RetailOS"
-              style="width: 120px; height: 120px; object-fit: contain; border-radius: 24px; border: 4px solid var(--border-subtle); margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"
-            />
-            <h4 style="font-size: 1.2rem; color: var(--text-primary); margin-bottom: 4px;">CM RetailOS</h4>
-            <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0 0 12px 0;">Free and open-source retail software</p>
-            <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin: 0;">
-              Built for simple, reliable in-store operations, cloud-connected retail teams, and guest-first offline use.
+            <img src="/developer-portrait.jpg" alt="Christopher Muheki" style="width: 120px; height: 120px; object-fit: cover; object-position: center 15%; border-radius: 50%; border: 4px solid var(--border-subtle); margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);" />
+            <h4 style="font-size: 1.2rem; color: var(--text-primary); margin-bottom: 4px;">Christopher Muheki</h4>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0 0 12px 0;">Self-Taught Software Engineer and Founder</p>
+            <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin: 0 0 16px 0;">
+              Christopher Muheki is a self-taught software engineer, designer and technology-focused creative professional. His work combines software engineering, system architecture, UI/UX design, graphics, photography, cinematography, audio engineering and digital technology to create practical, high-performance products and solutions.
             </p>
+            <div style="display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap;">
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0; font-family: monospace;">+256 759 604799</p>
+              <span style="color: var(--border-color);">|</span>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0; font-family: monospace;">+256 761 598636</p>
+            </div>
           </div>
 
+          <!-- Mission & Vision -->
           <div class="mvd-card form-card full-width">
             <div class="mvd-item">
               <div class="mvd-icon" style="background: rgba(14,165,233,0.1); border-color: rgba(14,165,233,0.2);">
@@ -2623,9 +2626,10 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- Footer -->
           <div class="full-width" style="padding: 24px 0; text-align: center;">
             <p style="color: var(--text-secondary); font-weight: 500; font-size: 0.95rem; margin-bottom: 8px;">Built in Africa. Designed for modern business.</p>
-            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">(c) 2026 CM Studios UG. All rights reserved.</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">© 2026 CM Studios UG. All rights reserved.</p>
           </div>
         </div>
       </template>
