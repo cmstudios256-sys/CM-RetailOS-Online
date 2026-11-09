@@ -3296,7 +3296,7 @@ onUnmounted(() => {
     position: absolute;
     z-index: 1;
     inset: 0;
-    background: linear-gradient(90deg, rgba(8, 14, 24, 0.58) 0%, rgba(8, 14, 24, 0.34) 48%, rgba(8, 14, 24, 0.04) 100%);
+    background: linear-gradient(180deg, rgba(8, 14, 24, 0.72) 0%, rgba(8, 14, 24, 0.42) 50%, rgba(8, 14, 24, 0.82) 100%);
     content: '';
     pointer-events: none;
   }
@@ -3315,7 +3315,7 @@ onUnmounted(() => {
   .tablet-pos .product-card.has-product-image .product-name,
   .tablet-pos .product-card.has-product-image .product-category,
   .tablet-pos .product-card.has-product-image .product-price {
-    max-width: 90%;
+    max-width: 100%;
     padding: 0;
     background: transparent;
     border: 0;
@@ -3324,7 +3324,7 @@ onUnmounted(() => {
   }
 
   .tablet-pos .product-card.has-product-image .product-name {
-    width: fit-content;
+    width: 100%;
     font-size: 12px;
     font-weight: 700;
     line-height: 1.2;
@@ -3563,7 +3563,7 @@ onUnmounted(() => {
     position: absolute;
     z-index: 1;
     inset: 0;
-    background: linear-gradient(90deg, rgba(8, 14, 24, 0.58) 0%, rgba(8, 14, 24, 0.34) 48%, rgba(8, 14, 24, 0.04) 100%);
+    background: linear-gradient(180deg, rgba(8, 14, 24, 0.72) 0%, rgba(8, 14, 24, 0.42) 50%, rgba(8, 14, 24, 0.82) 100%);
     content: '';
     pointer-events: none;
   }
@@ -3596,7 +3596,7 @@ onUnmounted(() => {
   }
 
   [data-theme='light'] .product-card.has-product-image::before {
-    background: linear-gradient(90deg, rgba(15, 23, 42, 0.38) 0%, rgba(15, 23, 42, 0.2) 48%, transparent 82%);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.65) 0%, rgba(15, 23, 42, 0.38) 50%, rgba(15, 23, 42, 0.78) 100%);
   }
 
   [data-theme='light'] .product-card.has-product-image .product-image-small.has-image {
@@ -3606,7 +3606,7 @@ onUnmounted(() => {
   [data-theme='light'] .product-card.has-product-image .product-name,
   [data-theme='light'] .product-card.has-product-image .product-category,
   [data-theme='light'] .product-card.has-product-image .product-price {
-    max-width: 76%;
+    max-width: 100%;
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -3618,10 +3618,11 @@ onUnmounted(() => {
 
   [data-theme='light'] .product-card.has-product-image .product-name {
     font-weight: 800;
+    font-size: 12.5px;
   }
 
   [data-theme='light'] .product-card.has-product-image .product-category {
-    font-size: 10px;
+    font-size: 9.5px;
     font-weight: 700;
   }
 
@@ -3688,12 +3689,12 @@ onUnmounted(() => {
   }
 
   .product-card.has-product-image .product-name {
-    width: fit-content;
-    max-width: 76%;
+    width: 100%;
+    max-width: 100%;
     padding: 0;
     color: #ffffff !important;
-    font-weight: 800;
-    font-size: 14px;
+    font-weight: 750;
+    font-size: 12.5px;
     line-height: 1.25;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.75);
   }
@@ -3711,11 +3712,11 @@ onUnmounted(() => {
   }
 
   .product-card.has-product-image .product-category {
-    max-width: 76%;
+    max-width: 100%;
     padding: 0;
     color: #ffffff !important;
     font-weight: 700;
-    font-size: 10px;
+    font-size: 9.5px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 7px rgba(0, 0, 0, 0.8);
   }
 
