@@ -3190,23 +3190,25 @@ onUnmounted(() => {
   .tablet-pos .quantity-controls button,
   .tablet-pos .remove-item-btn,
   .tablet-pos .clear-cart-btn {
-    width: 30px;
-    min-width: 30px;
-    min-height: 26px;
-    height: 26px;
+    width: 32px;
+    min-width: 32px;
+    min-height: 30px;
+    height: 30px;
+    touch-action: manipulation;
   }
 
   .tablet-pos .clear-cart-btn {
     width: auto;
     min-width: 48px;
     gap: 4px;
-    padding: 0 6px;
-    font-size: 10px;
+    padding: 0 8px;
+    font-size: 11px;
+    touch-action: manipulation;
   }
 
   .tablet-pos .quantity-controls .quantity-input {
-    min-height: 26px !important;
-    height: 26px !important;
+    min-height: 30px !important;
+    height: 30px !important;
   }
 
   .tablet-pos .item-name {

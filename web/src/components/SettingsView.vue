@@ -4349,6 +4349,8 @@ input:checked + .slider:before {
     min-height: 0;
     flex: 1 1 auto;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
 
   .business-unified-section.logo-section .logo-upload-area {
@@ -4434,10 +4436,11 @@ input:checked + .slider:before {
 
   .settings-page {
     display: flex;
-    height: 100%;
-    min-height: 0;
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
     gap: 8px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .settings-sidebar {
@@ -4604,9 +4607,10 @@ input:checked + .slider:before {
     width: 100%;
     min-width: 0;
     min-height: 0;
-    flex: 1 1 auto;
-    overflow-y: auto;
-    padding: 10px 10px 32px !important;
+    flex: 0 0 auto;
+    overflow: visible;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 10px calc(88px + env(safe-area-inset-bottom)) !important;
     border: none !important;
     border-radius: 0 !important;
     background: transparent !important;

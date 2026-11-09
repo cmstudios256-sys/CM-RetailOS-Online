@@ -58,6 +58,13 @@ body {
 }
 button, input { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
+button, a, input, select, textarea, .stat-card, .product-card, .mobile-ui-card, .preset-chip {
+  touch-action: manipulation;
+}
+.mobile-bottom-nav, .mobile-more-menu, .mobile-sheet-drag-handle, .drag-handle {
+  -webkit-user-select: none;
+  user-select: none;
+}
 .auth-layout button:focus-visible, .auth-layout a:focus-visible, .auth-layout input:focus-visible { outline: 3px solid #fdba74; outline-offset: 3px; }
 .workspace-shell button:focus, .workspace-shell button:focus-visible, .workspace-shell a:focus-visible { outline: none; }
 
@@ -2237,11 +2244,11 @@ input[type=number] {
     min-width: 0;
     height: 100%;
     min-height: 0;
-    flex: 1 0 auto;
+    flex: 1 1 auto;
     padding: 8px max(8px, env(safe-area-inset-right)) calc(76px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
     overflow-x: clip;
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
   }
 
