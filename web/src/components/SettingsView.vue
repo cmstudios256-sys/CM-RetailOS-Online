@@ -485,7 +485,7 @@ function applyThemeModeDom(mode: 'dark' | 'light' | 'system') {
   }
 
   const isLight = root.getAttribute('data-theme') === 'light'
-  const headerColor = isLight ? '#f1f5f9' : '#080e18'
+  const headerColor = isLight ? '#f1f5f9' : '#020617'
   const themeMetas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
   if (themeMetas.length) {
     themeMetas.forEach(meta => meta.setAttribute('content', headerColor))
