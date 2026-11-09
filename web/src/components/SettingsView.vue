@@ -1369,7 +1369,7 @@ onUnmounted(() => {
                   role="button"
                   tabindex="0"
                   title="Upload store logo"
-                  style="display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-muted); font-size: 1.2rem; letter-spacing: 0.1em; overflow: hidden; cursor: pointer;"
+                  style="cursor: pointer; overflow: hidden;"
                 >
                   <img
                     v-if="appSettings.shopDetails.logo"
@@ -3128,12 +3128,46 @@ onUnmounted(() => {
   height: 80px;
   border-radius: 16px;
   background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-sidebar) 100%);
-  border: 2px dashed var(--text-muted);
+  border: 2px dashed rgba(148, 163, 184, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
   transition: all 0.2s;
+  cursor: pointer;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.current-logo:hover {
+  border-color: var(--accent-color);
+}
+
+.empty-logo-box {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  box-sizing: border-box;
+  text-align: center;
+  user-select: none;
+}
+
+.empty-logo-box span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.empty-logo-icon {
+  color: var(--text-muted);
+  opacity: 0.8;
+  flex-shrink: 0;
 }
 
 .upload-actions {
@@ -4311,6 +4345,29 @@ input:checked + .slider:before {
     min-height: 0;
     flex: 1 1 auto;
     overflow-y: auto;
+  }
+
+  .business-unified-section.logo-section .logo-upload-area {
+    padding: 0 0 6px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 16px !important;
+    justify-content: flex-start !important;
+  }
+
+  .business-unified-section.logo-section .current-logo,
+  .current-logo {
+    width: 76px !important;
+    height: 76px !important;
+    min-width: 76px !important;
+    border-radius: 14px !important;
+    border: 2px dashed rgba(148, 163, 184, 0.35) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
   }
 
   .mobile-country-select {
