@@ -2135,8 +2135,8 @@ input[type=number] {
     background: #020617 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border-bottom: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.14)) !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
     position: sticky !important;
     top: 0 !important;
     z-index: 50 !important;
@@ -2146,8 +2146,8 @@ input[type=number] {
     background: #f1f5f9 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
   }
 
   .workspace-topbar-title {
@@ -3861,8 +3861,8 @@ body:has(.workspace-shell) {
     background: #020617 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border-bottom: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.14)) !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
   }
 
   [data-theme='light'] .page-shell:has(.workspace-shell) .workspace-topbar,
@@ -3872,7 +3872,7 @@ body:has(.workspace-shell) {
     background: #f1f5f9 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
   }
 }

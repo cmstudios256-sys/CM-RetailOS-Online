@@ -3746,7 +3746,9 @@ input:checked + .slider:before {
 
 .about-hero-card {
   background-color: var(--bg-sidebar);
-  border: 1px solid var(--border-subtle);
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   border-radius: 8px;
   padding: 22px 26px;
   display: flex;
@@ -3793,7 +3795,9 @@ input:checked + .slider:before {
   flex-direction: column;
   align-items: center;
   background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   border-radius: 8px;
   padding: 12px 20px;
   min-width: 90px;
@@ -4891,6 +4895,11 @@ input:checked + .slider:before {
   .about-hero-card {
     padding: 18px 16px;
     gap: 16px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 14px !important;
+    background: rgba(15, 23, 42, 0.65) !important;
   }
 
   .app-logo-block {
@@ -4921,6 +4930,11 @@ input:checked + .slider:before {
     min-width: 0;
     padding: 10px 8px;
     text-align: center;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 10px !important;
+    background-color: var(--bg-surface) !important;
   }
 
   .mvd-item {
@@ -5426,6 +5440,20 @@ input:checked + .slider:before {
 
 [data-theme='light'] .mobile-bt-toggle-row .toggle-text strong {
   color: #0f172a !important;
+}
+
+[data-theme='light'] .about-hero-card {
+  background: #ffffff !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme='light'] .version-badge {
+  background: #f1f5f9 !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 
