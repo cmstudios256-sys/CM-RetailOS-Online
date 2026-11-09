@@ -21,7 +21,7 @@ export type GuestSettings = {
 }
 
 export type GuestBundle = {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
   guestDeviceId: string
   idempotencyKey: string
   products: Product[]
@@ -899,23 +899,15 @@ export function createDemoSales(products: Product[]): Sale[] {
 }
 
 function seedState(): GuestState {
-  const demo = createDemoProducts()
-  const sales = createDemoSales(demo)
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     guestDeviceId: getGuestDeviceId(),
     idempotencyKey: uuid(),
     demoData: false,
-    products: demo,
-    categories: Array.from(new Set(demo.map(p => p.category))).sort(),
-    sales,
-    stockMovements: demo.map(p => ({
-      id: uuid(),
-      productId: p.id,
-      quantityDelta: p.quantity,
-      reason: 'Opening stock',
-      createdAt: new Date().toISOString(),
-    })),
+    products: [],
+    categories: [],
+    sales: [],
+    stockMovements: [],
     settings: {
       shopName: 'My Shop',
       currency: 'UGX',
@@ -938,26 +930,42 @@ function readState(): GuestState {
     writeState(initial)
     return initial
   }
-  const state = JSON.parse(raw) as GuestState
+  let state: GuestState
+  try {
+    state = JSON.parse(raw) as GuestState
+  } catch {
+    const initial = seedState()
+    writeState(initial)
+    return initial
+  }
   if (state.guestDeviceId !== getGuestDeviceId()
     || !Array.isArray(state.products)
     || !Array.isArray(state.sales)
     || !Array.isArray(state.categories)) {
-    throw new Error('Guest data could not be read. Clear this browser’s CM RetailOS guest data and reload.')
+    const initial = seedState()
+    writeState(initial)
+    return initial
   }
-  if (state.products.length === 0 || !state.sales || state.sales.length === 0 || (state.schemaVersion && state.schemaVersion < 7)) {
-    const demo = state.products.length >= 50 ? state.products : createDemoProducts()
-    state.products = demo
-    state.categories = Array.from(new Set(demo.map(p => p.category))).sort()
-    if (!state.sales || state.sales.length === 0 || (state.schemaVersion && state.schemaVersion < 7)) {
-      state.sales = createDemoSales(demo)
+  if (!state.schemaVersion || state.schemaVersion < 8) {
+    const clean = seedState()
+    if (state.settings) {
+      clean.settings = {
+        ...clean.settings,
+        shopName: state.settings.shopName || 'My Shop',
+        currency: state.settings.currency || 'UGX',
+        address: state.settings.address || '',
+        phone: state.settings.phone || '',
+        receiptHeader: state.settings.receiptHeader || '',
+        receiptFooter: state.settings.receiptFooter || 'Thank you for shopping with us!',
+        receiptShowPhone: !!state.settings.receiptShowPhone,
+        preferences: {
+          ...(clean.settings.preferences || {}),
+          ...(state.settings.preferences || {}),
+        },
+      }
     }
-    state.schemaVersion = 7
-    writeState(state)
-  }
-  if (state.schemaVersion !== 7) {
-    state.schemaVersion = 7
-    writeState(state)
+    writeState(clean)
+    return clean
   }
   return state
 }
