@@ -6,7 +6,6 @@ web/node_modules/
 web/dist/
 web/tsconfig.tsbuildinfo
 TECHNICAL-STATUS-REPORT.md
-web/public/developer-portrait.jpg
 api/bin/
 api/*.exe
 coverage/

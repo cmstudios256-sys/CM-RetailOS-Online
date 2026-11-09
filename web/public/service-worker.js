@@ -8,6 +8,7 @@ const APP_SHELL = [
   '/icons/cm-retailos-512.png',
   '/icons/cm-retailos-maskable-512.png',
   '/icons/apple-touch-icon.png',
+  '/developer-portrait.jpg',
 ]
 
 const isCacheSafeResponse = response => {
