@@ -473,7 +473,7 @@ onUnmounted(() => {
         </div>
       </nav>
       <div class="workspace-sidebar-footer">
-        <span class="footer-version">v3.0.8</span>
+        <span class="footer-version">v3.0.9</span>
         <span class="workspace-sidebar-status"><i></i> {{ isGuest ? 'Local' : 'Cloud' }}</span>
       </div>
     </aside>

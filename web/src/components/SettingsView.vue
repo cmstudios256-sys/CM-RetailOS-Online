@@ -112,7 +112,7 @@ const LOCAL_PRINTERS_KEY = 'cm_retailos_online_printers_v1'
 const LOCAL_JOBS_KEY = 'cm_retailos_online_print_jobs_v1'
 const LOCAL_STAFF_PERMS_KEY = 'cm_retailos_online_staff_perms_v1'
 
-const appVersion = 'v3.0.8'
+const appVersion = 'v3.0.9'
 const activeTab = ref('business-info')
 const settingsLoading = ref(true)
 const isSavingConfig = ref(false)
