@@ -32,6 +32,7 @@ import {
   getDefaultBluetoothPrinter,
   buildEscPosReceipt,
   sendToBluetoothPrinter,
+  autoConnectSavedBluetoothPrinter,
 } from '../utils/bluetoothPrinter'
 
 type CartItem = {
@@ -601,30 +602,45 @@ function clearCart() {
 function printCompletedReceipt(sale: Sale) {
   const settings = shopSettings.value
   const storeTitle = settings?.shopName || props.shopName
+  const prefs = readOnlinePrefs()
+  const btPrinter = getDefaultBluetoothPrinter()
 
-  if (isPhone.value || isTablet.value) {
-    const btPrinter = getDefaultBluetoothPrinter()
-    if (btPrinter) {
-      const bytes = buildEscPosReceipt(sale, {
-        shopName: storeTitle,
-        currency: props.currency,
-        paperWidth: btPrinter.paperWidth || '58mm',
-      })
-      sendToBluetoothPrinter(btPrinter, bytes)
-        .then(res => {
-          triggerSuccessToast(res.message || `Receipt printed to ${btPrinter.name}`)
-        })
-        .catch(err => {
-          triggerSuccessToast(err.message || 'Bluetooth printer error')
-        })
-      return
-    } else {
-      shareSale.value = sale
-      return
+  if (btPrinter && (isPhone.value || isTablet.value || btPrinter.connectionType === 'bluetooth')) {
+    const bytes = buildEscPosReceipt(sale, {
+      shopName: storeTitle,
+      currency: props.currency,
+      phone: prefs.receiptsSettings?.showPhone !== false ? settings?.phone : undefined,
+      address: settings?.address,
+      headerText: prefs.receiptsSettings?.headerText,
+      footerText: prefs.receiptsSettings?.footerText,
+      showCashier: prefs.receiptsSettings?.showCashier !== false,
+      paperWidth: btPrinter.paperWidth || '58mm',
+    })
+    const copies = Math.max(1, Math.min(5, prefs.receiptsSettings?.printCopies || 1))
+
+    const printJobs = async () => {
+      for (let i = 0; i < copies; i++) {
+        await sendToBluetoothPrinter(btPrinter, bytes)
+        if (i < copies - 1) {
+          await new Promise(resolve => setTimeout(resolve, 400))
+        }
+      }
     }
+
+    printJobs()
+      .then(() => {
+        triggerSuccessToast(`Receipt printed to ${btPrinter.name}`)
+      })
+      .catch(err => {
+        triggerErrorToast(err.message || 'Bluetooth printer error')
+        shareSale.value = sale
+      })
+    return
+  } else if (isPhone.value || isTablet.value) {
+    shareSale.value = sale
+    return
   }
 
-  const prefs = readOnlinePrefs()
   const showLogo = prefs.receiptsSettings?.showLogo !== false
   const showCashier = prefs.receiptsSettings?.showCashier !== false
   const receiptMaxWidth = prefs.receiptsSettings?.paperWidth === '58mm' ? '220px' : '300px'
@@ -736,6 +752,7 @@ let gridResizeObserver: ResizeObserver | null = null
 onMounted(() => {
   mobileTouch.value = isTouchDevice() || isPhone.value || isTablet.value
   cameraSupported.value = typeof navigator !== 'undefined' && (!!navigator.mediaDevices?.getUserMedia || isPhone.value || isTablet.value)
+  void autoConnectSavedBluetoothPrinter().catch(() => {})
   loadProducts()
   updatePosGridColumns()
   if (posGridRef.value && typeof ResizeObserver !== 'undefined') {

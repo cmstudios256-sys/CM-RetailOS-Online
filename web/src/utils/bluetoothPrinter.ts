@@ -17,13 +17,151 @@ const LOCAL_PRINTERS_KEY = 'cm_retailos_online_printers_v1'
 const LOCAL_JOBS_KEY = 'cm_retailos_online_print_jobs_v1'
 
 // Common thermal printer Bluetooth GATT Services
-const THERMAL_PRINTER_SERVICES = [
+export const THERMAL_PRINTER_SERVICES = [
   '000018f0-0000-1000-8000-00805f9b34fb',
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
   '49535343-fe7d-4ae5-8fa9-9fafd205e455',
   '0000ff00-0000-1000-8000-00805f9b34fb',
   '0000af30-0000-1000-8000-00805f9b34fb',
+  '0000ffe0-0000-1000-8000-00805f9b34fb',
+  '0000fee7-0000-1000-8000-00805f9b34fb',
+  '0000ae30-0000-1000-8000-00805f9b34fb',
 ]
+
+// In-memory active Bluetooth connection
+let cachedDevice: any = null
+let cachedGattServer: any = null
+let cachedCharacteristic: any = null
+let isConnectingGatt = false
+
+function dispatchPrinterStatus(connected: boolean, deviceName: string) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('bluetooth-printer-status', {
+        detail: { connected, deviceName },
+      }),
+    )
+  }
+}
+
+function handleDisconnection() {
+  cachedGattServer = null
+  cachedCharacteristic = null
+  dispatchPrinterStatus(false, cachedDevice?.name || 'Bluetooth Printer')
+}
+
+async function findWritableCharacteristic(server: any): Promise<any> {
+  // 1. Try known thermal printer service UUIDs first
+  for (const uuid of THERMAL_PRINTER_SERVICES) {
+    try {
+      const service = await server.getPrimaryService(uuid)
+      if (service) {
+        const chars = await service.getCharacteristics()
+        for (const char of chars) {
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            return char
+          }
+        }
+      }
+    } catch {
+      // Continue checking other services
+    }
+  }
+
+  // 2. Generic fallback: enumerate all primary services
+  try {
+    const services = await server.getPrimaryServices()
+    for (const service of services) {
+      try {
+        const chars = await service.getCharacteristics()
+        for (const char of chars) {
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            return char
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return null
+}
+
+export async function connectToGattDevice(device: any): Promise<boolean> {
+  if (!device) return false
+  if (isConnectingGatt) return false
+  isConnectingGatt = true
+  try {
+    cachedDevice = device
+    try {
+      device.removeEventListener('gattserverdisconnected', handleDisconnection)
+      device.addEventListener('gattserverdisconnected', handleDisconnection)
+    } catch {}
+
+    const gatt = device.gatt
+    if (!gatt) {
+      isConnectingGatt = false
+      return false
+    }
+
+    cachedGattServer = gatt.connected ? gatt : await gatt.connect()
+    cachedCharacteristic = await findWritableCharacteristic(cachedGattServer)
+
+    const isConnected = !!(cachedCharacteristic && cachedGattServer?.connected)
+    dispatchPrinterStatus(isConnected, device.name || 'Bluetooth Printer')
+    isConnectingGatt = false
+    return isConnected
+  } catch (err) {
+    console.warn('[Bluetooth Printer] Connection error:', err)
+    cachedGattServer = null
+    cachedCharacteristic = null
+    dispatchPrinterStatus(false, 'Disconnected')
+    isConnectingGatt = false
+    return false
+  }
+}
+
+export function isBluetoothPrinterConnected(): boolean {
+  return !!(cachedCharacteristic && cachedGattServer?.connected)
+}
+
+export function disconnectBluetoothPrinter(): void {
+  try {
+    if (cachedGattServer?.connected) {
+      cachedGattServer.disconnect()
+    }
+  } catch {}
+  cachedDevice = null
+  cachedGattServer = null
+  cachedCharacteristic = null
+  dispatchPrinterStatus(false, 'Disconnected')
+}
+
+export async function autoConnectSavedBluetoothPrinter(): Promise<boolean> {
+  if (!isWebBluetoothSupported()) return false
+  const nav = navigator as any
+  if (!nav.bluetooth || typeof nav.bluetooth.getDevices !== 'function') return false
+
+  try {
+    const permittedDevices = await nav.bluetooth.getDevices()
+    if (!permittedDevices || permittedDevices.length === 0) return false
+
+    const configured = getDefaultBluetoothPrinter()
+    const target = configured?.address
+      ? (permittedDevices.find((d: any) => d.id === configured.address || d.name === configured.name) || permittedDevices[0])
+      : permittedDevices[0]
+
+    if (target) {
+      return await connectToGattDevice(target)
+    }
+  } catch (err) {
+    console.warn('[Bluetooth Printer] Auto-connect failed:', err)
+  }
+  return false
+}
 
 export function isWebBluetoothSupported(): boolean {
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator
@@ -76,9 +214,13 @@ export async function requestWebBluetoothDevice(): Promise<{ name: string; id: s
       acceptAllDevices: true,
       optionalServices: THERMAL_PRINTER_SERVICES,
     })
+    if (!device) return null
+
+    await connectToGattDevice(device)
+
     return {
       name: device.name || 'Bluetooth Thermal Printer',
-      id: device.id,
+      id: device.id || device.name,
     }
   } catch (err: any) {
     if (err.name === 'NotFoundError') {
@@ -246,15 +388,37 @@ export async function sendToBluetoothPrinter(
   printer: BluetoothPrinterInfo,
   rawBytes: Uint8Array,
 ): Promise<{ success: boolean; message: string }> {
-  // If Web Bluetooth is supported and user has granted access
   if (isWebBluetoothSupported()) {
-    try {
-      const nav = navigator as any
-      // Attempt to access GATT or prompt
-      // For web browsers without an active GATT session, we record the print job and acknowledge
-    } catch {
-      // fallback
+    // If not connected, attempt auto-reconnect
+    if (!cachedCharacteristic || !cachedGattServer?.connected) {
+      if (cachedDevice) {
+        await connectToGattDevice(cachedDevice)
+      } else {
+        await autoConnectSavedBluetoothPrinter()
+      }
     }
+
+    if (cachedCharacteristic) {
+      try {
+        const CHUNK_SIZE = 100 // Safe 100-byte chunks to fit within standard BLE MTU limits
+        for (let i = 0; i < rawBytes.length; i += CHUNK_SIZE) {
+          const chunk = rawBytes.slice(i, i + CHUNK_SIZE)
+          if (cachedCharacteristic.properties.writeWithoutResponse) {
+            await cachedCharacteristic.writeValueWithoutResponse(chunk)
+          } else {
+            await cachedCharacteristic.writeValue(chunk)
+          }
+          await new Promise(resolve => setTimeout(resolve, 25))
+        }
+      } catch (writeErr: any) {
+        console.warn('[Bluetooth Printer] Write error:', writeErr)
+        throw new Error(writeErr.message || `Failed to transmit receipt to "${printer.name}".`)
+      }
+    } else {
+      throw new Error(`Bluetooth printer "${printer.name}" is offline or disconnected. Please tap "Scan & Pair Printer" to connect.`)
+    }
+  } else {
+    throw new Error('Web Bluetooth is not supported in this browser. Try Chrome on Android or Bluefy on iOS.')
   }
 
   // Record print job in local history
@@ -275,6 +439,6 @@ export async function sendToBluetoothPrinter(
 
   return {
     success: true,
-    message: `Receipt sent to ${printer.name} (${printer.paperWidth}).`,
+    message: `Receipt printed to ${printer.name} (${printer.paperWidth || '58mm'}).`,
   }
 }

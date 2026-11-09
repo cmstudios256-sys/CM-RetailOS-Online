@@ -177,7 +177,10 @@ export type OnlineSettingsPrefs = {
   receiptsSettings?: {
     autoPrint?: boolean
     showLogo?: boolean
+    showPhone?: boolean
     showCashier?: boolean
+    headerText?: string
+    footerText?: string
     printCopies?: number
     printerName?: string
     paperWidth?: string

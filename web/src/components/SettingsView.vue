@@ -39,6 +39,9 @@ import {
   buildEscPosTestPrint,
   sendToBluetoothPrinter,
   isWebBluetoothSupported,
+  isBluetoothPrinterConnected,
+  disconnectBluetoothPrinter,
+  autoConnectSavedBluetoothPrinter,
 } from '../utils/bluetoothPrinter'
 import { useMobileOrTabletBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import CustomSelect from './CustomSelect.vue'
@@ -563,7 +566,10 @@ async function persistLocalPrefs(): Promise<void> {
     receiptsSettings: {
       autoPrint: appSettings.value.receiptsSettings.autoPrint,
       showLogo: appSettings.value.receiptsSettings.showLogo,
+      showPhone: appSettings.value.receiptsSettings.showPhone,
       showCashier: appSettings.value.receiptsSettings.showCashier,
+      headerText: appSettings.value.receiptsSettings.headerText,
+      footerText: appSettings.value.receiptsSettings.footerText,
       printCopies: appSettings.value.receiptsSettings.printCopies,
       printerName: appSettings.value.receiptsSettings.printerName,
       paperWidth: appSettings.value.receiptsSettings.paperWidth,
@@ -639,11 +645,7 @@ async function loadSettings() {
 async function saveConfigurations() {
   isSavingConfig.value = true
   try {
-    const ownerName = appSettings.value.shopDetails.owner.trim()
-    if (!ownerName || ownerName.length > 100) {
-      showToast('error', 'Enter an owner name between 1 and 100 characters.')
-      return
-    }
+    const ownerName = appSettings.value.shopDetails.owner.trim() || props.userName || 'Shop Owner'
     appSettings.value.shopDetails.country = selectedCountry.value
     await persistLocalPrefs()
     const payload: ShopSettingsResponse = {
@@ -658,18 +660,24 @@ async function saveConfigurations() {
     const result = await apiRequest<{ settings: ShopSettingsResponse }>('/settings', {
       method: 'PUT',
       body: payload,
-    })
-    const profile = await apiRequest<{ fullName: string }>('/auth/profile', {
-      method: 'PUT',
-      body: { fullName: ownerName },
-    })
-    appSettings.value.shopDetails.name = result.settings.shopName
-    appSettings.value.shopDetails.currency = result.settings.currency
-    appSettings.value.shopDetails.owner = profile.fullName
+    }).catch(() => null)
+    
+    if (result && result.settings) {
+      appSettings.value.shopDetails.name = result.settings.shopName
+      appSettings.value.shopDetails.currency = result.settings.currency
+    }
+
+    if (ownerName) {
+      await apiRequest<{ fullName: string }>('/auth/profile', {
+        method: 'PUT',
+        body: { fullName: ownerName },
+      }).catch(() => null)
+    }
+
     emit('user-updated', {
-      fullName: profile.fullName,
-      shopName: result.settings.shopName,
-      currency: result.settings.currency,
+      fullName: ownerName,
+      shopName: payload.shopName,
+      currency: payload.currency,
     })
     showToast('success', 'Configurations saved successfully.')
   } catch (reason) {
@@ -733,6 +741,68 @@ const displayedPrinters = computed(() => {
 })
 
 const isPairingBluetooth = ref(false)
+const isBtConnectedLive = ref(isBluetoothPrinterConnected())
+
+function handleBtStatusUpdate(e: Event) {
+  const detail = (e as CustomEvent).detail
+  if (detail) {
+    isBtConnectedLive.value = detail.connected
+  }
+}
+
+async function handlePairBluetoothMobile() {
+  isPairingBluetooth.value = true
+  try {
+    const dev = await requestWebBluetoothDevice()
+    if (dev) {
+      const entry: PrinterConfig = {
+        id: 'bt_' + dev.name.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now().toString(36),
+        name: dev.name,
+        protocol: 'escpos',
+        address: dev.id || dev.name,
+        connectionType: 'bluetooth',
+        paperWidth: '58mm',
+        characterWidth: 32,
+        isDefault: true,
+        capabilities: {
+          supportsCut: true,
+          supportsQRCode: true,
+          supportsBarcode: true,
+          supportsStatus: true,
+          maxColumns: 32,
+        },
+      }
+      configuredPrinters.value = configuredPrinters.value.filter(p => p.connectionType !== 'bluetooth')
+      configuredPrinters.value.push(entry)
+      configuredPrinters.value.forEach(p => { p.isDefault = p.id === entry.id })
+      printerStatuses.value[entry.id] = { isOnline: true, stateDescription: 'Ready' }
+      appSettings.value.receiptsSettings.paperWidth = '58mm'
+      isBtConnectedLive.value = true
+      savePrintersToStorage()
+      persistLocalPrefs()
+      showToast('success', `Connected & paired with "${dev.name}"!`)
+    }
+  } catch (err: any) {
+    showToast('error', err.message || 'Bluetooth connection failed. Ensure Bluetooth is ON on your phone.')
+  } finally {
+    isPairingBluetooth.value = false
+  }
+}
+
+function disconnectBluetoothMobile(printer: PrinterConfig) {
+  disconnectBluetoothPrinter()
+  configuredPrinters.value = configuredPrinters.value.filter(p => p.id !== printer.id)
+  isBtConnectedLive.value = false
+  savePrintersToStorage()
+  persistLocalPrefs()
+  showToast('success', `Unpaired ${printer.name}.`)
+}
+
+function toggleAutoPrint() {
+  appSettings.value.receiptsSettings.autoPrint = !appSettings.value.receiptsSettings.autoPrint
+  handleReceiptSettingChange()
+  showToast('success', appSettings.value.receiptsSettings.autoPrint ? 'Auto-print receipts turned ON' : 'Auto-print receipts turned OFF')
+}
 
 async function handlePairBluetooth() {
   isPairingBluetooth.value = true
@@ -744,6 +814,7 @@ async function handlePairBluetooth() {
       printerForm.value.connectionType = 'bluetooth'
       printerForm.value.paperWidth = '58mm'
       printerForm.value.characterWidth = 32
+      isBtConnectedLive.value = true
       showToast('success', `Connected to ${dev.name}.`)
     }
   } catch (err: any) {
@@ -879,7 +950,7 @@ function handleSavePrinterForm() {
   showToast('success', isEditingPrinter.value ? 'Printer updated.' : 'Printer added.')
 }
 
-function quickConnectPreset(model: string) {
+async function quickConnectPreset(model: string) {
   const entry: PrinterConfig = {
     id: 'bt_' + model.toLowerCase().replace(/[^a-z0-9]/g, '_'),
     name: `${model} Bluetooth Printer`,
@@ -904,7 +975,24 @@ function quickConnectPreset(model: string) {
   appSettings.value.receiptsSettings.paperWidth = '58mm'
   savePrintersToStorage()
   persistLocalPrefs()
-  showToast('success', `${model} connected as default printer.`)
+
+  if (isWebBluetoothSupported()) {
+    showToast('success', `Configuring ${model}. Pairing Bluetooth...`)
+    try {
+      const dev = await requestWebBluetoothDevice()
+      if (dev) {
+        entry.name = dev.name
+        entry.address = dev.id || dev.name
+        savePrintersToStorage()
+        persistLocalPrefs()
+        showToast('success', `Connected & paired with "${dev.name}"!`)
+        return
+      }
+    } catch {
+      // user cancelled picker or paired at OS level
+    }
+  }
+  showToast('success', `${model} configured as default printer.`)
 }
 
 function handleSetDefault(printer: PrinterConfig) {
@@ -1271,6 +1359,8 @@ function handleExternalPrefsUpdate() {
 
 onMounted(() => {
   window.addEventListener('online-prefs-updated', handleExternalPrefsUpdate)
+  window.addEventListener('bluetooth-printer-status', handleBtStatusUpdate)
+  void autoConnectSavedBluetoothPrinter().catch(() => {})
   void loadSettings()
   void loadUsers()
   loadPrinters()
@@ -1291,6 +1381,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('online-prefs-updated', handleExternalPrefsUpdate)
+  window.removeEventListener('bluetooth-printer-status', handleBtStatusUpdate)
 })
 </script>
 
@@ -1485,10 +1576,10 @@ onUnmounted(() => {
               </div>
               <span
                 class="mobile-bt-status-pill"
-                :class="displayedPrinters.length > 0 ? 'connected' : 'disconnected'"
+                :class="displayedPrinters.length > 0 ? (isBtConnectedLive ? 'connected' : 'paired') : 'disconnected'"
               >
                 <i class="status-dot"></i>
-                {{ displayedPrinters.length > 0 ? 'Connected' : 'Not Paired' }}
+                {{ displayedPrinters.length > 0 ? (isBtConnectedLive ? 'Connected & Ready' : 'Paired & Ready') : 'Not Paired' }}
               </span>
             </div>
 
@@ -1502,10 +1593,12 @@ onUnmounted(() => {
                 <button
                   type="button"
                   class="btn btn-primary mobile-bt-pair-btn"
-                  @click="openAddPrinter"
+                  @click="handlePairBluetoothMobile"
+                  :disabled="isPairingBluetooth"
                 >
-                  <Bluetooth :size="18" />
-                  <span>Scan &amp; Pair Printer</span>
+                  <RefreshCw v-if="isPairingBluetooth" :size="18" class="spin-icon" />
+                  <Bluetooth v-else :size="18" />
+                  <span>{{ isPairingBluetooth ? 'Pairing Bluetooth...' : 'Scan & Pair Printer' }}</span>
                 </button>
 
                 <div class="mobile-bt-presets-section">
@@ -1537,7 +1630,10 @@ onUnmounted(() => {
                       <span class="device-name">{{ printer.name }}</span>
                       <span class="device-badge">{{ printer.paperWidth || '58mm' }} THERMAL</span>
                     </div>
-                    <span class="device-meta">{{ printer.address || 'Paired Bluetooth' }} · Ready</span>
+                    <span class="device-meta">
+                      <span class="status-dot" :style="{ backgroundColor: isBtConnectedLive ? '#10b981' : '#38bdf8' }"></span>
+                      {{ isBtConnectedLive ? 'Connected & Ready to Print' : 'Paired (Ready to Print)' }}
+                    </span>
                   </div>
 
                   <div class="device-actions">
@@ -1553,17 +1649,18 @@ onUnmounted(() => {
                     <button
                       type="button"
                       class="btn btn-outline btn-sm mobile-edit-btn"
-                      @click="openEditPrinter(printer)"
-                      title="Edit Printer"
+                      @click="handlePairBluetoothMobile"
+                      :disabled="isPairingBluetooth"
+                      title="Pair a different Bluetooth printer"
                     >
-                      <Edit2 :size="14" />
-                      <span>Edit</span>
+                      <Bluetooth :size="14" />
+                      <span>Pair New</span>
                     </button>
                     <button
                       type="button"
                       class="btn btn-outline btn-sm mobile-remove-btn"
-                      @click="handleDeletePrinter(printer)"
-                      title="Remove"
+                      @click="disconnectBluetoothMobile(printer)"
+                      title="Unpair Printer"
                     >
                       <Trash2 :size="14" />
                     </button>
@@ -1572,12 +1669,12 @@ onUnmounted(() => {
               </div>
 
               <!-- Auto-Print Switch integrated into the mobile card -->
-              <div class="mobile-bt-toggle-row">
+              <div class="mobile-bt-toggle-row clickable-toggle-row" @click="toggleAutoPrint">
                 <div class="toggle-text">
                   <strong>Auto-Print Receipts</strong>
                   <span>Print automatically after completing a sale</span>
                 </div>
-                <label class="switch">
+                <label class="switch" @click.stop>
                   <input
                     type="checkbox"
                     v-model="appSettings.receiptsSettings.autoPrint"
@@ -1787,36 +1884,36 @@ onUnmounted(() => {
                   <h3 style="margin: 0; font-size: 14px; font-weight: 700;">Printing Automation &amp; Features</h3>
                 </div>
                 <div class="card-body toggle-list">
-                  <div class="toggle-group">
+                  <div class="toggle-group clickable-toggle-row" @click="toggleAutoPrint">
                     <div class="toggle-info">
                       <span class="toggle-label">Auto-Print Receipts</span>
                       <span class="toggle-desc">Automatically print a receipt immediately after checkout.</span>
                     </div>
-                    <label class="switch">
+                    <label class="switch" @click.stop>
                       <input type="checkbox" v-model="appSettings.receiptsSettings.autoPrint" @change="handleReceiptSettingChange" />
                       <span class="slider round"></span>
                     </label>
                   </div>
 
-                  <div class="toggle-group">
+                  <div class="toggle-group clickable-toggle-row" @click="appSettings.receiptsSettings.showLogo = !appSettings.receiptsSettings.showLogo; handleReceiptSettingChange()">
                     <span class="toggle-label">Show Store Logo</span>
-                    <label class="switch">
+                    <label class="switch" @click.stop>
                       <input type="checkbox" v-model="appSettings.receiptsSettings.showLogo" @change="handleReceiptSettingChange" />
                       <span class="slider round"></span>
                     </label>
                   </div>
 
-                  <div class="toggle-group">
+                  <div class="toggle-group clickable-toggle-row" @click="appSettings.receiptsSettings.showPhone = !appSettings.receiptsSettings.showPhone; handleReceiptSettingChange()">
                     <span class="toggle-label">Show Business Phone Number</span>
-                    <label class="switch">
+                    <label class="switch" @click.stop>
                       <input type="checkbox" v-model="appSettings.receiptsSettings.showPhone" @change="handleReceiptSettingChange" />
                       <span class="slider round"></span>
                     </label>
                   </div>
 
-                  <div class="toggle-group">
+                  <div class="toggle-group clickable-toggle-row" @click="appSettings.receiptsSettings.showCashier = !appSettings.receiptsSettings.showCashier; handleReceiptSettingChange()">
                     <span class="toggle-label">Show Cashier Name</span>
-                    <label class="switch">
+                    <label class="switch" @click.stop>
                       <input type="checkbox" v-model="appSettings.receiptsSettings.showCashier" @change="handleReceiptSettingChange" />
                       <span class="slider round"></span>
                     </label>
@@ -5196,6 +5293,28 @@ input:checked + .slider:before {
 
 .mobile-bt-status-pill.disconnected .status-dot {
   background: #94a3b8;
+}
+
+.mobile-bt-status-pill.paired {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border: none !important;
+  outline: none !important;
+}
+
+.mobile-bt-status-pill.paired .status-dot {
+  background: #38bdf8;
+  box-shadow: 0 0 6px rgba(14, 165, 233, 0.6);
+}
+
+.clickable-toggle-row {
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.clickable-toggle-row:active {
+  opacity: 0.8;
 }
 
 .mobile-bt-body {

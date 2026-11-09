@@ -4,6 +4,7 @@ import { ArrowRight, MapPin, Phone, Store } from '@lucide/vue'
 import { ApiError, apiRequest, applyOnlinePrefsToDom, clearSignedInUserLocalData, setApiMode, syncOnlinePrefsFromServer, type User } from './api'
 import { clearGuestDataAfterClaim } from './guestStore'
 import WorkspaceShell from './components/WorkspaceShell.vue'
+import { autoConnectSavedBluetoothPrinter } from './utils/bluetoothPrinter'
 
 type ShopSettings = {
   shopName: string
@@ -252,6 +253,7 @@ async function signOut(): Promise<void> {
 onMounted(() => {
   applyOnlinePrefsToDom()
   void openWorkspace()
+  void autoConnectSavedBluetoothPrinter().catch(() => {})
 })
 </script>
 
