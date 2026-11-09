@@ -2058,15 +2058,20 @@ input[type=number] {
     min-height: calc(44px + env(safe-area-inset-top));
     padding: max(4px, env(safe-area-inset-top)) max(20px, calc(16px + env(safe-area-inset-right))) 4px max(20px, calc(16px + env(safe-area-inset-left))) !important;
     gap: 12px;
-    background: transparent !important;
-    border-bottom: none !important;
-    box-shadow: none !important;
+    background: rgba(8, 14, 24, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.14)) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
   }
 
   [data-theme='light'] .workspace-topbar {
-    background: #f1f5f9 !important;
-    border-bottom: none !important;
-    box-shadow: none !important;
+    background: rgba(248, 250, 252, 0.95) !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
   }
 
   .workspace-topbar-title {
@@ -3776,5 +3781,11 @@ body:has(.workspace-shell) {
   .page-shell:has(.workspace-shell) .workspace-topbar {
     position: sticky;
     top: 0;
+    z-index: 50;
+    background: rgba(8, 14, 24, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.14)) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
   }
 }

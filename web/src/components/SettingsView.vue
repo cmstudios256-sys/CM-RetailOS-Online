@@ -4665,34 +4665,43 @@ input:checked + .slider:before {
   }
 
   .business-unified-section.logo-section .current-logo {
-    width: 64px !important;
-    height: 64px !important;
-    min-width: 64px !important;
+    width: 68px !important;
+    height: 68px !important;
+    min-width: 68px !important;
     border-radius: 12px !important;
-    border: none !important;
+    border: 2px dashed rgba(148, 163, 184, 0.35) !important;
     outline: none !important;
-    background: rgba(30, 41, 59, 0.72) !important;
+    background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-sidebar) 100%) !important;
     cursor: pointer;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   .empty-logo-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
+    width: 100%;
+    height: 100%;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    text-align: center !important;
   }
 
   .empty-logo-box span {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+    color: var(--text-muted) !important;
+    line-height: 1 !important;
   }
 
   .empty-logo-icon {
-    color: var(--text-muted);
-    opacity: 0.7;
+    color: var(--text-muted) !important;
+    opacity: 0.8 !important;
   }
 
   .upload-actions {
