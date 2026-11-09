@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cm-retailos-shell-v13'
+const CACHE_NAME = 'cm-retailos-shell-v14'
 const APP_SHELL = [
   '/',
   '/index.html',

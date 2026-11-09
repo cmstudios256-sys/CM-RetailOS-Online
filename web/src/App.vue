@@ -3,7 +3,6 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { ArrowRight, MapPin, Phone, Store } from '@lucide/vue'
 import { ApiError, apiRequest, applyOnlinePrefsToDom, clearSignedInUserLocalData, setApiMode, syncOnlinePrefsFromServer, type User } from './api'
 import { clearGuestDataAfterClaim, exportGuestBundle } from './guestStore'
-import CloudSaveModal from './components/CloudSaveModal.vue'
 import WorkspaceShell from './components/WorkspaceShell.vue'
 
 type ShopSettings = {
@@ -22,7 +21,6 @@ const demoMode = ref(false)
 const loading = ref(true)
 const loadError = ref('')
 const claimNotice = ref('')
-const cloudSaveOpen = ref(false)
 const businessSetupOpen = ref(false)
 const businessSetupLoading = ref(false)
 const businessSetupSaving = ref(false)
@@ -79,18 +77,6 @@ async function beginGoogleConnect(requestedPage: string): Promise<void> {
 
   const params = new URLSearchParams({ next: requestedPage, claim: 'guest' })
   window.location.assign(`/api/v1/auth/google?${params.toString()}`)
-}
-
-async function handleCloudSaved(savedUser: User): Promise<void> {
-  user.value = savedUser
-  guestMode.value = false
-  demoMode.value = false
-  claimNotice.value = ''
-  try {
-    await syncOnlinePrefsFromServer(savedUser.id)
-  } catch (error) {
-    console.warn('Failed to sync prefs after cloud save', error)
-  }
 }
 
 async function loadBusinessSetup(): Promise<void> {
@@ -283,15 +269,8 @@ onMounted(() => {
       :demo-mode="demoMode"
       :claim-notice="claimNotice"
       @connect-google="beginGoogleConnect"
-      @open-cloud-save="cloudSaveOpen = true"
       @sign-out="signOut"
       @user-updated="user = { ...user, ...$event }"
-    />
-    <CloudSaveModal
-      :open="cloudSaveOpen"
-      :shop-name="user?.shopName || 'My Shop'"
-      @close="cloudSaveOpen = false"
-      @saved="handleCloudSaved"
     />
     <div v-if="businessSetupOpen" class="business-setup-backdrop">
       <section

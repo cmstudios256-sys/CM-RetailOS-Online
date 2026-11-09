@@ -3045,16 +3045,16 @@ body:has(.workspace-shell) {
   color: #0284c7 !important;
 }
 
-/* Save to Cloud Row in Mobile More Menu */
-.cloud-save-menu-item {
+/* Google Sign-in Row in Mobile More Menu */
+.google-signin-menu-item {
   grid-column: 1 / -1;
   display: flex !important;
   align-items: center;
   justify-content: center;
   gap: 8px !important;
-  background: rgba(16, 185, 129, 0.16) !important;
-  border: 1px solid rgba(16, 185, 129, 0.38) !important;
-  color: #34d399 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
   font-weight: 600 !important;
   border-radius: 8px;
   padding: 10px !important;
@@ -3062,15 +3062,16 @@ body:has(.workspace-shell) {
   transition: all 0.2s ease;
 }
 
-.cloud-save-menu-item:active {
-  background: rgba(16, 185, 129, 0.28) !important;
+.google-signin-menu-item:active {
+  background: rgba(255, 255, 255, 0.16) !important;
   transform: scale(0.98);
 }
 
-[data-theme='light'] .cloud-save-menu-item {
-  background: rgba(16, 185, 129, 0.1) !important;
-  border: 1px solid rgba(16, 185, 129, 0.3) !important;
-  color: #047857 !important;
+[data-theme='light'] .google-signin-menu-item {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 /* iOS Safari Install Sheet */
