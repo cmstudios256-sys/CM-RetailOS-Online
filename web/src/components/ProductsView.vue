@@ -247,9 +247,25 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 }
 
 const imageInputRef = ref<HTMLInputElement | null>(null)
+const cameraInputRef = ref<HTMLInputElement | null>(null)
+const showPhotoPicker = ref(false)
 
-function triggerImageUpload() {
+function triggerGalleryUpload() {
+  showPhotoPicker.value = false
   imageInputRef.value?.click()
+}
+
+function triggerCameraCapture() {
+  showPhotoPicker.value = false
+  cameraInputRef.value?.click()
+}
+
+function openPhotoPicker() {
+  if (isMobileOrTablet.value) {
+    showPhotoPicker.value = true
+  } else {
+    triggerGalleryUpload()
+  }
 }
 
 function handleImageUpload(event: Event) {
@@ -284,6 +300,7 @@ function handleImageUpload(event: Event) {
       ctx?.drawImage(img, 0, 0, width, height)
       form.value.image = canvas.toDataURL('image/jpeg', 0.82)
       if (imageInputRef.value) imageInputRef.value.value = ''
+      if (cameraInputRef.value) cameraInputRef.value.value = ''
     }
     img.src = dataUrl
   }
@@ -293,6 +310,7 @@ function handleImageUpload(event: Event) {
 function removeProductImage() {
   form.value.image = ''
   if (imageInputRef.value) imageInputRef.value.value = ''
+  if (cameraInputRef.value) cameraInputRef.value.value = ''
 }
 
 const adjustingProduct = ref<Product | null>(null)
@@ -1034,13 +1052,14 @@ onUnmounted(() => {
 
           <div class="product-hero-card">
             <input ref="imageInputRef" type="file" accept="image/*" style="display: none" @change="handleImageUpload" />
+            <input ref="cameraInputRef" type="file" accept="image/*" capture="environment" style="display: none" @change="handleImageUpload" />
             <div class="image-upload-wrapper">
               <button
                 type="button"
                 class="image-upload-square image-upload-frame"
                 :class="{ 'has-image': !!form.image }"
-                :title="form.image ? 'Change product photo' : 'Upload product photo'"
-                @click="triggerImageUpload"
+                :title="form.image ? 'Change product photo' : 'Upload or take product photo'"
+                @click="openPhotoPicker"
               >
                 <template v-if="form.image">
                   <img :src="form.image" alt="Product preview" class="uploaded-preview" />
@@ -1053,8 +1072,8 @@ onUnmounted(() => {
                   <div class="upload-icon-circle">
                     <ImagePlus :size="22" class="upload-icon" />
                   </div>
-                  <span class="upload-hint">Upload Photo</span>
-                  <span class="upload-subhint">Tap to select image</span>
+                  <span class="upload-hint">Product Photo</span>
+                  <span class="upload-subhint">Tap to take photo or choose</span>
                 </div>
               </button>
               <button
@@ -1068,8 +1087,57 @@ onUnmounted(() => {
                 <Trash2 :size="13" />
               </button>
             </div>
+
+            <!-- Quick 1-tap buttons for Camera & Gallery -->
+            <div class="photo-quick-actions">
+              <button
+                type="button"
+                class="photo-action-chip camera-chip"
+                title="Take photo with camera"
+                @click="triggerCameraCapture"
+              >
+                <Camera :size="14" />
+                <span>Take Photo</span>
+              </button>
+              <button
+                type="button"
+                class="photo-action-chip gallery-chip"
+                title="Choose photo from gallery"
+                @click="triggerGalleryUpload"
+              >
+                <ImagePlus :size="14" />
+                <span>Gallery</span>
+              </button>
+            </div>
+
             <div class="photo-hero-tip">
-              <span>{{ form.image ? 'High quality photos boost POS and sales visibility' : 'Add a clear photo to help cashiers identify items quickly' }}</span>
+              <span>{{ form.image ? 'High quality photos boost POS and sales visibility' : 'Take a photo with your camera or select from your gallery' }}</span>
+            </div>
+          </div>
+
+          <!-- Photo Source Picker Bottom Sheet (Camera vs Gallery) -->
+          <div v-if="showPhotoPicker" class="photo-picker-backdrop" @click.self="showPhotoPicker = false">
+            <div class="photo-picker-sheet" role="dialog" aria-modal="true" aria-label="Choose photo source">
+              <div class="photo-picker-header">
+                <h3>Product Photo</h3>
+                <button type="button" class="photo-picker-close" @click="showPhotoPicker = false"><X :size="18" /></button>
+              </div>
+              <div class="photo-picker-options">
+                <button type="button" class="photo-picker-option" @click="triggerCameraCapture">
+                  <div class="option-icon camera-icon-wrap"><Camera :size="22" /></div>
+                  <div class="option-details">
+                    <strong>Take Photo with Camera</strong>
+                    <small>Snap a photo directly using your phone's camera</small>
+                  </div>
+                </button>
+                <button type="button" class="photo-picker-option" @click="triggerGalleryUpload">
+                  <div class="option-icon gallery-icon-wrap"><ImagePlus :size="22" /></div>
+                  <div class="option-details">
+                    <strong>Choose from Gallery</strong>
+                    <small>Select an existing image from your photo library</small>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -3583,6 +3651,223 @@ tbody tr:hover {
   font-size: 11px;
   color: #64748b;
   text-align: center;
+}
+
+.photo-quick-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.photo-action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+  transition: all 0.2s ease;
+}
+
+.photo-action-chip:hover {
+  transform: translateY(-1px);
+}
+
+.photo-action-chip.camera-chip {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: rgba(14, 165, 233, 0.4);
+  color: #38bdf8;
+}
+
+.photo-action-chip.camera-chip:hover {
+  background: rgba(14, 165, 233, 0.25);
+  border-color: #38bdf8;
+}
+
+.photo-action-chip.gallery-chip {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+}
+
+.photo-action-chip.gallery-chip:hover {
+  background: rgba(148, 163, 184, 0.2);
+  color: #ffffff;
+}
+
+[data-theme='light'] .photo-action-chip {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+[data-theme='light'] .photo-action-chip.camera-chip {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0284c7;
+}
+
+[data-theme='light'] .photo-action-chip.gallery-chip {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+/* Photo Picker Sheet / Modal */
+.photo-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.photo-picker-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: #0f172a;
+  border-radius: 20px 20px 0 0;
+  padding: 18px 20px max(24px, env(safe-area-inset-bottom));
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+  animation: slideUpPhotoSheet 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpPhotoSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.photo-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.photo-picker-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.photo-picker-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.photo-picker-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.photo-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  color: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.photo-picker-option:active {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(0.99);
+}
+
+.option-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.option-icon.camera-icon-wrap {
+  background: rgba(14, 165, 233, 0.2);
+  color: #38bdf8;
+}
+
+.option-icon.gallery-icon-wrap {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+}
+
+.option-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.option-details strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.option-details small {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+[data-theme='light'] .photo-picker-sheet {
+  background: #ffffff;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme='light'] .photo-picker-header {
+  border-bottom-color: #e2e8f0;
+}
+
+[data-theme='light'] .photo-picker-header h3 {
+  color: #0f172a;
+}
+
+[data-theme='light'] .photo-picker-option {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+
+[data-theme='light'] .photo-picker-option:active {
+  background: #f1f5f9;
+}
+
+[data-theme='light'] .option-details strong {
+  color: #0f172a;
+}
+
+[data-theme='light'] .option-details small {
+  color: #64748b;
 }
 
 @media (max-width: 639px) {
