@@ -13,6 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var guestUUIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
@@ -383,4 +386,166 @@ func importGuestData(r *http.Request, tx *sql.Tx, claims *sessionClaims, input g
 		return result, err
 	}
 	return result, nil
+}
+
+type cloudSaveRequest struct {
+	Email    string             `json:"email"`
+	Password string             `json:"password"`
+	FullName string             `json:"fullName"`
+	ShopName string             `json:"shopName"`
+	Bundle   *guestClaimRequest `json:"bundle"`
+}
+
+func (s *Server) cloudSave(w http.ResponseWriter, r *http.Request) {
+	if s.db == nil {
+		writeError(w, http.StatusServiceUnavailable, "database_unavailable", "The cloud database is temporarily unavailable.")
+		return
+	}
+
+	var input cloudSaveRequest
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+
+	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
+	input.FullName = strings.TrimSpace(input.FullName)
+	input.ShopName = strings.TrimSpace(input.ShopName)
+	if input.ShopName == "" {
+		input.ShopName = "My Shop"
+	}
+	if input.FullName == "" {
+		input.FullName = "Shop Owner"
+	}
+
+	if !validEmail(input.Email) {
+		writeError(w, http.StatusBadRequest, "invalid_email", "Please enter a valid email address.")
+		return
+	}
+	if !validPassword(input.Password) {
+		writeError(w, http.StatusBadRequest, "invalid_password", "Password must be at least 8 characters.")
+		return
+	}
+
+	tx, err := s.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		log.Printf("begin cloud save transaction: %v", err)
+		writeError(w, http.StatusInternalServerError, "cloud_save_failed", "Could not start cloud save.")
+		return
+	}
+	defer tx.Rollback()
+
+	var user identity
+	var passwordHash []byte
+	var emailVerified bool
+	var googleSubject sql.NullString
+	var googlePictureURL sql.NullString
+	var cloudGmail sql.NullString
+
+	err = tx.QueryRowContext(r.Context(), `
+		SELECT u.id::text, u.shop_id::text, u.full_name, u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
+		       u.google_picture_url, u.google_subject, sh.preferences->>'cloud_gmail'
+		FROM users u
+		JOIN shops sh ON sh.id = u.shop_id
+		WHERE lower(u.email) = lower($1) AND u.active = TRUE`,
+		input.Email,
+	).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Email, &user.Role, &passwordHash, &emailVerified, &user.ShopName, &user.Currency, &googlePictureURL, &googleSubject, &cloudGmail)
+
+	if err == nil {
+		// Existing account: verify password
+		if len(passwordHash) == 0 || bcrypt.CompareHashAndPassword(passwordHash, []byte(input.Password)) != nil {
+			writeError(w, http.StatusUnauthorized, "invalid_credentials", "An account with this email already exists. Enter the correct password to save to your cloud account.")
+			return
+		}
+	} else if errors.Is(err, sql.ErrNoRows) {
+		// New account: create shop and user
+		if err := tx.QueryRowContext(r.Context(),
+			`INSERT INTO shops (name) VALUES ($1) RETURNING id::text`, input.ShopName,
+		).Scan(&user.ShopID); err != nil {
+			log.Printf("create shop for cloud save: %v", err)
+			writeError(w, http.StatusInternalServerError, "cloud_save_failed", "Failed to create cloud shop.")
+			return
+		}
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Printf("hash password for cloud save: %v", err)
+			writeError(w, http.StatusInternalServerError, "cloud_save_failed", "Failed to secure password.")
+			return
+		}
+
+		if err := tx.QueryRowContext(r.Context(), `
+			INSERT INTO users (shop_id, full_name, email, password_hash, email_verified, role)
+			VALUES ($1, $2, $3, $4, TRUE, 'owner') RETURNING id::text`,
+			user.ShopID, input.FullName, input.Email, hash,
+		).Scan(&user.UserID); err != nil {
+			log.Printf("create user for cloud save: %v", err)
+			writeError(w, http.StatusInternalServerError, "cloud_save_failed", "Failed to create cloud user.")
+			return
+		}
+
+		user.ShopName = input.ShopName
+		user.FullName = input.FullName
+		user.Email = input.Email
+		user.Role = "owner"
+		user.Currency = "UGX"
+	} else {
+		log.Printf("find user for cloud save: %v", err)
+		writeError(w, http.StatusInternalServerError, "cloud_save_failed", "Database query failed.")
+		return
+	}
+
+	claims := &sessionClaims{
+		ShopID: user.ShopID,
+		Role:   user.Role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject: user.UserID,
+		},
+	}
+
+	if input.Bundle != nil && (len(input.Bundle.Products) > 0 || len(input.Bundle.Sales) > 0 || input.Bundle.Settings.ShopName != "") {
+		bundle := *input.Bundle
+		if bundle.SchemaVersion == 0 {
+			bundle.SchemaVersion = 1
+		}
+		if bundle.GuestDeviceID == "" || !guestUUIDPattern.MatchString(bundle.GuestDeviceID) {
+			bundle.GuestDeviceID = "00000000-0000-4000-8000-000000000000"
+		}
+		if bundle.IdempotencyKey == "" || !guestUUIDPattern.MatchString(bundle.IdempotencyKey) {
+			bundle.IdempotencyKey = "00000000-0000-4000-8000-000000000001"
+		}
+		if bundle.Settings.ShopName == "" {
+			bundle.Settings.ShopName = user.ShopName
+		}
+		if bundle.Settings.Currency == "" {
+			bundle.Settings.Currency = user.Currency
+		}
+		if bundle.Settings.Preferences == nil {
+			bundle.Settings.Preferences = map[string]any{"cloud_saved": true}
+		}
+
+		if err := validateGuestClaim(bundle); err == nil {
+			if _, err := importGuestData(r, tx, claims, bundle); err != nil {
+				log.Printf("import guest data during cloud save: %v", err)
+			}
+		} else {
+			log.Printf("validate guest claim during cloud save: %v", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("commit cloud save transaction: %v", err)
+		writeError(w, http.StatusInternalServerError, "cloud_save_failed", "Failed to finalize cloud save.")
+		return
+	}
+
+	if err := s.setSession(w, user); err != nil {
+		log.Printf("set session after cloud save: %v", err)
+		writeError(w, http.StatusInternalServerError, "cloud_save_failed", "Cloud save succeeded, but session could not be established.")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message": "Your store has been successfully saved to the cloud!",
+		"user":    user,
+	})
 }

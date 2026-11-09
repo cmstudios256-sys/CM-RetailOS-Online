@@ -3,7 +3,7 @@ import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } fr
 import { useDesktopBreakpoint, useMobileOrTabletBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import { useBottomSheetDrag } from '../utils/useBottomSheetDrag'
 import {
-  BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, Download, FileClock, History, LayoutDashboard,
+  BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, Cloud, Download, FileClock, History, LayoutDashboard,
   LockKeyhole, LogOut, Menu, Moon, Package, PackageCheck, PlusSquare, ReceiptText, Settings as SettingsIcon, Share, ShieldCheck, ShoppingCart,
   Store, Sun, Tag, LineChart, Monitor, X, Zap,
 } from '@lucide/vue'
@@ -51,6 +51,7 @@ type User = {
 const props = defineProps<{ user: User; guestMode?: boolean; demoMode?: boolean; claimNotice?: string }>()
 const emit = defineEmits<{
   'connect-google': [page: string]
+  'open-cloud-save': []
   'sign-out': []
   'user-updated': [settings: Pick<User, 'fullName' | 'shopName' | 'currency'>]
 }>()
@@ -496,7 +497,9 @@ onUnmounted(() => {
           <span v-else class="connection-chip" :class="{ connected: !isGuest }">
             <span></span>{{ isGuest ? 'Not connected' : `Connected as ${user.googleEmail || user.email}` }}
           </span>
-          <button v-if="isGuest" type="button" class="connect-google-button" @click="emit('connect-google', activePage)">Connect Google</button>
+          <button v-if="isGuest" type="button" class="connect-google-button" @click="emit('open-cloud-save')">
+            <Cloud :size="14" style="margin-right: 4px;" />Save to cloud
+          </button>
           <div class="workspace-clock">
             <CalendarDays :size="15" />
             <span><strong>{{ dateText }}</strong><small>{{ timeText }}</small></span>
@@ -558,7 +561,7 @@ onUnmounted(() => {
               <div class="popover-role"><ShieldCheck :size="14" /><span>{{ isGuest ? 'Local guest' : displayRole }}</span><i></i><small>{{ isGuest ? (demoMode ? 'Demo data' : 'Local device') : 'Connected' }}</small></div>
               <div class="popover-menu">
                 <button v-if="hasNavPermission('settings')" type="button" @click="activePage = 'settings'; profileOpen = false"><SettingsIcon :size="15" />Settings</button>
-                <button v-if="isGuest" type="button" @click="profileOpen = false; emit('connect-google', activePage)"><Store :size="15" />Save to cloud</button>
+                <button v-if="isGuest" type="button" @click="profileOpen = false; emit('open-cloud-save')"><Cloud :size="15" />Save to cloud</button>
                 <button v-else type="button" @click="profileOpen = false; emit('sign-out')"><LogOut :size="15" />Sign out</button>
               </div>
             </section>
@@ -568,7 +571,7 @@ onUnmounted(() => {
 
       <div v-if="claimNotice" class="claim-notice" role="status">
         <span>{{ claimNotice }}</span>
-        <button type="button" @click="emit('connect-google', activePage)">Retry save to cloud</button>
+        <button type="button" @click="emit('open-cloud-save')">Save to cloud</button>
       </div>
 
       <main class="workspace-content">
@@ -655,6 +658,16 @@ onUnmounted(() => {
           >
             <component :is="item.icon" :size="18" />
             <span>{{ item.label }}</span>
+          </button>
+          <button
+            v-if="isGuest"
+            type="button"
+            role="menuitem"
+            class="cloud-save-menu-item"
+            @click="mobileMoreOpen = false; emit('open-cloud-save')"
+          >
+            <Cloud :size="18" />
+            <span>Save to cloud</span>
           </button>
           <button
             v-if="canShowInstallRow"

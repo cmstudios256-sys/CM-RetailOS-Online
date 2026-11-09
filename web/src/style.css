@@ -3045,6 +3045,34 @@ body:has(.workspace-shell) {
   color: #0284c7 !important;
 }
 
+/* Save to Cloud Row in Mobile More Menu */
+.cloud-save-menu-item {
+  grid-column: 1 / -1;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px !important;
+  background: rgba(16, 185, 129, 0.16) !important;
+  border: 1px solid rgba(16, 185, 129, 0.38) !important;
+  color: #34d399 !important;
+  font-weight: 600 !important;
+  border-radius: 8px;
+  padding: 10px !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cloud-save-menu-item:active {
+  background: rgba(16, 185, 129, 0.28) !important;
+  transform: scale(0.98);
+}
+
+[data-theme='light'] .cloud-save-menu-item {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  color: #047857 !important;
+}
+
 /* iOS Safari Install Sheet */
 .ios-install-backdrop {
   position: fixed;

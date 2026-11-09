@@ -106,6 +106,7 @@ func New(db *sql.DB, config Config) *Server {
 	s.mux.HandleFunc("GET /api/v1/auth/providers", s.authProviders)
 	s.mux.HandleFunc("GET /api/v1/auth/google", s.googleLogin)
 	s.mux.HandleFunc("GET /api/v1/auth/google/callback", s.googleCallback)
+	s.mux.HandleFunc("POST /api/v1/auth/cloud-save", s.cloudSave)
 	s.mux.Handle("POST /api/v1/account/claim", s.requireSession(http.HandlerFunc(s.claimGuestData)))
 	s.mux.HandleFunc("POST /api/v1/auth/password-reset/request", s.requestPasswordReset)
 	s.mux.HandleFunc("POST /api/v1/auth/password-reset/confirm", s.confirmPasswordReset)

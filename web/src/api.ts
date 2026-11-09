@@ -59,6 +59,19 @@ export async function apiRequest<T>(
   return payload as T
 }
 
+export type User = {
+  id: string
+  shopId: string
+  fullName: string
+  email: string
+  role: string
+  shopName: string
+  currency: string
+  googleConnected?: boolean
+  googleEmail?: string
+  googlePictureUrl?: string
+}
+
 export type Product = {
   id: number
   sku: string
