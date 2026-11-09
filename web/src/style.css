@@ -1178,8 +1178,80 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 [data-theme='light'] .workspace-topbar {
-  background: rgba(241, 245, 249, 0.96) !important;
-  border-bottom: 1px solid var(--border-subtle, #e2e8f0) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme='light'] .workspace-topbar-title h1 {
+  color: var(--accent-color, #0284c7) !important;
+}
+
+[data-theme='light'] .workspace-topbar-title p {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .workspace-topbar .desktop-shop-icon,
+[data-theme='light'] .workspace-topbar .mobile-shop-mark {
+  color: var(--accent-color, #0284c7) !important;
+}
+
+[data-theme='light'] .workspace-topbar .topbar-icon {
+  border-color: #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #475569 !important;
+}
+
+[data-theme='light'] .workspace-topbar .topbar-icon:hover,
+[data-theme='light'] .workspace-topbar .topbar-icon[aria-expanded="true"] {
+  border-color: #bae6fd !important;
+  background: #f0f9ff !important;
+  color: #0284c7 !important;
+}
+
+[data-theme='light'] .workspace-topbar .notification-count {
+  border-color: #ffffff !important;
+  background: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .workspace-topbar .topbar-user {
+  border-color: #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+}
+
+[data-theme='light'] .workspace-topbar .topbar-user:hover,
+[data-theme='light'] .workspace-topbar .topbar-user[aria-expanded="true"] {
+  border-color: #bae6fd !important;
+  background: #f0f9ff !important;
+  color: #0284c7 !important;
+}
+
+[data-theme='light'] .workspace-topbar .topbar-user .profile-avatar {
+  background: #e0f2fe !important;
+  color: #0284c7 !important;
+  border-color: #bae6fd !important;
+}
+
+[data-theme='light'] .workspace-topbar .workspace-clock {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0284c7 !important;
+}
+
+[data-theme='light'] .workspace-topbar .workspace-clock strong {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .workspace-topbar .workspace-clock small {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .workspace-topbar .connection-chip {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
 }
 
 body, #app, button, input, select, textarea {
@@ -2069,9 +2141,9 @@ input[type=number] {
   }
 
   [data-theme='light'] .workspace-topbar {
-    background: rgba(248, 250, 252, 0.95) !important;
+    background: rgba(255, 255, 255, 0.98) !important;
     border-bottom: 1px solid #e2e8f0 !important;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
   }
 
   .workspace-topbar-title {
@@ -3787,5 +3859,16 @@ body:has(.workspace-shell) {
     -webkit-backdrop-filter: blur(20px) !important;
     border-bottom: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.14)) !important;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
+  }
+
+  [data-theme='light'] .page-shell:has(.workspace-shell) .workspace-topbar,
+  [data-theme='light'] .workspace-topbar,
+  html[data-theme='light'] .page-shell:has(.workspace-shell) .workspace-topbar,
+  html[data-theme='light'] .workspace-topbar {
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
   }
 }
