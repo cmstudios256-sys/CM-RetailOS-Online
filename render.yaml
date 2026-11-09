@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cm-retailos-online-preview
+    name: cm-retailos-online
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
