@@ -271,7 +271,7 @@ const filteredProducts = computed(() => {
 
 const posGridRef = ref<HTMLElement | null>(null)
 const posGridColumns = ref(3)
-const posGridRowHeight = computed(() => isPhone.value ? 132 : isTablet.value ? 132 : 158)
+const posGridRowHeight = computed(() => isPhone.value ? 146 : isTablet.value ? 140 : 158)
 
 function updatePosGridColumns() {
   if (isPhone.value) {
@@ -1757,6 +1757,7 @@ onUnmounted(() => {
   text-overflow: ellipsis;
   word-break: break-word;
   letter-spacing: -0.01em;
+  flex-shrink: 0;
 }
 
 [data-theme='light'] .product-card .product-name {
@@ -1779,6 +1780,7 @@ onUnmounted(() => {
   margin-bottom: 4px;
   width: fit-content;
   max-width: 100%;
+  flex-shrink: 0;
 }
 
 [data-theme='light'] .product-card .product-category {
@@ -3251,11 +3253,22 @@ onUnmounted(() => {
   .tablet-pos .product-card {
     min-width: 0;
     max-width: none;
-    min-height: 118px;
-    height: 118px;
+    min-height: 132px;
+    height: 132px;
     padding: 7px 8px;
     overflow: hidden;
     isolation: isolate;
+  }
+
+  .tablet-pos .product-card.no-image .product-image-small {
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+  }
+
+  .tablet-pos .product-card.no-image .fallback-icon {
+    width: 22px;
+    height: 22px;
   }
 
   .tablet-pos .product-card::after {
@@ -3512,8 +3525,8 @@ onUnmounted(() => {
   .product-card {
     min-width: 0;
     max-width: none;
-    min-height: 124px;
-    height: 124px;
+    min-height: 138px;
+    height: 138px;
     padding: 8px;
     border: none !important;
     outline: none !important;
@@ -3668,7 +3681,10 @@ onUnmounted(() => {
   }
 
   .product-card .product-name {
-    font-size: 12px;
+    font-size: 12.5px;
+    line-height: 1.25;
+    margin-bottom: 2px;
+    flex-shrink: 0;
   }
 
   .product-card.has-product-image .product-name {
@@ -3683,6 +3699,10 @@ onUnmounted(() => {
   }
 
   .product-card .product-category {
+    font-size: 9.5px;
+    padding: 1.5px 5px;
+    margin-bottom: 3px;
+    flex-shrink: 0;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3731,12 +3751,24 @@ onUnmounted(() => {
   }
 
   .product-image-small {
-    width: 64px;
-    height: 64px;
-    flex-basis: 64px;
+    width: 58px;
+    height: 58px;
+    flex-basis: 58px;
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
+  }
+
+  .product-card.no-image .product-image-small {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+    border-radius: 8px;
+  }
+
+  .product-card.no-image .fallback-icon {
+    width: 24px;
+    height: 24px;
   }
 
   .product-card:hover .product-image-small {
