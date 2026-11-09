@@ -463,7 +463,10 @@ func (s *Server) findOrCreateGoogleUser(ctx context.Context, subject string, pro
 	}
 
 	shopName = strings.TrimSpace(shopName)
-	fullName := "Shop Owner"
+	fullName := strings.TrimSpace(profile.Name)
+	if fullName == "" {
+		fullName = "Shop Owner"
+	}
 	if shopName == "" {
 		shopName = "My Shop"
 	}

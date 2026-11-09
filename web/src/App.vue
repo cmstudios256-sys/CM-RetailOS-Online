@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { ArrowRight, MapPin, Phone, Store } from '@lucide/vue'
 import { ApiError, apiRequest, applyOnlinePrefsToDom, clearSignedInUserLocalData, setApiMode, syncOnlinePrefsFromServer, type User } from './api'
-import { clearGuestDataAfterClaim, exportGuestBundle } from './guestStore'
+import { clearGuestDataAfterClaim } from './guestStore'
 import WorkspaceShell from './components/WorkspaceShell.vue'
 
 type ShopSettings = {
@@ -75,7 +75,7 @@ async function beginGoogleConnect(requestedPage: string): Promise<void> {
     return
   }
 
-  const params = new URLSearchParams({ next: requestedPage, claim: 'guest' })
+  const params = new URLSearchParams({ next: requestedPage })
   window.location.assign(`/api/v1/auth/google?${params.toString()}`)
 }
 
@@ -206,23 +206,19 @@ async function openWorkspace(): Promise<void> {
     guestMode.value = false
     demoMode.value = false
     user.value = result.user
+
+    // Clear out local guest/demo data so the signed-in user receives a completely fresh workspace
+    clearGuestDataAfterClaim()
+    clearSignedInUserLocalData()
+    await syncOnlinePrefsFromServer(result.user.id)
+
+    // Clean up any residual OAuth query params
     const params = new URLSearchParams(window.location.search)
-    const shouldSetUpBusiness = params.get('claim') === 'guest'
-    if (shouldSetUpBusiness) {
-      try {
-        const bundle = exportGuestBundle()
-        await apiRequest('/account/claim', { method: 'POST', body: bundle })
-        clearGuestDataAfterClaim()
-        await syncOnlinePrefsFromServer(result.user.id)
-        params.delete('claim')
-        const query = params.toString()
-        window.history.replaceState({}, document.title, `${window.location.pathname}${query ? `?${query}` : ''}`)
-      } catch (error) {
-        claimNotice.value = error instanceof Error ? error.message : 'Guest data could not be saved to the cloud yet.'
-      }
-    }
-    if (shouldSetUpBusiness) {
-      await loadBusinessSetup()
+    if (params.has('claim') || params.has('next')) {
+      params.delete('claim')
+      params.delete('next')
+      const query = params.toString()
+      window.history.replaceState({}, document.title, `${window.location.pathname}${query ? `?${query}` : ''}`)
     }
   } catch (error) {
     try {
