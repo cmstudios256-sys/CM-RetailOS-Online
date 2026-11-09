@@ -3041,7 +3041,7 @@ onUnmounted(() => {
 }
 
 .business-unified-section.logo-section .logo-upload-area {
-  padding: 8px 1.25rem 0;
+  padding: 16px 1.25rem 18px;
   justify-content: center;
 }
 
@@ -4348,7 +4348,7 @@ input:checked + .slider:before {
   }
 
   .business-unified-section.logo-section .logo-upload-area {
-    padding: 0 0 6px !important;
+    padding: 16px 0 16px !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -4657,7 +4657,7 @@ input:checked + .slider:before {
   }
 
   .business-unified-section.logo-section .logo-upload-area {
-    padding: 0 !important;
+    padding: 10px 0 6px !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
