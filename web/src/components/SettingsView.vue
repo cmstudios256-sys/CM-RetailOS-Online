@@ -2356,16 +2356,6 @@ onUnmounted(() => {
               </div>
               <div class="toggle-group">
                 <div class="toggle-info">
-                  <span class="toggle-label">Require PIN for Discounts</span>
-                  <span class="toggle-desc">Ask for supervisor PIN when applying manual discounts.</span>
-                </div>
-                <label class="switch">
-                  <input type="checkbox" v-model="appSettings.applicationSettings.requirePinForDiscounts" @change="handleGeneralAppSettingChange" />
-                  <span class="slider round"></span>
-                </label>
-              </div>
-              <div class="toggle-group">
-                <div class="toggle-info">
                   <span class="toggle-label">Scanner Beep Sound</span>
                   <span class="toggle-desc">Play a beep when a barcode is scanned.</span>
                 </div>
@@ -2373,22 +2363,6 @@ onUnmounted(() => {
                   <input type="checkbox" v-model="appSettings.applicationSettings.barcodeBeep" @change="handleGeneralAppSettingChange" />
                   <span class="slider round"></span>
                 </label>
-              </div>
-              <div class="toggle-group" v-if="appSettings.applicationSettings.requirePinForDiscounts">
-                <div class="toggle-info">
-                  <span class="toggle-label">Set Supervisor PIN</span>
-                  <span class="toggle-desc">4-digit PIN to approve discounts.</span>
-                </div>
-                <div style="display: flex; gap: 0.5rem;">
-                  <input
-                    type="password"
-                    v-model="appSettings.applicationSettings.discountPin"
-                    @change="handleGeneralAppSettingChange"
-                    placeholder="****"
-                    maxlength="4"
-                    style="width: 80px; text-align: center; background: rgba(0,0,0,0.2); border: 1px solid var(--border-light); color: var(--text-primary); padding: 0.5rem; border-radius: 6px; font-size: 1rem; letter-spacing: 2px;"
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -2399,16 +2373,6 @@ onUnmounted(() => {
               <h3>Display</h3>
             </div>
             <div class="card-body toggle-list">
-              <div v-if="!isMobile" class="toggle-group">
-                <div class="toggle-info">
-                  <span class="toggle-label">Enlarge Product Image on Hover</span>
-                  <span class="toggle-desc">Show a larger image when hovering over a product in the POS grid.</span>
-                </div>
-                <label class="switch">
-                  <input type="checkbox" v-model="appSettings.applicationSettings.previewPosImagesOnHover" @change="handleGeneralAppSettingChange" />
-                  <span class="slider round"></span>
-                </label>
-              </div>
               <div class="toggle-group">
                 <div class="toggle-info">
                   <span class="toggle-label">Show Product Images</span>

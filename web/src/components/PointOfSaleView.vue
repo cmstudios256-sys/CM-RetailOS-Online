@@ -158,47 +158,7 @@ const onlinePrefs = computed(() => {
 })
 const shouldShowPosImages = computed(() => isPhone.value || onlinePrefs.value.applicationSettings?.showPosImages !== false)
 
-// Supervisor PIN Pad state for discounts
-const isDiscountUnlocked = ref(false)
-const showPinPad = ref(false)
-const pinValue = ref('')
-const requiresPinUnlock = computed(() =>
-  canApplyDiscount.value
-  && onlinePrefs.value.applicationSettings?.requirePinForDiscounts === true
-  && !isDiscountUnlocked.value,
-)
 
-function appendPin(digit: number) {
-  if (pinValue.value.length < 4) {
-    pinValue.value += String(digit)
-  }
-}
-
-function clearPin() {
-  pinValue.value = ''
-}
-
-function deletePinChar() {
-  pinValue.value = pinValue.value.slice(0, -1)
-}
-
-function closePinPad() {
-  showPinPad.value = false
-  pinValue.value = ''
-}
-
-function verifyPin() {
-  const configuredPin = onlinePrefs.value.applicationSettings?.discountPin?.trim() || '1234'
-  if (pinValue.value === configuredPin) {
-    isDiscountUnlocked.value = true
-    showPinPad.value = false
-    pinValue.value = ''
-    triggerSuccessToast('Supervisor PIN verified. Discount unlocked.')
-  } else {
-    triggerErrorToast('Invalid Supervisor PIN.')
-    pinValue.value = ''
-  }
-}
 
 function handlePrefsUpdated() {
   prefsTick.value++
@@ -508,7 +468,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     mobileCartOpen.value = false
     return
   }
-  if (showPinPad.value) return
+
 
   const activeTag = document.activeElement?.tagName
   if (activeTag === 'TEXTAREA' || activeTag === 'SELECT') return
@@ -568,7 +528,6 @@ function clearCart() {
   cart.value = []
   discountAmount.value = ''
   amountTendered.value = ''
-  isDiscountUnlocked.value = false
   error.value = ''
 }
 
@@ -1093,16 +1052,7 @@ onUnmounted(() => {
       <div class="order-summary">
         <div class="summary-row discount-row">
           <span class="summary-label">Discount</span>
-          <button
-            v-if="requiresPinUnlock"
-            type="button"
-            class="locked-discount-btn"
-            @click="showPinPad = true"
-          >
-            <span>Unlock</span>
-            <Lock :size="13" />
-          </button>
-          <div v-else-if="canApplyDiscount" class="discount-input-wrapper">
+          <div v-if="canApplyDiscount" class="discount-input-wrapper">
             <span class="currency-prefix">{{ currency }}</span>
             <input
               v-model.number="discountAmount"
@@ -1174,37 +1124,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Supervisor PIN Pad Modal -->
-    <div v-if="showPinPad" class="pin-modal-overlay" @click.self="closePinPad">
-      <div class="pin-modal-content">
-        <div class="pin-header">
-          <h3>Supervisor PIN Required</h3>
-          <button type="button" class="pin-close-btn" @click="closePinPad">
-            <X :size="18" />
-          </button>
-        </div>
-        <div class="pin-display">
-          <div class="pin-dots">
-            <span v-for="i in 4" :key="i" class="pin-dot" :class="{ filled: i <= pinValue.length }"></span>
-          </div>
-        </div>
-        <div class="pin-pad">
-          <button v-for="n in [1, 2, 3, 4, 5, 6, 7, 8, 9]" :key="n" type="button" class="pin-btn" @click="appendPin(n)">
-            {{ n }}
-          </button>
-          <button type="button" class="pin-btn pin-btn-clear" @click="clearPin">C</button>
-          <button type="button" class="pin-btn" @click="appendPin(0)">0</button>
-          <button type="button" class="pin-btn pin-btn-del" @click="deletePinChar">
-            <Delete :size="18" />
-          </button>
-        </div>
-        <div class="pin-footer">
-          <button type="button" class="pin-verify-btn" :disabled="pinValue.length !== 4" @click="verifyPin">
-            Verify
-          </button>
-        </div>
-      </div>
-    </div>
+
     <Teleport to="body">
       <div v-if="cameraOpen" class="barcode-camera-backdrop" @click.self="closeBarcodeCamera">
         <section
@@ -1763,7 +1683,7 @@ onUnmounted(() => {
 }
 
 .product-card.has-product-image:hover .real-product-img {
-  transform: scale(1.05);
+  transform: none;
 }
 
 .product-card.has-product-image .product-name,
