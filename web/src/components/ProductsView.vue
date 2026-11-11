@@ -1110,30 +1110,42 @@ onUnmounted(() => {
         <form class="product-form-container" @submit.prevent="saveProduct">
           <div v-if="error" class="inline-error" role="alert" style="margin-bottom: 1rem;">{{ error }}</div>
 
-          <div class="product-hero-card">
-            <input ref="imageInputRef" type="file" accept="image/*" style="display: none" @change="handleImageUpload" />
-            <input ref="cameraInputRef" type="file" accept="image/*" capture="environment" style="display: none" @change="handleImageUpload" />
+          <div class="top-section">
+            <div class="top-fields">
+              <div class="form-group span-2">
+                <label>Product Name <span class="required-star">*</span></label>
+                <input v-model.trim="form.name" type="text" placeholder="e.g. Air Freshener Lavender 300ml" required class="input-highlight" />
+              </div>
+
+              <div class="top-row-2">
+                <div class="form-group">
+                  <label>SKU / Item Code <span class="required-star">*</span></label>
+                  <input v-model.trim="form.sku" type="text" placeholder="SKU-XXXXXX" required />
+                </div>
+
+                <div class="form-group">
+                  <label>Category <span class="required-star">*</span></label>
+                  <select v-model="form.category" required class="modal-select">
+                    <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <div class="image-upload-wrapper">
+              <input ref="imageInputRef" type="file" accept="image/*" style="display: none" @change="handleImageUpload" />
+              <input ref="cameraInputRef" type="file" accept="image/*" capture="environment" style="display: none" @change="handleImageUpload" />
               <button
                 type="button"
-                class="image-upload-square image-upload-frame"
+                class="image-upload-square"
                 :class="{ 'has-image': !!form.image }"
-                :title="form.image ? 'Change product photo' : 'Upload or take product photo'"
+                :title="form.image ? 'Change product photo' : 'Add product photo'"
                 @click="openPhotoPicker"
               >
-                <template v-if="form.image">
-                  <img :src="form.image" alt="Product preview" class="uploaded-preview" />
-                  <div class="photo-change-overlay">
-                    <Camera :size="13" />
-                    <span>Change</span>
-                  </div>
-                </template>
-                <div v-else class="upload-placeholder">
-                  <div class="upload-icon-circle">
-                    <ImagePlus :size="22" class="upload-icon" />
-                  </div>
-                  <span class="upload-hint">Product Photo</span>
-                  <span class="upload-subhint">Tap to take photo or choose</span>
+                <img v-if="form.image" :src="form.image" alt="Product preview" class="uploaded-preview" />
+                <div v-else class="upload-placeholder-content">
+                  <ImagePlus :size="28" class="upload-icon" stroke-width="1.5" />
+                  <span>Add Photo</span>
                 </div>
               </button>
               <button
@@ -1144,38 +1156,12 @@ onUnmounted(() => {
                 aria-label="Remove photo"
                 @click.stop="removeProductImage"
               >
-                <Trash2 :size="13" />
+                <Trash2 :size="12" />
               </button>
-            </div>
-
-            <!-- Quick 1-tap buttons for Camera & Gallery -->
-            <div class="photo-quick-actions">
-              <button
-                type="button"
-                class="photo-action-chip camera-chip"
-                title="Take photo with camera"
-                @click="triggerCameraCapture"
-              >
-                <Camera :size="14" />
-                <span>Take Photo</span>
-              </button>
-              <button
-                type="button"
-                class="photo-action-chip gallery-chip"
-                title="Choose photo from gallery"
-                @click="triggerGalleryUpload"
-              >
-                <ImagePlus :size="14" />
-                <span>Gallery</span>
-              </button>
-            </div>
-
-            <div class="photo-hero-tip">
-              <span>{{ form.image ? 'High quality photos boost POS and sales visibility' : 'Take a photo with your camera or select from your gallery' }}</span>
             </div>
           </div>
 
-          <!-- Photo Source Picker Bottom Sheet (Camera vs Gallery) -->
+          <!-- Photo Source Picker Bottom Sheet (Camera vs Gallery for mobile/touch) -->
           <div v-if="showPhotoPicker" class="photo-picker-backdrop" @click.self="showPhotoPicker = false">
             <div class="photo-picker-sheet" role="dialog" aria-modal="true" aria-label="Choose photo source">
               <div class="photo-picker-header">
@@ -1202,22 +1188,6 @@ onUnmounted(() => {
           </div>
 
           <div class="form-grid">
-            <div class="form-group span-2">
-              <label>Product Name <span class="required-star">*</span></label>
-              <input v-model.trim="form.name" type="text" placeholder="e.g. Air Freshener Lavender 300ml" required class="input-highlight" />
-            </div>
-
-            <div class="form-group">
-              <label>SKU / Item Code <span class="required-star">*</span></label>
-              <input v-model.trim="form.sku" type="text" placeholder="SKU-XXXXXX" required />
-            </div>
-
-            <div class="form-group">
-              <label>Category <span class="required-star">*</span></label>
-              <select v-model="form.category" required class="modal-select">
-                <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
-              </select>
-            </div>
 
             <div class="form-group span-2">
               <label>Barcode / Scanner Code</label>
@@ -3653,214 +3623,137 @@ tbody tr:hover {
   justify-content: center;
 }
 
-.product-hero-card {
+.top-section {
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+  margin-bottom: 0.85rem;
+}
+
+.top-fields {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 14px;
-  margin-bottom: 1.25rem;
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(10, 16, 30, 0.9) 100%);
-  border: none !important;
-  box-shadow: none !important;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.top-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
 }
 
 .image-upload-wrapper {
   position: relative;
-  width: 112px;
-  height: 112px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  align-self: center;
+  flex-shrink: 0;
+  width: 76px;
+  height: 76px;
 }
 
-.image-upload-frame {
-  width: 112px;
-  height: 112px;
+.image-upload-square {
+  width: 76px;
+  height: 76px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1.5px dashed rgba(56, 189, 248, 0.35);
-  border-radius: 18px;
+  gap: 4px;
+  background-color: var(--bg-surface-hover, rgba(255, 255, 255, 0.04));
+  border: 1px dashed var(--border-color, rgba(148, 163, 184, 0.24));
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   padding: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
-.image-upload-frame.has-image {
-  border: none !important;
-  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5) !important;
+.image-upload-square:hover {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  border-color: var(--accent-color, #38bdf8);
 }
 
-.image-upload-frame:hover {
-  border-color: #38bdf8;
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.6), 0 0 24px rgba(56, 189, 248, 0.25);
+.image-upload-square.has-image {
+  border: 1px solid rgba(56, 189, 248, 0.35);
 }
 
-.uploaded-preview {
-  width: 100%;
-  height: 100%;
+.image-upload-square .uploaded-preview {
+  width: 100% !important;
+  height: 100% !important;
   object-fit: cover;
-  border-radius: 16px;
+  border-radius: 7px;
 }
 
-.photo-change-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 5px 0 6px;
-  background: rgba(10, 17, 28, 0.85);
-  backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: #38bdf8;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  transition: background 0.18s ease;
-}
-
-.photo-change-overlay:hover {
-  background: rgba(2, 132, 199, 0.9);
-  color: #ffffff;
-}
-
-.upload-placeholder {
+.upload-placeholder-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 10px;
+  justify-content: center;
+  gap: 4px;
+  color: var(--text-muted, #94a3b8);
+  font-size: 10px;
+  font-weight: 600;
+  user-select: none;
 }
 
-.upload-icon-circle {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgba(56, 189, 248, 0.12);
+.upload-placeholder-content .upload-icon {
+  opacity: 0.65;
+  transition: all 0.2s;
+}
+
+.image-upload-square:hover .upload-placeholder-content .upload-icon {
+  opacity: 1;
   color: #38bdf8;
-}
-
-.upload-hint {
-  font-size: 11px;
-  font-weight: 650;
-  color: #cbd5e1;
-}
-
-.upload-subhint {
-  font-size: 9.5px;
-  color: #64748b;
+  transform: scale(1.08);
 }
 
 .remove-image-btn {
   position: absolute;
   top: -6px;
   right: -6px;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: rgba(15, 23, 42, 0.95);
   color: #f87171;
-  border: none !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   transition: all 0.18s ease;
   z-index: 2;
+  padding: 0;
 }
 
 .remove-image-btn:hover {
   background: #ef4444;
   color: #ffffff;
   transform: scale(1.1);
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5);
 }
 
-.photo-hero-tip {
-  font-size: 11px;
-  color: #64748b;
-  text-align: center;
-}
-
-.photo-quick-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.photo-action-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 20px;
-  cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: #f1f5f9;
-  transition: all 0.2s ease;
-}
-
-.photo-action-chip:hover {
-  transform: translateY(-1px);
-}
-
-.photo-action-chip.camera-chip {
-  background: rgba(14, 165, 233, 0.15);
-  border-color: rgba(14, 165, 233, 0.4);
-  color: #38bdf8;
-}
-
-.photo-action-chip.camera-chip:hover {
-  background: rgba(14, 165, 233, 0.25);
-  border-color: #38bdf8;
-}
-
-.photo-action-chip.gallery-chip {
-  background: rgba(148, 163, 184, 0.12);
-  border-color: rgba(148, 163, 184, 0.25);
-  color: #cbd5e1;
-}
-
-.photo-action-chip.gallery-chip:hover {
-  background: rgba(148, 163, 184, 0.2);
-  color: #ffffff;
-}
-
-[data-theme='light'] .photo-action-chip {
-  background: #f1f5f9;
+[data-theme='light'] .image-upload-square {
+  background-color: #f8fafc;
   border-color: #cbd5e1;
-  color: #334155;
 }
 
-[data-theme='light'] .photo-action-chip.camera-chip {
-  background: #e0f2fe;
-  border-color: #7dd3fc;
-  color: #0284c7;
+[data-theme='light'] .image-upload-square:hover {
+  background-color: #f1f5f9;
+  border-color: #0284c7;
 }
 
-[data-theme='light'] .photo-action-chip.gallery-chip {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #475569;
+[data-theme='light'] .remove-image-btn {
+  background: #ffffff;
+  color: #ef4444;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 /* Photo Picker Sheet / Modal */
@@ -4325,7 +4218,6 @@ tbody tr:hover {
 
   .product-editor-modal .pricing-margin-section,
   .product-editor-modal .stock-levels-section,
-  .product-editor-modal .product-hero-card,
   .product-editor-modal .form-section {
     border: none !important;
     box-shadow: none !important;
@@ -4376,10 +4268,18 @@ tbody tr:hover {
     flex-direction: column;
   }
 
-  .product-hero-card {
-    padding: 12px;
-    margin-bottom: 1rem;
-    gap: 8px;
+  .top-section {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 520px) {
+    .top-section {
+      flex-direction: column-reverse;
+      align-items: center;
+    }
+    .top-fields {
+      width: 100%;
+    }
   }
 
   .sticky-modal-actions {
@@ -4451,7 +4351,6 @@ tbody tr:hover {
 
   [data-theme='light'] .product-editor-modal .pricing-margin-section,
   [data-theme='light'] .product-editor-modal .stock-levels-section,
-  [data-theme='light'] .product-editor-modal .product-hero-card,
   [data-theme='light'] .product-editor-modal .form-section {
     background: #f8fafc !important;
     color: #0f172a !important;
@@ -4507,26 +4406,10 @@ tbody tr:hover {
     box-shadow: none !important;
   }
 
-  .product-editor-modal .product-hero-card {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-  }
-
-  .product-editor-modal .image-upload-frame.has-image {
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
   .product-editor-modal .sticky-modal-actions .btn-secondary {
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-  }
-
-  [data-theme='light'] .product-editor-modal .product-hero-card {
-    background: transparent !important;
   }
 }
 
