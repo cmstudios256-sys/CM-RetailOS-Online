@@ -21,7 +21,7 @@ export type GuestSettings = {
 }
 
 export type GuestBundle = {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
   guestDeviceId: string
   idempotencyKey: string
   products: Product[]
@@ -192,6 +192,7 @@ export function createDemoProducts(): Product[] {
       quantity: 45,
       minStock: 10,
       sku: 'ELC-CBL-008',
+      image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: '20W USB-C Power Adapter',
@@ -202,6 +203,7 @@ export function createDemoProducts(): Product[] {
       quantity: 22,
       minStock: 5,
       sku: 'ELC-ADP-009',
+      image: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: '20000mAh Power Bank',
@@ -212,6 +214,7 @@ export function createDemoProducts(): Product[] {
       quantity: 11,
       minStock: 3,
       sku: 'ELC-PWR-010',
+      image: 'https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=400&auto=format&fit=crop&q=80',
     },
 
     // 11-15: Accessories
@@ -268,6 +271,7 @@ export function createDemoProducts(): Product[] {
       quantity: 14,
       minStock: 4,
       sku: 'ACC-WLT-015',
+      image: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=400&auto=format&fit=crop&q=80',
     },
 
     // 16-30: Groceries
@@ -291,6 +295,7 @@ export function createDemoProducts(): Product[] {
       quantity: 65,
       minStock: 15,
       sku: 'GRO-SUG-017',
+      image: 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Premium Long Grain Rice 2kg',
@@ -301,6 +306,7 @@ export function createDemoProducts(): Product[] {
       quantity: 42,
       minStock: 10,
       sku: 'GRO-RIC-018',
+      image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Pure Vegetable Cooking Oil 1L',
@@ -311,6 +317,7 @@ export function createDemoProducts(): Product[] {
       quantity: 30,
       minStock: 8,
       sku: 'GRO-OIL-019',
+      image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Fortified Maize Flour 2kg',
@@ -321,6 +328,7 @@ export function createDemoProducts(): Product[] {
       quantity: 50,
       minStock: 12,
       sku: 'GRO-MAZ-020',
+      image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Sliced Whole Wheat Bread 800g',
@@ -331,6 +339,7 @@ export function createDemoProducts(): Product[] {
       quantity: 25,
       minStock: 6,
       sku: 'GRO-BRD-021',
+      image: 'https://images.unsplash.com/photo-1528732263440-4dd1a18a4cc2?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Fresh Farm Egg Tray (30 pcs)',
@@ -341,6 +350,7 @@ export function createDemoProducts(): Product[] {
       quantity: 18,
       minStock: 5,
       sku: 'GRO-EGG-022',
+      image: 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Full Cream Milk Powder 400g',
@@ -351,6 +361,7 @@ export function createDemoProducts(): Product[] {
       quantity: 20,
       minStock: 5,
       sku: 'GRO-MLK-023',
+      image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Iodized Table Salt 1kg',
@@ -361,6 +372,7 @@ export function createDemoProducts(): Product[] {
       quantity: 80,
       minStock: 20,
       sku: 'GRO-SLT-024',
+      image: 'https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Organic Black Tea Leaves 250g',
@@ -371,6 +383,7 @@ export function createDemoProducts(): Product[] {
       quantity: 34,
       minStock: 8,
       sku: 'GRO-TEA-025',
+      image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Tomato Puree & Paste 400g',
@@ -381,6 +394,7 @@ export function createDemoProducts(): Product[] {
       quantity: 38,
       minStock: 10,
       sku: 'GRO-TOM-026',
+      image: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Dry Red Haricot Beans 1kg',
@@ -391,6 +405,7 @@ export function createDemoProducts(): Product[] {
       quantity: 40,
       minStock: 10,
       sku: 'GRO-BEN-027',
+      image: 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Roasted Groundnuts 500g',
@@ -401,6 +416,7 @@ export function createDemoProducts(): Product[] {
       quantity: 28,
       minStock: 6,
       sku: 'GRO-GNT-028',
+      image: 'https://images.unsplash.com/photo-1567894340315-735d7c361db0?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Pure Blossom Honey 500g',
@@ -411,6 +427,7 @@ export function createDemoProducts(): Product[] {
       quantity: 15,
       minStock: 4,
       sku: 'GRO-HNY-029',
+      image: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Rolled Oats Cereal 1kg',
@@ -421,6 +438,7 @@ export function createDemoProducts(): Product[] {
       quantity: 19,
       minStock: 5,
       sku: 'GRO-OAT-030',
+      image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&auto=format&fit=crop&q=80',
     },
 
     // 31-38: Beverages
@@ -433,6 +451,7 @@ export function createDemoProducts(): Product[] {
       quantity: 96,
       minStock: 24,
       sku: 'BEV-WTR-031',
+      image: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Cola Carbonated Soft Drink 500ml',
@@ -443,6 +462,7 @@ export function createDemoProducts(): Product[] {
       quantity: 72,
       minStock: 20,
       sku: 'BEV-COL-032',
+      image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Orange Citrus Soda 500ml',
@@ -453,6 +473,7 @@ export function createDemoProducts(): Product[] {
       quantity: 60,
       minStock: 20,
       sku: 'BEV-ORN-033',
+      image: 'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Fresh Passion Fruit Juice 1L',
@@ -463,6 +484,7 @@ export function createDemoProducts(): Product[] {
       quantity: 22,
       minStock: 6,
       sku: 'BEV-PSN-034',
+      image: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Mango Nectar Juice 500ml',
@@ -473,6 +495,7 @@ export function createDemoProducts(): Product[] {
       quantity: 35,
       minStock: 10,
       sku: 'BEV-MNG-035',
+      image: 'https://images.unsplash.com/photo-1546173159-315724a31696?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Premium Energy Drink 400ml',
@@ -483,6 +506,7 @@ export function createDemoProducts(): Product[] {
       quantity: 45,
       minStock: 12,
       sku: 'BEV-ENG-036',
+      image: 'https://images.unsplash.com/photo-1622543925917-763c34d1a86e?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Fresh Pasteurized Milk 500ml',
@@ -493,6 +517,7 @@ export function createDemoProducts(): Product[] {
       quantity: 30,
       minStock: 8,
       sku: 'BEV-MLK-037',
+      image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Strawberry Drinking Yoghurt 500ml',
@@ -503,6 +528,7 @@ export function createDemoProducts(): Product[] {
       quantity: 24,
       minStock: 6,
       sku: 'BEV-YGH-038',
+      image: 'https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?w=400&auto=format&fit=crop&q=80',
     },
 
     // 39-43: Snacks
@@ -515,6 +541,7 @@ export function createDemoProducts(): Product[] {
       quantity: 40,
       minStock: 10,
       sku: 'SNK-POT-039',
+      image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Cheddar Cheese Crackers 150g',
@@ -525,6 +552,7 @@ export function createDemoProducts(): Product[] {
       quantity: 32,
       minStock: 8,
       sku: 'SNK-CHK-040',
+      image: 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Dark Chocolate Bar 100g',
@@ -535,6 +563,7 @@ export function createDemoProducts(): Product[] {
       quantity: 28,
       minStock: 6,
       sku: 'SNK-CHB-041',
+      image: 'https://images.unsplash.com/photo-1548907040-4baa42d10919?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Butter Shortbread Cookies 200g',
@@ -545,6 +574,7 @@ export function createDemoProducts(): Product[] {
       quantity: 25,
       minStock: 6,
       sku: 'SNK-CKI-042',
+      image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Sweet Caramel Popcorn 100g',
@@ -555,6 +585,7 @@ export function createDemoProducts(): Product[] {
       quantity: 45,
       minStock: 12,
       sku: 'SNK-POP-043',
+      image: 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=400&auto=format&fit=crop&q=80',
     },
 
     // 44-47: Personal Care
@@ -567,6 +598,7 @@ export function createDemoProducts(): Product[] {
       quantity: 35,
       minStock: 8,
       sku: 'PER-TPS-044',
+      image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Soft Bristle Toothbrush 2-Pack',
@@ -577,6 +609,7 @@ export function createDemoProducts(): Product[] {
       quantity: 40,
       minStock: 10,
       sku: 'PER-TBR-045',
+      image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Antibacterial Body Soap 150g',
@@ -587,6 +620,7 @@ export function createDemoProducts(): Product[] {
       quantity: 55,
       minStock: 15,
       sku: 'PER-SOP-046',
+      image: 'https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Nourishing Cocoa Body Lotion 400ml',
@@ -597,6 +631,7 @@ export function createDemoProducts(): Product[] {
       quantity: 18,
       minStock: 5,
       sku: 'PER-LTN-047',
+      image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400&auto=format&fit=crop&q=80',
     },
 
     // 48-50: Household
@@ -609,6 +644,7 @@ export function createDemoProducts(): Product[] {
       quantity: 26,
       minStock: 6,
       sku: 'HOU-DET-048',
+      image: 'https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Lemon Antibacterial Dish Soap 500ml',
@@ -619,6 +655,7 @@ export function createDemoProducts(): Product[] {
       quantity: 34,
       minStock: 8,
       sku: 'HOU-DSH-049',
+      image: 'https://images.unsplash.com/photo-1585670149967-b4f4da88cc9f?w=400&auto=format&fit=crop&q=80',
     },
     {
       name: 'Multi-Surface Floor Cleaner 1L',
@@ -629,6 +666,7 @@ export function createDemoProducts(): Product[] {
       quantity: 20,
       minStock: 5,
       sku: 'HOU-FLR-050',
+      image: 'https://images.unsplash.com/photo-1584813470613-5b1c1cad3d69?w=400&auto=format&fit=crop&q=80',
     },
   ]
 
@@ -1235,7 +1273,7 @@ export function populateDemoData(): GuestState {
   })()
 
   const populated: GuestState = {
-    schemaVersion: 9,
+    schemaVersion: 10,
     guestDeviceId: getGuestDeviceId(),
     idempotencyKey: uuid(),
     demoData: true,
@@ -1297,7 +1335,7 @@ function readState(): GuestState {
     writeState(initial)
     return initial
   }
-  if (!state.schemaVersion || state.schemaVersion < 9 || state.products.length === 0 || state.sales.length < 50) {
+  if (!state.schemaVersion || state.schemaVersion < 10 || state.products.length === 0 || state.sales.length < 50 || state.products.some(p => !p.image)) {
     const populated = populateDemoData()
     if (state.settings) {
       populated.settings = {
