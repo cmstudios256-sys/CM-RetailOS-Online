@@ -575,6 +575,17 @@ onUnmounted(() => {
             <Users :size="14" />
             <span>{{ user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager' ? 'Switch Staff' : 'Staff Sign In' }}</span>
           </button>
+          <button
+            v-if="user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager'"
+            type="button"
+            class="staff-signin-topbar-btn exit-admin-btn"
+            title="Exit terminal and return to Admin workspace"
+            @click="emit('sign-out')"
+            style="background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.35); color: #f87171;"
+          >
+            <LogOut :size="14" />
+            <span>Exit to Admin</span>
+          </button>
           <div class="workspace-clock">
             <CalendarDays :size="15" />
             <span><strong>{{ dateText }}</strong><small>{{ timeText }}</small></span>
@@ -640,7 +651,16 @@ onUnmounted(() => {
                   <Users :size="15" />
                   <span>{{ user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager' ? 'Switch Staff Account' : 'Staff Sign In' }}</span>
                 </button>
-                <button v-if="isGuest" type="button" @click="profileOpen = false; emit('connect-google', activePage)">
+                <button
+                  v-if="user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager'"
+                  type="button"
+                  @click="profileOpen = false; emit('sign-out')"
+                  style="color: #f87171;"
+                >
+                  <LogOut :size="15" />
+                  <span>Exit to Admin Dashboard</span>
+                </button>
+                <button v-else-if="isGuest" type="button" @click="profileOpen = false; emit('connect-google', activePage)">
                   <svg class="google-icon" viewBox="0 0 24 24" width="15" height="15" style="margin-right: 6px; flex-shrink: 0;">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -874,6 +894,15 @@ onUnmounted(() => {
               <button type="button" class="btn btn-outline" @click="staffLoginModalOpen = false">Cancel</button>
               <button type="submit" class="btn btn-primary" :disabled="!staffLoginUsername.trim() || staffLoginLoading" style="padding: 9px 20px;">
                 {{ staffLoginLoading ? 'Signing in...' : 'Sign In' }}
+              </button>
+            </div>
+            <div v-if="user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager'" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color); text-align: center;">
+              <button
+                type="button"
+                @click="staffLoginModalOpen = false; emit('sign-out')"
+                style="background: none; border: none; color: var(--accent-color); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: underline;"
+              >
+                Return to Admin / Owner Dashboard
               </button>
             </div>
           </form>
