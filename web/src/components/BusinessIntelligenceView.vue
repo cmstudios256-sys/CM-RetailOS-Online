@@ -1261,7 +1261,9 @@ onUnmounted(() => {
   font-weight: 600;
   color: var(--text-primary);
   background: var(--bg-surface);
-  border: 1px solid var(--border-color);
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   padding: 0.25rem 0.65rem;
   border-radius: 6px;
   white-space: nowrap;
@@ -1279,6 +1281,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border: none !important;
+  outline: none !important;
 }
 
 .basket-strength-col {
