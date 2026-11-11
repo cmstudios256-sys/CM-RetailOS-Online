@@ -1249,14 +1249,10 @@ async function handleAddUser() {
   addUserError.value = ''
   const rawInput = newUser.value.username.trim()
   if (!rawInput) {
-    addUserError.value = 'Please enter a username or email.'
+    addUserError.value = 'Please enter a username.'
     return
   }
-  if (!newUser.value.password || newUser.value.password.length < 8) {
-    addUserError.value = 'Password must be at least 8 characters for online sign-in.'
-    return
-  }
-  const email = rawInput.includes('@') ? rawInput.toLowerCase() : `${rawInput.toLowerCase().replace(/[^a-z0-9._-]/g, '')}@cmretail.local`
+  const email = rawInput.toLowerCase()
   const fullName = newUser.value.fullName.trim() || rawInput
   const apiRole = newUser.value.role === 'Manager' ? 'manager' : 'cashier'
 
@@ -1268,7 +1264,7 @@ async function handleAddUser() {
         fullName,
         email,
         role: apiRole,
-        password: newUser.value.password,
+        password: '',
       },
     })
     if (created?.member?.id) {
@@ -2721,20 +2717,14 @@ onUnmounted(() => {
                     <input type="text" v-model="newUser.fullName" placeholder="e.g. Jane Doe" />
                   </div>
                   <div class="input-group">
-                    <label>Username / Email *</label>
+                    <label>Username *</label>
                     <input type="text" v-model="newUser.username" placeholder="e.g. jane_doe" />
                   </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                  <div class="input-group">
-                    <label>Role</label>
-                    <CustomSelect v-model="newUser.role" :options="addUserRoleOptions" :fullWidth="true" :dropUp="false" />
-                  </div>
-                  <div class="input-group">
-                    <label>Password (min 8 chars) *</label>
-                    <input type="password" v-model="newUser.password" placeholder="At least 8 characters" />
-                  </div>
+                <div class="input-group full-width">
+                  <label>Role</label>
+                  <CustomSelect v-model="newUser.role" :options="addUserRoleOptions" :fullWidth="true" :dropUp="false" />
                 </div>
 
                 <!-- Granular Permissions Section -->
@@ -2775,7 +2765,7 @@ onUnmounted(() => {
               </div>
               <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border-subtle); background: var(--bg-card);">
                 <button type="button" class="btn btn-outline" @click="showAddUserModal = false; addUserError = ''" style="padding: 9px 18px;">Cancel</button>
-                <button type="button" class="btn btn-primary" @click="handleAddUser" :disabled="!newUser.username || !newUser.password || addUserLoading" style="padding: 9px 20px; display: flex; align-items: center; gap: 6px;">
+                <button type="button" class="btn btn-primary" @click="handleAddUser" :disabled="!newUser.username || addUserLoading" style="padding: 9px 20px; display: flex; align-items: center; gap: 6px;">
                   <Plus :size="15" />
                   <span>{{ addUserLoading ? 'Creating...' : 'Create Account' }}</span>
                 </button>

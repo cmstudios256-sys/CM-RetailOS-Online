@@ -250,6 +250,14 @@ async function signOut(): Promise<void> {
   }
 }
 
+async function handleStaffLoginSuccess(signedInUser: any): Promise<void> {
+  guestMode.value = false
+  demoMode.value = false
+  user.value = signedInUser
+  clearSignedInUserLocalData()
+  await syncOnlinePrefsFromServer(signedInUser.id)
+}
+
 onMounted(() => {
   applyOnlinePrefsToDom()
   void openWorkspace()
@@ -267,6 +275,7 @@ onMounted(() => {
       :demo-mode="demoMode"
       :claim-notice="claimNotice"
       @connect-google="beginGoogleConnect"
+      @staff-login-success="handleStaffLoginSuccess"
       @sign-out="signOut"
       @user-updated="user = { ...user, ...$event }"
     />

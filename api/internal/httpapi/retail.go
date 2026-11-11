@@ -1068,36 +1068,53 @@ func (s *Server) createTeamMember(w http.ResponseWriter, r *http.Request) {
 	input.FullName = strings.TrimSpace(input.FullName)
 	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
 	input.Role = strings.TrimSpace(input.Role)
-	if !validLength(input.FullName, 1, 100) {
-		writeError(w, http.StatusBadRequest, "invalid_profile", "Enter a staff name between 1 and 100 characters.")
-		return
-	}
-	if len(input.Email) > 254 {
-		writeError(w, http.StatusBadRequest, "invalid_email", "Enter a valid staff email address.")
-		return
-	}
-	parsedEmail, err := mail.ParseAddress(input.Email)
-	if err != nil || parsedEmail.Address != input.Email {
-		writeError(w, http.StatusBadRequest, "invalid_email", "Enter a valid staff email address.")
-		return
-	}
 	if input.Role != "manager" && input.Role != "cashier" {
 		writeError(w, http.StatusBadRequest, "invalid_role", "New team members must be a manager or cashier.")
 		return
 	}
-	if len(input.Password) < 8 || len(input.Password) > 72 {
-		writeError(w, http.StatusBadRequest, "invalid_password", "Use a password between 8 and 72 bytes.")
+	if !validLength(input.FullName, 1, 100) {
+		writeError(w, http.StatusBadRequest, "invalid_profile", "Enter a staff name between 1 and 100 characters.")
 		return
 	}
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Printf("hash team member password for shop %s: %v", claimsFrom(r).ShopID, err)
-		writeError(w, http.StatusInternalServerError, "request_failed", "The team account could not be created.")
+	if !validLength(input.Email, 2, 254) {
+		writeError(w, http.StatusBadRequest, "invalid_username", "Enter a valid staff username.")
 		return
+	}
+	if strings.Contains(input.Email, "@") {
+		parsedEmail, err := mail.ParseAddress(input.Email)
+		if err != nil || parsedEmail.Address != input.Email {
+			writeError(w, http.StatusBadRequest, "invalid_email", "Enter a valid staff email address.")
+			return
+		}
+	} else {
+		cleaned := strings.Map(func(r rune) rune {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
+				return r
+			}
+			return -1
+		}, input.Email)
+		if cleaned != input.Email {
+			writeError(w, http.StatusBadRequest, "invalid_username", "Username can only contain letters, numbers, dots, dashes, and underscores.")
+			return
+		}
+	}
+	var passwordHash []byte
+	if strings.TrimSpace(input.Password) != "" {
+		if len(input.Password) < 8 || len(input.Password) > 72 {
+			writeError(w, http.StatusBadRequest, "invalid_password", "Use a password between 8 and 72 bytes.")
+			return
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		if err != nil {
+			log.Printf("hash team member password for shop %s: %v", claimsFrom(r).ShopID, err)
+			writeError(w, http.StatusInternalServerError, "request_failed", "The team account could not be created.")
+			return
+		}
+		passwordHash = hash
 	}
 	claims := claimsFrom(r)
 	var member teamMember
-	err = s.db.QueryRowContext(r.Context(), `
+	err := s.db.QueryRowContext(r.Context(), `
 		INSERT INTO users (shop_id, full_name, email, password_hash, role)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id::text, full_name, email, role, active, created_at`,

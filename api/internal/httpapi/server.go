@@ -347,7 +347,10 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		       u.google_subject, sh.preferences->>'cloud_gmail'
 		FROM users u
 		JOIN shops sh ON sh.id = u.shop_id
-		WHERE lower(u.email) = lower($1) AND u.active = TRUE`,
+		WHERE (
+			lower(u.email) = lower($1)
+			OR lower(split_part(u.email, '@', 1)) = lower($1)
+		) AND u.active = TRUE`,
 		input.Email,
 	).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Email, &user.Role, &passwordHash, &emailVerified, &user.ShopName, &user.Currency, &googlePictureURL, &googleSubject, &cloudGmail)
 	if err != nil {
@@ -363,7 +366,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		user.GoogleEmail = user.Email
 	}
 
-	// Owner requires password. Managers and Cashiers log in with their assigned username.
+	// Owner requires password. Managers and Cashiers log in with their assigned username only.
 	if user.Role == "owner" {
 		if len(passwordHash) == 0 && googleSubject.Valid && strings.TrimSpace(googleSubject.String) != "" {
 			writeError(w, http.StatusUnauthorized, "google_password_not_set",
@@ -375,6 +378,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
+		// Manager and Cashier log in with their username only. If a password is set and provided, verify it.
 		if len(passwordHash) > 0 && input.Password != "" {
 			if bcrypt.CompareHashAndPassword(passwordHash, []byte(input.Password)) != nil {
 				writeError(w, http.StatusUnauthorized, "invalid_credentials", "Password is incorrect.")
@@ -382,7 +386,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if !emailVerified {
+	if user.Role == "owner" && !emailVerified {
 		writeError(w, http.StatusForbidden, "email_not_verified", "Verify your email address before signing in.")
 		return
 	}

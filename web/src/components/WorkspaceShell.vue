@@ -5,9 +5,9 @@ import { useBottomSheetDrag } from '../utils/useBottomSheetDrag'
 import {
   BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, Cloud, Download, FileClock, History, LayoutDashboard,
   LockKeyhole, LogOut, Menu, Moon, Package, PackageCheck, PlusSquare, ReceiptText, Settings as SettingsIcon, Share, ShieldCheck, ShoppingCart,
-  Store, Sun, Tag, LineChart, Monitor, X, Zap,
+  Store, Sun, Tag, LineChart, Monitor, Users, X, Zap,
 } from '@lucide/vue'
-import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPermissions, syncOnlinePrefsFromServer, toggleThemeMode } from '../api'
+import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPermissions, setApiMode, syncOnlinePrefsFromServer, toggleThemeMode } from '../api'
 import { clearChartTooltips } from '../utils/chartTooltip'
 import AsyncViewLoading from './AsyncViewLoading.vue'
 import DashboardView from './DashboardView.vue'
@@ -38,6 +38,7 @@ const AuditLogsView = defineAsyncComponent({
 
 type User = {
   id: string
+  shopId?: string
   fullName: string
   email: string
   role: string
@@ -51,6 +52,7 @@ type User = {
 const props = defineProps<{ user: User; guestMode?: boolean; demoMode?: boolean; claimNotice?: string }>()
 const emit = defineEmits<{
   'connect-google': [page: string]
+  'staff-login-success': [user: User]
   'sign-out': []
   'user-updated': [settings: Pick<User, 'fullName' | 'shopName' | 'currency'>]
 }>()
@@ -268,6 +270,41 @@ function toggleNotifications() {
 function toggleProfile() {
   profileOpen.value = !profileOpen.value
   notificationsOpen.value = false
+}
+
+const staffLoginModalOpen = ref(false)
+const staffLoginUsername = ref('')
+const staffLoginLoading = ref(false)
+const staffLoginError = ref('')
+
+async function handleStaffLogin() {
+  const uname = staffLoginUsername.value.trim()
+  if (!uname) {
+    staffLoginError.value = 'Please enter your staff username.'
+    return
+  }
+  staffLoginLoading.value = true
+  staffLoginError.value = ''
+  try {
+    setApiMode('cloud')
+    const result = await apiRequest<{ user: User }>('/auth/login', {
+      method: 'POST',
+      body: {
+        email: uname,
+        password: '',
+      },
+    })
+    staffLoginModalOpen.value = false
+    staffLoginUsername.value = ''
+    emit('staff-login-success', result.user)
+    if (result.user.role.toLowerCase() === 'cashier') {
+      activePage.value = 'pos'
+    }
+  } catch (err) {
+    staffLoginError.value = err instanceof Error ? err.message : 'Invalid staff username.'
+  } finally {
+    staffLoginLoading.value = false
+  }
 }
 
 const targetStockAlertProductId = ref<number | null>(null)
@@ -505,6 +542,15 @@ onUnmounted(() => {
             </svg>
             <span>Sign in with Google</span>
           </button>
+          <button
+            type="button"
+            class="staff-signin-topbar-btn"
+            @click="staffLoginModalOpen = true; staffLoginError = ''"
+            :title="user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager' ? 'Switch staff account' : 'Sign in with staff username'"
+          >
+            <Users :size="14" />
+            <span>{{ user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager' ? 'Switch Staff' : 'Staff Sign In' }}</span>
+          </button>
           <div class="workspace-clock">
             <CalendarDays :size="15" />
             <span><strong>{{ dateText }}</strong><small>{{ timeText }}</small></span>
@@ -566,6 +612,10 @@ onUnmounted(() => {
               <div class="popover-role"><ShieldCheck :size="14" /><span>{{ isGuest ? 'Local guest' : displayRole }}</span><i></i><small>{{ isGuest ? (demoMode ? 'Demo data' : 'Local device') : 'Connected' }}</small></div>
               <div class="popover-menu">
                 <button v-if="hasNavPermission('settings')" type="button" @click="activePage = 'settings'; profileOpen = false"><SettingsIcon :size="15" />Settings</button>
+                <button type="button" @click="profileOpen = false; staffLoginModalOpen = true; staffLoginError = ''">
+                  <Users :size="15" />
+                  <span>{{ user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager' ? 'Switch Staff Account' : 'Staff Sign In' }}</span>
+                </button>
                 <button v-if="isGuest" type="button" @click="profileOpen = false; emit('connect-google', activePage)">
                   <svg class="google-icon" viewBox="0 0 24 24" width="15" height="15" style="margin-right: 6px; flex-shrink: 0;">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -766,5 +816,45 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Staff Sign In Modal -->
+    <Teleport to="body">
+      <div v-if="staffLoginModalOpen" class="modal-overlay" style="z-index: 1200;">
+        <div class="modal-content" style="max-width: 420px; border-radius: 16px; overflow: hidden; padding: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h3 style="margin: 0; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              <Users :size="19" style="color: var(--accent-color);" />
+              Staff Sign In
+            </h3>
+            <button type="button" class="close-btn" @click="staffLoginModalOpen = false"><X :size="18" /></button>
+          </div>
+          <p style="color: var(--text-muted); font-size: 13px; margin: 0 0 16px; line-height: 1.5;">
+            Cashiers and Store Managers log in using their assigned username. No password required.
+          </p>
+          <form @submit.prevent="handleStaffLogin">
+            <div class="input-group full-width" style="margin-bottom: 16px;">
+              <label style="font-weight: 600; font-size: 12px; margin-bottom: 6px; display: block; color: var(--text-primary);">Username *</label>
+              <input
+                type="text"
+                v-model="staffLoginUsername"
+                placeholder="e.g. nalongo"
+                required
+                autofocus
+                style="width: 100%; padding: 10px 14px; background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px;"
+              />
+            </div>
+            <p v-if="staffLoginError" style="color: #ef4444; font-size: 13px; margin: 0 0 14px; padding: 8px 12px; background: rgba(239,68,68,0.1); border-radius: 6px; border: 1px solid rgba(239,68,68,0.25);">
+              {{ staffLoginError }}
+            </p>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+              <button type="button" class="btn btn-outline" @click="staffLoginModalOpen = false">Cancel</button>
+              <button type="submit" class="btn btn-primary" :disabled="!staffLoginUsername.trim() || staffLoginLoading" style="padding: 9px 20px;">
+                {{ staffLoginLoading ? 'Signing in...' : 'Sign In' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
