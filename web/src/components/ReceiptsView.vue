@@ -1411,10 +1411,86 @@ tbody tr:hover {
   }
 }
 
+/* Light Mode Standout Styling for Receipt Preview Modal */
 [data-theme='light'] .receipt-modal {
   background-color: #ffffff !important;
-  border: none !important;
-  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.12) !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 70px -12px rgba(15, 23, 42, 0.32),
+              0 10px 28px -6px rgba(15, 23, 42, 0.18),
+              0 0 0 1px rgba(15, 23, 42, 0.08) !important;
+  overflow: hidden !important;
+}
+
+[data-theme='light'] .modal-top-bar {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .modal-top-bar h3 {
+  color: #0f172a !important;
+  font-weight: 750 !important;
+}
+
+[data-theme='light'] .modal-top-bar .close-btn {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .modal-top-bar .close-btn:hover {
+  background: #fee2e2 !important;
+  color: #ef4444 !important;
+  border-color: #fecaca !important;
+}
+
+[data-theme='light'] .receipt-paper-wrapper {
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%) !important;
+  box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.06) !important;
+}
+
+[data-theme='light'] .receipt-paper {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.22),
+              0 4px 12px -2px rgba(15, 23, 42, 0.12),
+              0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme='light'] .paper-jagged-bottom {
+  background: linear-gradient(45deg, transparent 33.333%, #ffffff 33.333%, #ffffff 66.667%, transparent 66.667%),
+              linear-gradient(-45deg, transparent 33.333%, #ffffff 33.333%, #ffffff 66.667%, transparent 66.667%) !important;
+  background-size: 16px 16px !important;
+  background-position: 0 -8px !important;
+}
+
+[data-theme='light'] .receipt-modal-actions {
+  background-color: #ffffff !important;
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+[data-theme='light'] .receipt-close-btn {
+  background: #f8fafc !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  font-weight: 600 !important;
+}
+
+[data-theme='light'] .receipt-close-btn:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+[data-theme='light'] .receipt-print-btn {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35) !important;
+}
+
+[data-theme='light'] .receipt-print-btn:hover {
+  background-color: #0369a1 !important;
 }
 
 @media (max-width: 639px) {
@@ -1423,14 +1499,5 @@ tbody tr:hover {
   [data-theme='light'] .receipt-modal-actions {
     background: #f1f5f9 !important;
   }
-}
-
-[data-theme='light'] .modal-top-bar h3 {
-  color: #0f172a !important;
-}
-
-[data-theme='light'] .receipt-close-btn {
-  background: rgba(15, 23, 42, 0.07) !important;
-  color: #1e293b !important;
 }
 </style>
