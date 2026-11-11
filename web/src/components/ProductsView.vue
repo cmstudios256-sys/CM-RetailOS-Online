@@ -14,6 +14,8 @@ import {
   Folders,
   ImagePlus,
   Layers,
+  LayoutGrid,
+  List,
   Lock,
   Plus,
   PlusCircle,
@@ -60,7 +62,32 @@ const notice = ref('')
 const isDropdownOpen = ref(false)
 const { isPhone } = usePhoneBreakpoint()
 const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
-const viewMode = computed<'grid' | 'list'>(() => (isMobileOrTablet.value ? 'grid' : 'list'))
+let savedProductsViewMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_products_view_mode') : null) as 'grid' | 'list' | null
+const viewMode = ref<'grid' | 'list'>(
+  isMobileOrTablet.value ? 'grid' : savedProductsViewMode === 'grid' ? 'grid' : 'list',
+)
+
+function setViewMode(mode: 'grid' | 'list') {
+  viewMode.value = mode
+  savedProductsViewMode = mode
+  try {
+    localStorage.setItem('cm_products_view_mode', mode)
+  } catch {}
+  nextTick(() => {
+    updateProductsGridColumns()
+    productsGridRef.value?.scrollTo({ top: 0 })
+    productsListRef.value?.scrollTo({ top: 0 })
+  })
+}
+
+watch(isMobileOrTablet, (mobile) => {
+  if (mobile) {
+    viewMode.value = 'grid'
+  } else {
+    viewMode.value = savedProductsViewMode === 'grid' ? 'grid' : 'list'
+  }
+  nextTick(updateProductsGridColumns)
+})
 
 const showForm = ref(false)
 const editingProductId = ref<number | null>(null)
@@ -366,7 +393,16 @@ function updateProductsGridColumns() {
   } else if (isMobileOrTablet.value) {
     productsGridColumns.value = window.innerWidth >= 768 ? 3 : 2
   } else {
-    productsGridColumns.value = 3
+    const width = productsGridRef.value?.clientWidth || window.innerWidth
+    if (width >= 1700) {
+      productsGridColumns.value = 5
+    } else if (width >= 1300) {
+      productsGridColumns.value = 4
+    } else if (width >= 950) {
+      productsGridColumns.value = 3
+    } else {
+      productsGridColumns.value = 2
+    }
   }
 }
 
@@ -863,6 +899,27 @@ onUnmounted(() => {
         </div>
 
         <div class="header-controls">
+          <div class="view-switcher" role="group" aria-label="Product view switcher">
+            <button
+              type="button"
+              :class="{ active: viewMode === 'grid' }"
+              title="Grid View"
+              aria-label="Switch to grid view"
+              @click="setViewMode('grid')"
+            >
+              <LayoutGrid :size="18" />
+            </button>
+            <button
+              type="button"
+              :class="{ active: viewMode === 'list' }"
+              title="List View"
+              aria-label="Switch to list view"
+              @click="setViewMode('list')"
+            >
+              <List :size="18" />
+            </button>
+          </div>
+
           <div class="search-bar">
             <Search class="search-icon" :size="18" />
             <input
@@ -905,7 +962,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-if="isMobileOrTablet" ref="productsGridRef" class="products-grid">
+      <div v-if="viewMode === 'grid'" ref="productsGridRef" class="products-grid">
         <div v-if="showSkeleton" class="products-skeleton-grid">
           <div v-for="i in 6" :key="i" class="product-grid-card">
             <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
@@ -947,6 +1004,9 @@ onUnmounted(() => {
               class="product-grid-card"
             >
               <div class="product-grid-header">
+                <div v-if="product.image" class="product-grid-thumb">
+                  <img :src="product.image" :alt="product.name" loading="lazy" />
+                </div>
                 <div class="product-grid-name">
                   <h3>{{ product.name }}</h3>
                   <span>{{ product.category || 'General' }}</span>
@@ -1768,6 +1828,75 @@ onUnmounted(() => {
   min-width: 0;
 }
 
+.view-switcher {
+  display: flex;
+  background-color: var(--bg-surface);
+  border-radius: 0.5rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.view-switcher button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.view-switcher button:hover {
+  color: var(--text-primary);
+}
+
+.view-switcher button.active {
+  background-color: var(--bg-sidebar);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='light'] .view-switcher {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+[data-theme='light'] .view-switcher button.active {
+  background-color: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.product-grid-thumb {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.product-grid-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+[data-theme='light'] .product-grid-thumb {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+}
+
 .product-grid-actions button:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 2px;
@@ -1779,7 +1908,7 @@ onUnmounted(() => {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px 12px 90px 12px !important;
+  padding: 8px 12px 24px 12px;
   box-sizing: border-box;
 }
 
@@ -4022,6 +4151,9 @@ tbody tr:hover {
     border-radius: 10px;
   }
 
+  .view-switcher {
+    display: none !important;
+  }
 
   .products-grid {
     display: block;
