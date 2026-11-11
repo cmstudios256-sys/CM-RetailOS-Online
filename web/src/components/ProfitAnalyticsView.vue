@@ -600,7 +600,6 @@ onUnmounted(() => {
           <div>
             <div class="kpi-title-row">
               <h3 class="kpi-title">Gross Profit</h3>
-              <span class="kpi-badge-hint">Before OPEX</span>
             </div>
             <p class="kpi-value">{{ formatMoney(dashboard?.profit ?? 0, activeCurrency) }}</p>
           </div>

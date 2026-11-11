@@ -277,8 +277,7 @@ const salesCountChartOptions = computed(() => ({
         },
         label: (context: any) => {
           const count = Number(context.parsed?.y ?? 0)
-          const isPeak = context.dataIndex === peakHourIndex.value && count > 0
-          return `Sales: ${count.toLocaleString()} transactions${isPeak ? ' (🔥 Peak Rush)' : ''}`
+          return `Sales: ${count.toLocaleString()} transactions`
         },
       },
     },
@@ -615,9 +614,6 @@ onUnmounted(() => {
             <div>
               <div class="card-title-row">
                 <h3 class="card-title">Peak Sales Hours</h3>
-                <span v-if="peakHourInfo && peakHourInfo.count > 0" class="peak-badge">
-                  <span class="peak-dot"></span> Peak: {{ peakHourInfo.shortRange }}
-                </span>
               </div>
               <p class="card-subtitle">Transaction distribution across 2-hour intervals</p>
             </div>
