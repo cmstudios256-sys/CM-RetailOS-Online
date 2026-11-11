@@ -2407,6 +2407,18 @@ tbody tr:hover {
 }
 
 /* Modal Styles */
+.modal-backdrop {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-theme='light'] .modal-backdrop {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 .modal-content {
   background-color: var(--bg-sidebar);
   padding: 1.5rem;
@@ -3353,9 +3365,9 @@ tbody tr:hover {
   display: grid !important;
   place-items: center !important;
   padding: 24px !important;
-  background: rgba(3, 7, 18, 0.78) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   overflow-y: auto !important;
   box-sizing: border-box !important;
 }
@@ -3379,7 +3391,9 @@ tbody tr:hover {
 }
 
 [data-theme='light'] .adjust-stock-backdrop {
-  background: rgba(15, 23, 42, 0.52) !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 [data-theme='light'] .adjust-stock-modal {

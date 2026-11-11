@@ -975,9 +975,9 @@ tbody tr:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(2, 6, 23, 0.8);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .modal-content.sale-details-modal {
@@ -1330,7 +1330,9 @@ tbody tr:hover {
   }
 
   [data-theme='light'] .sale-details-backdrop {
-    background: #f8fafc !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     color: #0f172a !important;
   }
 
