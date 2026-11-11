@@ -635,7 +635,7 @@ onUnmounted(() => {
 
     <!-- Restock Modal -->
     <div v-if="isRestockModalOpen && productToRestock" class="modal-backdrop" @click.self="closeRestockModal">
-      <div class="modal-content">
+      <div class="modal-content" v-draggable="'.modal-header'">
         <div class="modal-header">
           <h3>Restock Product</h3>
           <button type="button" class="close-btn" @click="closeRestockModal">

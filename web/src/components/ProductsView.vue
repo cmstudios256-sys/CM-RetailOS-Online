@@ -1096,7 +1096,7 @@ onUnmounted(() => {
     <!-- Add / Edit Product Modal -->
     <Teleport to="body">
       <div v-if="showForm" class="modal-backdrop product-modal-backdrop" @click.self="closeForm">
-        <div class="modal-content product-editor-modal">
+        <div class="modal-content product-editor-modal" v-draggable="'.modal-header'">
         <div class="modal-header">
           <div class="modal-title-group">
             <h3>{{ editingProductId === null ? 'Add New Product' : 'Edit Product' }}</h3>
@@ -1338,7 +1338,7 @@ onUnmounted(() => {
     <!-- Adjust Stock Modal -->
     <Teleport to="body">
       <div v-if="adjustingProduct" class="modal-backdrop adjust-stock-backdrop" @click.self="closeAdjustStock">
-        <div class="modal-content adjust-stock-modal" style="max-width: 490px;">
+        <div class="modal-content adjust-stock-modal" style="max-width: 490px;" v-draggable="'.modal-header'">
           <div class="modal-header adjust-stock-header">
             <div class="modal-title-with-icon">
               <div class="modal-icon-badge">
@@ -1403,7 +1403,7 @@ onUnmounted(() => {
     <!-- Category Management Modal -->
     <Teleport to="body">
       <div v-if="showCategoryModal" class="modal-backdrop" @click.self="closeCategoryManagement">
-        <div class="modal-content category-modal">
+        <div class="modal-content category-modal" v-draggable="'.modal-header'">
           <div class="modal-header">
             <div class="modal-title-group">
               <h3>Manage Categories</h3>
@@ -1467,7 +1467,7 @@ onUnmounted(() => {
     <!-- Delete Product Confirmation Modal -->
     <Teleport to="body">
       <div v-if="productToDelete" class="modal-backdrop" @click.self="productToDelete = null">
-        <div class="modal-content delete-confirm-modal">
+        <div class="modal-content delete-confirm-modal" v-draggable="'.modal-content'">
           <div class="delete-warning-icon">
             <AlertTriangle :size="32" />
           </div>

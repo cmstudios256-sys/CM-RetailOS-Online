@@ -1,11 +1,14 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import { applyOnlinePrefsToDom } from './api'
+import { draggable } from './directives/draggable'
 import './style.css'
 
 applyOnlinePrefsToDom()
 
-createApp(App).mount('#app')
+const app = createApp(App)
+app.directive('draggable', draggable)
+app.mount('#app')
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

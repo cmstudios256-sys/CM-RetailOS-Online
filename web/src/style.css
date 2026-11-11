@@ -3939,3 +3939,20 @@ body:has(.workspace-shell) {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* Draggable Modals */
+.modal-header,
+.modal-top-bar {
+  cursor: grab;
+}
+
+.modal-header:active,
+.modal-top-bar:active {
+  cursor: grabbing;
+}
+
+.modal-header button,
+.modal-top-bar button,
+.close-btn {
+  cursor: pointer !important;
+}

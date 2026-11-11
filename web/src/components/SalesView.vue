@@ -498,7 +498,7 @@ onMounted(() => {
 
     <!-- Sale Details Modal -->
     <div v-if="isDetailModalOpen && selectedSale" class="modal-backdrop sale-details-backdrop" @click.self="closeDetailModal">
-      <div class="modal-content sale-details-modal">
+      <div class="modal-content sale-details-modal" v-draggable="'.modal-header'">
         <div class="modal-header">
           <h3>Sale Details</h3>
           <button type="button" class="close-btn" aria-label="Close sale details" @click="closeDetailModal">
