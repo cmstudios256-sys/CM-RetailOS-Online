@@ -3965,6 +3965,11 @@ body:has(.workspace-shell) {
   pointer-events: auto !important;
 }
 
+.product-editor-modal {
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
 /* Draggable Modals */
 .modal-header,
 .modal-top-bar {

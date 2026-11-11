@@ -1121,7 +1121,7 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <form class="modal-body horizontal-form" @submit.prevent="saveProduct" novalidate>
+          <form id="productForm" class="modal-body horizontal-form" @submit.prevent="saveProduct" novalidate>
             <div v-if="error" class="form-warning-alert">
               <AlertTriangle :size="18" class="warning-icon" />
               <div class="warning-message">
@@ -1286,13 +1286,14 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="modal-footer">
-              <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
-              <button type="submit" class="btn-primary" :disabled="saving">
-                {{ saving ? 'Saving…' : editingProductId === null ? 'Add Product' : 'Save Product' }}
-              </button>
-            </div>
           </form>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
+            <button type="submit" form="productForm" class="btn-primary" :disabled="saving" @click="saveProduct">
+              {{ saving ? 'Saving…' : editingProductId === null ? 'Add Product' : 'Save Product' }}
+            </button>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -3760,6 +3761,7 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding: 0 !important;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.1);
 }
 
