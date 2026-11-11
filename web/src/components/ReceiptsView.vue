@@ -1283,7 +1283,9 @@ tbody tr:hover {
   }
 
   [data-theme='light'] .receipt-preview-backdrop {
-    background: #f8fafc !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     color: #0f172a !important;
   }
 
