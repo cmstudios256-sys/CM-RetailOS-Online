@@ -280,7 +280,13 @@ function updatePosGridColumns() {
   } else if (isTablet.value) {
     posGridColumns.value = window.innerWidth >= 768 ? 4 : 3
   } else {
-    posGridColumns.value = 3
+    const containerWidth = posGridRef.value?.clientWidth
+    if (containerWidth && containerWidth > 0) {
+      const computedCols = Math.floor((containerWidth - 24 + 12) / (165 + 12))
+      posGridColumns.value = Math.max(3, Math.min(8, computedCols))
+    } else {
+      posGridColumns.value = window.innerWidth >= 1440 ? 5 : window.innerWidth >= 1200 ? 4 : 3
+    }
   }
 }
 
@@ -879,7 +885,7 @@ onUnmounted(() => {
             class="virtual-grid-row"
             :style="{
               transform: `translateY(${virtualRow.start}px)`,
-              gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : isTablet ? `repeat(${posGridColumns}, minmax(0, 1fr))` : 'repeat(3, minmax(0, 185px))',
+              gridTemplateColumns: isPhone ? 'repeat(2, minmax(0, 1fr))' : `repeat(${posGridColumns}, minmax(0, 1fr))`,
             }"
           >
             <div
@@ -1371,13 +1377,22 @@ onUnmounted(() => {
 }
 
 .products-panel {
-  flex: 3;
+  flex: 1 1 0%;
   min-width: 0;
 }
 
 .cart-panel {
-  flex: 2;
-  min-width: 340px;
+  flex: 0 0 380px;
+  width: 380px;
+  min-width: 320px;
+  max-width: 420px;
+}
+
+@media (max-width: 1200px) {
+  .cart-panel {
+    flex: 0 0 340px;
+    width: 340px;
+  }
 }
 
 .panel-header {
@@ -1720,7 +1735,6 @@ onUnmounted(() => {
   position: relative;
   min-height: 146px;
   height: 146px;
-  max-width: 185px;
   width: 100%;
   box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
