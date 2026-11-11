@@ -114,6 +114,23 @@ let scanTimeout: ReturnType<typeof setTimeout> | null = null
 
 const barcodeTypes = ['EAN-13', 'EAN-8', 'UPC-A', 'UPC-E', 'Code-128', 'Code-39', 'ITF-14', 'QR Code', 'Data Matrix']
 
+const unitOptions = [
+  { label: 'pcs', value: 'pcs' },
+  { label: 'kg', value: 'kg' },
+  { label: 'L', value: 'L' },
+  { label: 'g', value: 'g' },
+  { label: 'ml', value: 'ml' },
+  { label: 'pack', value: 'pack' },
+  { label: 'box', value: 'box' }
+]
+
+const availableUnitOptions = computed(() => {
+  if (form.value.unit && !unitOptions.some(o => o.value.toLowerCase() === form.value.unit.toLowerCase())) {
+    return [...unitOptions, { label: form.value.unit, value: form.value.unit }]
+  }
+  return unitOptions
+})
+
 function triggerBarcodeScan() {
   if (barcodeInputRef.value) {
     barcodeInputRef.value.focus()
@@ -1097,209 +1114,184 @@ onUnmounted(() => {
     <Teleport to="body">
       <div v-if="showForm" class="modal-backdrop product-modal-backdrop" @click.self="closeForm">
         <div class="modal-content product-editor-modal" v-draggable="'.modal-header'">
-        <div class="modal-header">
-          <div class="modal-title-group">
-            <h3>{{ editingProductId === null ? 'Add New Product' : 'Edit Product' }}</h3>
-            <p class="modal-subtitle">Configure product identity, pricing margins, and stock thresholds.</p>
+          <div class="modal-header">
+            <h3>{{ editingProductId === null ? 'Add Product' : 'Edit Product' }}</h3>
+            <button type="button" class="close-btn" aria-label="Close" @click="closeForm">
+              <X :size="20" />
+            </button>
           </div>
-          <button type="button" class="close-btn" aria-label="Close" @click="closeForm">
-            <X :size="19" />
-          </button>
-        </div>
 
-        <form class="product-form-container" @submit.prevent="saveProduct">
-          <div v-if="error" class="inline-error" role="alert" style="margin-bottom: 1rem;">{{ error }}</div>
-
-          <div class="top-section">
-            <div class="top-fields">
-              <div class="form-group span-2">
-                <label>Product Name <span class="required-star">*</span></label>
-                <input v-model.trim="form.name" type="text" placeholder="e.g. Air Freshener Lavender 300ml" required class="input-highlight" />
-              </div>
-
-              <div class="top-row-2">
-                <div class="form-group">
-                  <label>SKU / Item Code <span class="required-star">*</span></label>
-                  <input v-model.trim="form.sku" type="text" placeholder="SKU-XXXXXX" required />
-                </div>
-
-                <div class="form-group">
-                  <label>Category <span class="required-star">*</span></label>
-                  <select v-model="form.category" required class="modal-select">
-                    <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
-                  </select>
-                </div>
+          <form class="modal-body horizontal-form" @submit.prevent="saveProduct" novalidate>
+            <div v-if="error" class="form-warning-alert">
+              <AlertTriangle :size="18" class="warning-icon" />
+              <div class="warning-message">
+                <strong>Action Required:</strong> {{ error }}
               </div>
             </div>
 
-            <div class="image-upload-wrapper">
+            <div class="top-section">
+              <div class="top-fields">
+                <div class="form-row">
+                  <label for="name">Product Name *:</label>
+                  <div class="field-control">
+                    <input id="name" type="text" v-model.trim="form.name" placeholder="e.g. Fresh Orange Juice 1L" required />
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label for="sku">SKU *:</label>
+                  <div class="field-control">
+                    <input id="sku" type="text" v-model.trim="form.sku" placeholder="SKU-XXXXXX" required />
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label for="category">Category *:</label>
+                  <div class="field-control">
+                    <select id="category" v-model="form.category" required class="modal-select">
+                      <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               <input ref="imageInputRef" type="file" accept="image/*" style="display: none" @change="handleImageUpload" />
               <input ref="cameraInputRef" type="file" accept="image/*" capture="environment" style="display: none" @change="handleImageUpload" />
-              <button
-                type="button"
-                class="image-upload-square"
-                :class="{ 'has-image': !!form.image }"
-                :title="form.image ? 'Change product photo' : 'Add product photo'"
-                @click="openPhotoPicker"
-              >
-                <img v-if="form.image" :src="form.image" alt="Product preview" class="uploaded-preview" />
-                <div v-else class="upload-placeholder-content">
-                  <ImagePlus :size="28" class="upload-icon" stroke-width="1.5" />
-                  <span>Add Photo</span>
-                </div>
-              </button>
-              <button
-                v-if="form.image"
-                type="button"
-                class="remove-image-btn"
-                title="Remove photo"
-                aria-label="Remove photo"
-                @click.stop="removeProductImage"
-              >
-                <Trash2 :size="12" />
-              </button>
-            </div>
-          </div>
-
-          <!-- Photo Source Picker Bottom Sheet (Camera vs Gallery for mobile/touch) -->
-          <div v-if="showPhotoPicker" class="photo-picker-backdrop" @click.self="showPhotoPicker = false">
-            <div class="photo-picker-sheet" role="dialog" aria-modal="true" aria-label="Choose photo source">
-              <div class="photo-picker-header">
-                <h3>Product Photo</h3>
-                <button type="button" class="photo-picker-close" @click="showPhotoPicker = false"><X :size="18" /></button>
-              </div>
-              <div class="photo-picker-options">
-                <button type="button" class="photo-picker-option" @click="triggerCameraCapture">
-                  <div class="option-icon camera-icon-wrap"><Camera :size="22" /></div>
-                  <div class="option-details">
-                    <strong>Take Photo with Camera</strong>
-                    <small>Snap a photo directly using your phone's camera</small>
-                  </div>
+              <div class="image-upload-wrapper">
+                <button
+                  type="button"
+                  class="image-upload-square"
+                  :class="{ 'has-image': !!form.image }"
+                  :title="form.image ? 'Change product photo' : 'Add product photo'"
+                  @click="openPhotoPicker"
+                >
+                  <img v-if="form.image" :src="form.image" alt="Product Image" class="uploaded-preview" />
+                  <ImagePlus v-else :size="32" color="var(--text-muted)" stroke-width="1.5" />
                 </button>
-                <button type="button" class="photo-picker-option" @click="triggerGalleryUpload">
-                  <div class="option-icon gallery-icon-wrap"><ImagePlus :size="22" /></div>
-                  <div class="option-details">
-                    <strong>Choose from Gallery</strong>
-                    <small>Select an existing image from your photo library</small>
-                  </div>
+                <button
+                  v-if="form.image"
+                  type="button"
+                  class="remove-image-btn"
+                  title="Remove photo"
+                  aria-label="Remove photo"
+                  @click.stop="removeProductImage"
+                >
+                  <Trash2 :size="12" />
                 </button>
               </div>
             </div>
-          </div>
 
-          <div class="form-grid">
-
-            <div class="form-group span-2">
-              <label>Barcode / Scanner Code</label>
-              <div class="barcode-row-inputs">
-                <div class="input-with-scan-btn" :class="{ 'scanning-active': isBarcodeScanning }">
-                  <div class="scan-input-wrapper">
-                    <input
-                      ref="barcodeInputRef"
-                      v-model.trim="form.barcode"
-                      type="text"
-                      placeholder="Scan barcode or type code..."
-                      @focus="isBarcodeScanning = true"
-                      @blur="isBarcodeScanning = false"
-                      @keyup.enter="handleBarcodeScanned"
-                    />
-                    <div class="barcode-action-btns">
-                      <button
-                        v-if="cameraSupported"
-                        type="button"
-                        class="scan-inside-btn camera-scan-btn"
-                        title="Scan barcode with phone camera"
-                        aria-label="Scan barcode with camera"
-                        @click="openBarcodeCamera"
-                      >
-                        <Camera :size="16" />
-                      </button>
-                      <button
-                        type="button"
-                        class="scan-inside-btn hardware-scan-btn"
-                        :class="{ active: isBarcodeScanning }"
-                        title="Hardware & Bluetooth scanner ready • Sunmi, Zebra, Honeywell supported"
-                        aria-label="Hardware barcode scanner"
-                        @click="triggerBarcodeScan"
-                      >
-                        <Barcode :size="16" />
-                      </button>
+            <div class="form-row barcode-row">
+              <label for="barcode">Barcode:</label>
+              <div class="barcode-inputs">
+                <div class="input-with-button" :class="{ 'scanning-active': isBarcodeScanning }">
+                  <input
+                    ref="barcodeInputRef"
+                    id="barcode"
+                    type="text"
+                    v-model.trim="form.barcode"
+                    placeholder="Scan or enter..."
+                    @focus="isBarcodeScanning = true"
+                    @blur="isBarcodeScanning = false"
+                    @keyup.enter="handleBarcodeScanned"
+                  />
+                  <button
+                    type="button"
+                    class="btn-inside-input"
+                    :class="{ 'pulse-active': isBarcodeScanning }"
+                    title="Click to activate scanner & focus input"
+                    @click="triggerBarcodeScan"
+                  >
+                    <Barcode :size="16" />
+                  </button>
+                  <transition name="fade">
+                    <div v-if="isBarcodeScanning" class="scan-laser-indicator">
+                      <span class="laser-dot" />
+                      <span>Scanner ready • scan now...</span>
                     </div>
-                  </div>
-                  <div v-if="isBarcodeScanning" class="scan-laser-indicator">
-                    <span class="laser-dot" />
-                    <span>Hardware / Bluetooth Scanner ready • scan now...</span>
-                  </div>
+                  </transition>
                 </div>
-                <select v-model="barcodeType" class="modal-select barcode-type-select" aria-label="Barcode type">
+                <select v-model="barcodeType" class="modal-select barcode-type" aria-label="Barcode type">
                   <option v-for="type in barcodeTypes" :key="type" :value="type">{{ type }}</option>
                 </select>
               </div>
             </div>
 
-            <!-- Pricing & Profit Margin Card -->
-            <div class="form-section span-2 pricing-margin-section">
-              <div class="section-header-row">
-                <div class="section-title-wrap">
-                  <h4 class="section-title">Pricing Margin</h4>
+            <fieldset class="form-fieldset">
+              <legend>Pricing Margin</legend>
+              <div class="form-grid-2">
+                <div class="form-col">
+                  <label for="costPrice">Cost Price *:</label>
+                  <input id="costPrice" type="number" step="0.01" min="0" v-model.number="form.costPrice" required />
+                </div>
+                <div class="form-col">
+                  <label for="sellingPrice">Selling Price *:</label>
+                  <input id="sellingPrice" type="number" step="0.01" min="0" v-model.number="form.sellingPrice" required />
                 </div>
               </div>
-              <div class="section-grid-2">
-                <div class="form-group">
-                  <label>Cost Price</label>
-                  <div class="input-with-prefix">
-                    <span class="prefix">{{ currency }}</span>
-                    <input v-model.number="form.costPrice" type="number" min="0" step="0.01" required />
-                  </div>
+            </fieldset>
+
+            <fieldset class="form-fieldset">
+              <legend>Stock Levels & Unit</legend>
+              <div class="form-grid-2">
+                <div class="form-col">
+                  <label for="quantity">{{ editingProductId === null ? 'Initial Qty' : 'Current Qty' }} *:</label>
+                  <input id="quantity" type="number" step="0.01" min="0" v-model.number="form.quantity" required />
                 </div>
-                <div class="form-group">
-                  <label>Selling Price</label>
-                  <div class="input-with-prefix">
-                    <span class="prefix">{{ currency }}</span>
-                    <input v-model.number="form.sellingPrice" type="number" min="0" step="0.01" required />
+                <div class="form-col">
+                  <label for="minStock">Min Stock *:</label>
+                  <input id="minStock" type="number" step="0.01" min="0" v-model.number="form.minStock" required />
+                </div>
+                <div class="form-col" style="grid-column: 1 / -1;">
+                  <label>Unit *:</label>
+                  <div class="unit-pills">
+                    <button
+                      type="button"
+                      v-for="opt in availableUnitOptions"
+                      :key="opt.value"
+                      @click="form.unit = opt.value"
+                      :class="{ active: form.unit === opt.value }"
+                      class="unit-pill"
+                    >
+                      {{ opt.label }}
+                    </button>
                   </div>
                 </div>
               </div>
-              <div v-if="form.costPrice > 0 && form.sellingPrice > 0" class="pricing-metrics-microbar">
-                <span>Profit per unit: <strong :class="formProfit >= 0 ? 'text-emerald' : 'text-rose'">{{ formatMoney(formProfit, currency) }}</strong></span>
+            </fieldset>
+
+            <!-- Photo Source Picker Bottom Sheet (Camera vs Gallery for mobile/touch) -->
+            <div v-if="showPhotoPicker" class="photo-picker-backdrop" @click.self="showPhotoPicker = false">
+              <div class="photo-picker-sheet" role="dialog" aria-modal="true" aria-label="Choose photo source">
+                <div class="photo-picker-header">
+                  <h3>Product Photo</h3>
+                  <button type="button" class="photo-picker-close" @click="showPhotoPicker = false"><X :size="18" /></button>
+                </div>
+                <div class="photo-picker-options">
+                  <button type="button" class="photo-picker-option" @click="triggerCameraCapture">
+                    <div class="option-icon camera-icon-wrap"><Camera :size="22" /></div>
+                    <div class="option-details">
+                      <strong>Take Photo with Camera</strong>
+                      <small>Snap a photo directly using your phone's camera</small>
+                    </div>
+                  </button>
+                  <button type="button" class="photo-picker-option" @click="triggerGalleryUpload">
+                    <div class="option-icon gallery-icon-wrap"><ImagePlus :size="22" /></div>
+                    <div class="option-details">
+                      <strong>Choose from Gallery</strong>
+                      <small>Select an existing image from your photo library</small>
+                    </div>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- Stock Levels & Unit Card -->
-            <div class="form-section span-2 stock-levels-section">
-              <div class="section-header-row">
-                <div class="section-title-wrap">
-                  <h4 class="section-title">Stock Levels &amp; Unit</h4>
-                </div>
-                <div class="stock-live-pill" :class="formStockStatus.class">
-                  <span class="stock-dot"></span>
-                  <span>{{ formStockStatus.label }}</span>
-                </div>
-              </div>
-              <div class="section-grid-3">
-                <div class="form-group">
-                  <label>{{ editingProductId === null ? 'Initial Qty' : 'Current Qty' }}</label>
-                  <input v-model.number="form.quantity" type="number" min="0" step="0.001" required />
-                </div>
-                <div class="form-group">
-                  <label>Min Stock</label>
-                  <input v-model.number="form.minStock" type="number" min="0" step="0.001" required title="Alert threshold for low stock" />
-                </div>
-                <div class="form-group">
-                  <label>Unit</label>
-                  <input v-model.trim="form.unit" type="text" placeholder="e.g. piece, kg, box" required />
-                </div>
-              </div>
+            <div class="modal-footer">
+              <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
+              <button type="submit" class="btn-primary" :disabled="saving">
+                {{ saving ? 'Saving…' : editingProductId === null ? 'Add Product' : 'Save Product' }}
+              </button>
             </div>
-          </div>
-
-          <div class="modal-actions sticky-modal-actions">
-            <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
-            <button type="submit" class="btn-primary btn-save-product" :disabled="saving">
-              <Check v-if="!saving && editingProductId !== null" :size="16" />
-              {{ saving ? 'Saving…' : editingProductId === null ? 'Add Product' : isPhone ? 'Save' : 'Save Changes' }}
-            </button>
-          </div>
           </form>
         </div>
       </div>
@@ -3756,6 +3748,374 @@ tbody tr:hover {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
+/* Standalone App Modal Styles */
+.product-editor-modal {
+  pointer-events: auto;
+  background-color: var(--bg-sidebar, #0a101d);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 500px;
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.1);
+}
+
+.product-editor-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  flex-shrink: 0;
+  cursor: grab;
+}
+
+.product-editor-modal .modal-header:active {
+  cursor: grabbing;
+}
+
+.product-editor-modal .modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--accent-color, #38bdf8);
+  font-weight: 700;
+}
+
+.product-editor-modal .close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-editor-modal .close-btn:hover {
+  color: #ffffff;
+  background-color: rgba(239, 68, 68, 0.8);
+  transform: rotate(90deg);
+}
+
+.horizontal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.horizontal-form .top-section {
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+  margin-bottom: 0.25rem;
+}
+
+.horizontal-form .top-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.horizontal-form .form-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.horizontal-form .form-row label {
+  flex: 0 0 110px;
+  font-size: 0.875rem;
+  color: var(--text-primary, #e2e8f0);
+  text-align: left;
+}
+
+.horizontal-form .field-control {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.horizontal-form .form-row input,
+.horizontal-form .form-row select,
+.horizontal-form .form-col input,
+.horizontal-form .form-col select {
+  flex: 1;
+  width: 100%;
+  background-color: var(--bg-app, #070d18);
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.2));
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.6rem;
+  color: var(--text-primary, #e2e8f0);
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+}
+
+.horizontal-form .form-row input:focus,
+.horizontal-form .form-row select:focus,
+.horizontal-form .form-col input:focus,
+.horizontal-form .form-col select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+}
+
+.horizontal-form .barcode-row {
+  align-items: center;
+}
+
+.horizontal-form .barcode-inputs {
+  flex: 1;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.horizontal-form .input-with-button {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.horizontal-form .input-with-button input {
+  width: 100%;
+  padding-right: 2rem;
+}
+
+.horizontal-form .btn-inside-input {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  cursor: pointer;
+  padding: 0.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.horizontal-form .btn-inside-input:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-50%) scale(1.05);
+}
+
+.horizontal-form .input-with-button.scanning-active input {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25), 0 0 12px rgba(239, 68, 68, 0.2) !important;
+}
+
+.horizontal-form .btn-inside-input.pulse-active {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+  animation: barcode-laser-pulse 1.2s infinite ease-in-out;
+}
+
+.horizontal-form .scan-laser-indicator {
+  position: absolute;
+  bottom: -18px;
+  left: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #ef4444;
+  pointer-events: none;
+  z-index: 5;
+  white-space: nowrap;
+}
+
+.horizontal-form .scan-laser-indicator .laser-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+  animation: laser-blink 0.8s infinite alternate;
+}
+
+.horizontal-form .barcode-type {
+  width: 115px;
+  flex: 0 0 115px;
+}
+
+.horizontal-form .form-fieldset {
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.horizontal-form .form-fieldset legend {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-color, #38bdf8);
+  padding: 0 0.5rem;
+}
+
+.horizontal-form .form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.horizontal-form .form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.horizontal-form .form-col label {
+  font-size: 0.875rem;
+  color: var(--text-primary, #e2e8f0);
+}
+
+.horizontal-form .unit-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.horizontal-form .unit-pill {
+  flex: 1 1 calc(25% - 0.5rem);
+  min-width: 45px;
+  padding: 0.45rem 0.25rem;
+  background-color: transparent;
+  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.2));
+  color: var(--text-muted, #94a3b8);
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.horizontal-form .unit-pill:hover {
+  background-color: var(--bg-surface-hover, rgba(255, 255, 255, 0.06));
+}
+
+.horizontal-form .unit-pill.active {
+  background-color: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.product-editor-modal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.6rem 1.25rem;
+  border-top: 1px solid var(--border-color, rgba(148, 163, 184, 0.15));
+  background-color: rgba(10, 16, 29, 0.8);
+  border-bottom-left-radius: 1rem;
+  border-bottom-right-radius: 1rem;
+}
+
+.form-warning-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 0.5rem;
+  background-color: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 0.5rem;
+  color: #fbbf24;
+  font-size: 0.85rem;
+}
+
+.form-warning-alert .warning-icon {
+  flex-shrink: 0;
+  color: #f59e0b;
+}
+
+/* Light Theme overrides for Product Editor Modal */
+[data-theme='light'] .product-editor-modal {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme='light'] .product-editor-modal .modal-header {
+  border-bottom-color: #e2e8f0;
+}
+
+[data-theme='light'] .product-editor-modal .modal-header h3 {
+  color: #0284c7;
+}
+
+[data-theme='light'] .product-editor-modal .form-row label,
+[data-theme='light'] .product-editor-modal .form-col label {
+  color: #334155;
+}
+
+[data-theme='light'] .product-editor-modal .form-row input,
+[data-theme='light'] .product-editor-modal .form-row select,
+[data-theme='light'] .product-editor-modal .form-col input,
+[data-theme='light'] .product-editor-modal .form-col select {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  box-shadow: none;
+}
+
+[data-theme='light'] .product-editor-modal .form-fieldset {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .product-editor-modal .form-fieldset legend {
+  color: #0284c7;
+}
+
+[data-theme='light'] .product-editor-modal .unit-pill {
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+[data-theme='light'] .product-editor-modal .unit-pill:hover {
+  background-color: #f1f5f9;
+}
+
+[data-theme='light'] .product-editor-modal .unit-pill.active {
+  background-color: #e0f2fe;
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+[data-theme='light'] .product-editor-modal .modal-footer {
+  background-color: #f8fafc;
+  border-top-color: #e2e8f0;
+}
+
 /* Photo Picker Sheet / Modal */
 .photo-picker-backdrop {
   position: fixed;
@@ -4258,108 +4618,17 @@ tbody tr:hover {
     background-color: rgba(15, 23, 42, 0.65) !important;
   }
 
-  .product-form-container {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 14px 14px 0 14px;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .top-section {
-    gap: 0.75rem;
-  }
-
   @media (max-width: 520px) {
-    .top-section {
+    .horizontal-form .top-section {
       flex-direction: column-reverse;
       align-items: center;
     }
-    .top-fields {
+    .horizontal-form .top-fields {
       width: 100%;
     }
   }
 
-  .sticky-modal-actions {
-    position: sticky;
-    bottom: 0;
-    margin: auto -14px 0 -14px !important;
-    padding: 12px 14px max(16px, env(safe-area-inset-bottom)) 14px !important;
-    background: rgba(10, 16, 29, 0.96) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-    border-top: none !important;
-    box-shadow: none !important;
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 10px !important;
-    z-index: 20 !important;
-  }
-
-  .sticky-modal-actions .btn-primary,
-  .sticky-modal-actions .btn-secondary {
-    min-height: 48px;
-    font-size: 13.5px;
-    font-weight: 700;
-    justify-content: center;
-    border-radius: 10px;
-    transition: transform 0.12s ease, filter 0.12s ease;
-  }
-
-  .sticky-modal-actions .btn-secondary {
-    background: rgba(148, 163, 184, 0.14) !important;
-    color: #e2e8f0 !important;
-  }
-
-  .sticky-modal-actions .btn-primary:active,
-  .sticky-modal-actions .btn-secondary:active {
-    filter: brightness(0.9);
-  }
-
-  /* Light Theme overrides on mobile */
-  [data-theme='light'] .product-editor-modal {
-    background: #ffffff !important;
-    color: #0f172a !important;
-  }
-
-  [data-theme='light'] .product-editor-modal .modal-header {
-    background: #ffffff !important;
-    border-bottom: 1px solid #f1f5f9 !important;
-  }
-
-  [data-theme='light'] .product-editor-modal .modal-header h3 {
-    color: #0f172a !important;
-  }
-
-  [data-theme='light'] .product-editor-modal .modal-subtitle {
-    color: #64748b !important;
-  }
-
-  [data-theme='light'] .product-editor-modal .form-group input,
-  [data-theme='light'] .product-editor-modal .modal-select,
-  [data-theme='light'] .product-editor-modal .input-with-prefix input,
-  [data-theme='light'] .product-editor-modal .input-with-scan-btn input {
-    background-color: #f1f5f9 !important;
-    color: #0f172a !important;
-  }
-
-  [data-theme='light'] .product-editor-modal .modal-select {
-    color: #0f172a !important;
-  }
-
-  [data-theme='light'] .product-editor-modal .pricing-margin-section,
-  [data-theme='light'] .product-editor-modal .stock-levels-section,
-  [data-theme='light'] .product-editor-modal .form-section {
-    background: #f8fafc !important;
-    color: #0f172a !important;
-  }
-
-  [data-theme='light'] .product-editor-modal .form-group label {
-    color: #475569 !important;
-  }
-
+  /* Light Theme overrides */
   [data-theme='light'] .category-modal {
     background-color: #ffffff !important;
     color: #0f172a !important;
@@ -4388,25 +4657,8 @@ tbody tr:hover {
     color: #0f172a !important;
   }
 
-  [data-theme='light'] .sticky-modal-actions {
-    background: #ffffff !important;
-    border-top: none !important;
-    box-shadow: none !important;
-  }
-
-  [data-theme='light'] .sticky-modal-actions .btn-secondary {
-    background: #f1f5f9 !important;
-    color: #0f172a !important;
-  }
-
   .product-editor-modal .close-btn {
     background: transparent !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  .product-editor-modal .sticky-modal-actions .btn-secondary {
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
