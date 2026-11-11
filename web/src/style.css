@@ -310,7 +310,7 @@ button, a, input, select, textarea, .stat-card, .product-card, .mobile-ui-card, 
 .row-actions button:hover, .icon-action-button:hover { border-color: rgba(249, 115, 22, .17); color: #fdba74; background: rgba(249, 115, 22, .07); }
 .product-card-list { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.modal-backdrop { position: fixed; z-index: 50; inset: 0; padding: 20px; display: grid; place-items: center; overflow-y: auto; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.modal-backdrop { position: fixed; z-index: 50000; inset: 0; padding: 20px; display: grid; place-items: center; overflow-y: auto; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; pointer-events: auto; }
 .form-modal { width: min(520px, 100%); max-height: min(92vh, 820px); padding: 22px; overflow-y: auto; border: 1px solid rgba(148, 163, 184, .2); border-radius: 15px; background: #101b2a; box-shadow: 0 28px 80px rgba(0, 0, 0, .45); }
 .modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .modal-heading h3 { margin: 6px 0 4px; color: #eef4fa; font: 700 19px 'Segoe UI', sans-serif; }
@@ -812,7 +812,7 @@ button, a, input, select, textarea, .stat-card, .product-card, .mobile-ui-card, 
 .receipt-date-filter button { width: 23px; height: 23px; display: grid; place-items: center; border: 0; color: #91a0b5; background: transparent; cursor: pointer; }
 .receipt-sale-id { color: #9aaabd; font: 600 9px ui-monospace, Consolas, monospace; }
 .receipts-mobile-list { display: none; }
-.receipt-modal-backdrop { position: fixed; z-index: 30; inset: 0; padding: 20px; display: grid; place-items: center; overflow-y: auto; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.receipt-modal-backdrop { position: fixed; z-index: 50000; inset: 0; padding: 20px; display: grid; place-items: center; overflow-y: auto; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; pointer-events: auto; }
 .receipt-preview { position: relative; width: min(470px, 100%); max-height: 95dvh; padding: 22px; overflow-y: auto; border: 1px solid rgba(148, 163, 184, .2); border-radius: 15px; background: #101a2a; box-shadow: 0 28px 80px rgba(0, 0, 0, .45); }
 .receipt-preview-close { position: absolute; z-index: 1; top: 9px; right: 9px; width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; color: #91a0b5; background: #121e2e; cursor: pointer; }
 .receipt-preview .receipt-paper { width: min(100%, 360px); margin: 0 auto; padding: 24px; color: #172033; background: #fff; font: 12px ui-monospace, Consolas, monospace; }
@@ -3921,6 +3921,19 @@ body:has(.workspace-shell) {
 .receipt-preview-backdrop,
 .sale-details-backdrop,
 .product-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 50000 !important;
+  pointer-events: auto !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow-y: auto !important;
   background: transparent !important;
   background-color: transparent !important;
   backdrop-filter: none !important;
@@ -3938,6 +3951,18 @@ body:has(.workspace-shell) {
   background-color: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+.modal-content,
+.form-modal,
+.product-editor-modal,
+.adjust-stock-modal,
+.category-modal,
+.delete-confirm-modal,
+.receipt-preview {
+  position: relative;
+  z-index: 50001 !important;
+  pointer-events: auto !important;
 }
 
 /* Draggable Modals */

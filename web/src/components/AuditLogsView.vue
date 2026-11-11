@@ -147,7 +147,7 @@ onMounted(load)
 
     <!-- Clear Confirmation Modal -->
     <transition name="modal-fade">
-      <div v-if="isClearModalOpen" class="modal-overlay" @click.self="isClearModalOpen = false">
+      <div v-if="isClearModalOpen" class="modal-overlay">
         <div class="modal-card" v-draggable="'.modal-card'">
           <div class="warning-icon-box">
             <AlertTriangle :size="32" />

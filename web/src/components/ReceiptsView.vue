@@ -507,7 +507,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Receipt Preview Modal -->
-    <div v-if="isReceiptModalOpen && selectedReceipt" class="modal-backdrop receipt-preview-backdrop" @click.self="closeModal">
+    <div v-if="isReceiptModalOpen && selectedReceipt" class="modal-backdrop receipt-preview-backdrop">
       <div class="receipt-modal" v-draggable="'.modal-top-bar'">
         <div class="modal-top-bar">
           <h3>Receipt Preview</h3>

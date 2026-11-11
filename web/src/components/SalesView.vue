@@ -497,7 +497,7 @@ onMounted(() => {
     </div>
 
     <!-- Sale Details Modal -->
-    <div v-if="isDetailModalOpen && selectedSale" class="modal-backdrop sale-details-backdrop" @click.self="closeDetailModal">
+    <div v-if="isDetailModalOpen && selectedSale" class="modal-backdrop sale-details-backdrop">
       <div class="modal-content sale-details-modal" v-draggable="'.modal-header'">
         <div class="modal-header">
           <h3>Sale Details</h3>

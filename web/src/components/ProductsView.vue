@@ -1112,7 +1112,7 @@ onUnmounted(() => {
 
     <!-- Add / Edit Product Modal -->
     <Teleport to="body">
-      <div v-if="showForm" class="modal-backdrop product-modal-backdrop" @click.self="closeForm">
+      <div v-if="showForm" class="modal-backdrop product-modal-backdrop">
         <div class="modal-content product-editor-modal" v-draggable="'.modal-header'">
           <div class="modal-header">
             <h3>{{ editingProductId === null ? 'Add Product' : 'Edit Product' }}</h3>
@@ -1299,7 +1299,7 @@ onUnmounted(() => {
 
     <!-- Adjust Stock Modal -->
     <Teleport to="body">
-      <div v-if="adjustingProduct" class="modal-backdrop adjust-stock-backdrop" @click.self="closeAdjustStock">
+      <div v-if="adjustingProduct" class="modal-backdrop adjust-stock-backdrop">
         <div class="modal-content adjust-stock-modal" style="max-width: 490px;" v-draggable="'.modal-header'">
           <div class="modal-header adjust-stock-header">
             <div class="modal-title-with-icon">
@@ -1364,7 +1364,7 @@ onUnmounted(() => {
 
     <!-- Category Management Modal -->
     <Teleport to="body">
-      <div v-if="showCategoryModal" class="modal-backdrop" @click.self="closeCategoryManagement">
+      <div v-if="showCategoryModal" class="modal-backdrop">
         <div class="modal-content category-modal" v-draggable="'.modal-header'">
           <div class="modal-header">
             <div class="modal-title-group">
@@ -1428,7 +1428,7 @@ onUnmounted(() => {
 
     <!-- Delete Product Confirmation Modal -->
     <Teleport to="body">
-      <div v-if="productToDelete" class="modal-backdrop" @click.self="productToDelete = null">
+      <div v-if="productToDelete" class="modal-backdrop">
         <div class="modal-content delete-confirm-modal" v-draggable="'.modal-content'">
           <div class="delete-warning-icon">
             <AlertTriangle :size="32" />
@@ -4525,7 +4525,7 @@ tbody tr:hover {
   }
 
   .product-modal-backdrop {
-    z-index: 60;
+    z-index: 50000;
     padding: 0;
     place-items: stretch;
     overflow: hidden;
