@@ -1102,8 +1102,8 @@ tbody tr:hover {
 .modal-table-container {
   border: none !important;
   outline: none !important;
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.65);
+  border-radius: 0;
+  background: transparent !important;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
@@ -1114,27 +1114,45 @@ tbody tr:hover {
   width: 100%;
   min-width: 0;
   border-collapse: collapse;
+  background: transparent !important;
 }
 
 .items-table th {
-  background-color: rgba(30, 41, 59, 0.5);
+  background: transparent !important;
+  background-color: transparent !important;
   color: #94a3b8;
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-right: none;
   white-space: nowrap;
 }
 
+.items-table th:first-child {
+  padding-left: 0;
+}
+
+.items-table th:last-child {
+  padding-right: 0;
+}
+
 .items-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   border-right: none;
   font-size: 0.875rem;
   color: #e2e8f0;
+}
+
+.items-table td:first-child {
+  padding-left: 0;
+}
+
+.items-table td:last-child {
+  padding-right: 0;
 }
 
 .items-table tbody tr:last-child td {
@@ -1399,18 +1417,18 @@ tbody tr:hover {
 
   .items-table th,
   .items-table td {
-    padding: 8px 10px !important;
+    padding: 8px 6px !important;
     font-size: 0.8rem !important;
   }
 
   .items-table th:first-child,
   .items-table td:first-child {
-    padding-left: 12px !important;
+    padding-left: 0 !important;
   }
 
   .items-table th:last-child,
   .items-table td:last-child {
-    padding-right: 12px !important;
+    padding-right: 0 !important;
   }
 
   .items-table td:first-child {
@@ -1489,11 +1507,13 @@ tbody tr:hover {
 }
 
 [data-theme='light'] .modal-table-container {
-  border: 1px solid #e2e8f0 !important;
+  border: none !important;
+  background: transparent !important;
 }
 
 [data-theme='light'] .items-table th {
-  background-color: #f8fafc !important;
+  background: transparent !important;
+  background-color: transparent !important;
   color: #475569 !important;
   border-bottom: 1px solid #e2e8f0 !important;
 }
