@@ -231,6 +231,31 @@ export async function requestWebBluetoothDevice(): Promise<{ name: string; id: s
 }
 
 /**
+ * Sanitizes any string into single-byte ASCII (0x20..0x7E) for thermal printers.
+ * Eliminates non-breaking spaces (U+00A0, U+202F) that cause Chinese character artifacts in ESC/POS GBK mode.
+ */
+export function toAscii(str: string | null | undefined): string {
+  if (!str) return ''
+  return String(str)
+    .replace(/[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/[^\x20-\x7E\n\r]/g, '')
+}
+
+/**
+ * Formats currency amounts safely for thermal printers using standard ASCII space.
+ * Avoids Intl.NumberFormat non-breaking space bytes (0xC2 0xA0) which print as Chinese glyphs.
+ */
+export function formatEscPosMoney(value: number, currency: string = 'UGX'): string {
+  const cur = toAscii(currency || 'UGX').trim().toUpperCase()
+  const num = Math.round(Number(value) || 0)
+  const numStr = num.toLocaleString('en-US')
+  return `${cur} ${numStr}`
+}
+
+/**
  * Builds standard ESC/POS binary buffer for thermal receipt printing
  */
 export function buildEscPosReceipt(
@@ -246,8 +271,9 @@ export function buildEscPosReceipt(
     paperWidth?: '58mm' | '80mm'
   },
 ): Uint8Array {
+  // 58mm thermal printers have 384 dots (30-32 columns safe width). 30 columns ensures zero line-wrap on all models.
   const is58mm = (options.paperWidth || '58mm') === '58mm'
-  const maxChars = is58mm ? 32 : 48
+  const maxChars = is58mm ? 30 : 48
   const divider = '-'.repeat(maxChars)
 
   const encoder = new TextEncoder()
@@ -258,7 +284,8 @@ export function buildEscPosReceipt(
   }
 
   function addText(text: string) {
-    const encoded = encoder.encode(text)
+    const clean = toAscii(text)
+    const encoded = encoder.encode(clean)
     for (const byte of encoded) {
       bytes.push(byte)
     }
@@ -268,76 +295,92 @@ export function buildEscPosReceipt(
     addText(text + '\n')
   }
 
-  function formatRow(left: string, right: string): string {
-    const spaces = Math.max(1, maxChars - left.length - right.length)
-    return left + ' '.repeat(spaces) + right
+  function formatRow(left: string, right: string, width: number = maxChars): string {
+    const cleanLeft = toAscii(left)
+    const cleanRight = toAscii(right)
+    const spaces = width - cleanLeft.length - cleanRight.length
+    if (spaces >= 1) {
+      return cleanLeft + ' '.repeat(spaces) + cleanRight
+    }
+    // If text exceeds line width, place amount right-aligned on next line to prevent split numbers
+    const indent = Math.max(0, width - cleanRight.length)
+    return `${cleanLeft}\n${' '.repeat(indent)}${cleanRight}`
   }
 
   // 1. ESC @ : Initialize printer
   addBytes(0x1b, 0x40)
 
-  // 2. ESC a 1 : Center alignment
+  // 2. FS . : Cancel Chinese character mode (ensures byte pairs are never treated as Chinese ideograms)
+  addBytes(0x1c, 0x2e)
+
+  // 3. ESC t 0 : Select character code page 0 (PC437: Standard ASCII)
+  addBytes(0x1b, 0x74, 0x00)
+
+  // 4. ESC a 1 : Center alignment
   addBytes(0x1b, 0x61, 0x01)
 
-  // 3. Double height & bold for Store Title
-  addBytes(0x1b, 0x21, 0x30)
-  addLine(options.shopName.toUpperCase())
+  // 5. Store Title: Double height + Bold (standard width so it never clips or wraps)
+  addBytes(0x1b, 0x45, 0x01) // Bold ON
+  addBytes(0x1b, 0x21, 0x10) // Double height ON
+  addLine(toAscii(options.shopName.toUpperCase()))
+  addBytes(0x1b, 0x21, 0x00) // Normal size
+  addBytes(0x1b, 0x45, 0x00) // Bold OFF
 
-  // Reset formatting to normal
-  addBytes(0x1b, 0x21, 0x00)
-
-  if (options.address) addLine(options.address)
-  if (options.phone) addLine(`Tel: ${options.phone}`)
-  if (options.headerText) addLine(options.headerText)
+  if (options.address) addLine(toAscii(options.address))
+  if (options.phone) addLine(toAscii(`Tel: ${options.phone}`))
+  if (options.headerText) addLine(toAscii(options.headerText))
 
   addLine(divider)
 
-  // Left align for receipt meta
+  // 6. Left align for receipt meta
   addBytes(0x1b, 0x61, 0x00)
-  addLine(formatRow('Receipt:', '#' + receiptNumber(sale)))
-  addLine(formatRow('Sale ID:', '#' + shortSaleId(sale.id)))
-  addLine(formatRow('Date:', `${formatDate(sale.completedAt)} ${formatTime(sale.completedAt)}`))
+  addLine(formatRow('Receipt:', '#' + toAscii(receiptNumber(sale)), maxChars))
+  addLine(formatRow('Sale ID:', '#' + toAscii(shortSaleId(sale.id)), maxChars))
+  addLine(formatRow('Date:', toAscii(`${formatDate(sale.completedAt)} ${formatTime(sale.completedAt)}`), maxChars))
   if (options.showCashier !== false && sale.cashierName) {
-    addLine(formatRow('Cashier:', sale.cashierName))
+    addLine(formatRow('Cashier:', toAscii(sale.cashierName), maxChars))
   }
   if (sale.customerName) {
-    addLine(formatRow('Customer:', sale.customerName))
+    addLine(formatRow('Customer:', toAscii(sale.customerName), maxChars))
   }
 
   addLine(divider)
 
-  // Items header
+  // 7. Items header
   addBytes(0x1b, 0x45, 0x01) // Bold
-  addLine(formatRow('ITEM', 'AMOUNT'))
+  addLine(formatRow('ITEM', 'AMOUNT', maxChars))
   addBytes(0x1b, 0x45, 0x00) // Unbold
   addLine(divider)
 
-  // Item rows
+  // 8. Item rows
   for (const item of sale.items) {
-    addLine(item.productName)
-    const qtyPrice = ` ${formatQuantity(item.quantity)} x ${formatMoney(item.unitPrice, options.currency)}`
-    const total = formatMoney(item.lineTotal, options.currency)
-    addLine(formatRow(qtyPrice, total))
+    addLine(toAscii(item.productName))
+    const qtyPrice = `  ${formatQuantity(item.quantity)} x ${formatEscPosMoney(item.unitPrice, options.currency)}`
+    const lineTotal = formatEscPosMoney(item.lineTotal, options.currency)
+    addLine(formatRow(qtyPrice, lineTotal, maxChars))
   }
 
   addLine(divider)
 
-  // Subtotal & Discount
+  // 9. Subtotal & Discount
   if (sale.discount > 0) {
-    addLine(formatRow('Subtotal:', formatMoney(sale.subtotal, options.currency)))
-    addLine(formatRow('Discount:', `-${formatMoney(sale.discount, options.currency)}`))
+    addLine(formatRow('Subtotal:', formatEscPosMoney(sale.subtotal, options.currency), maxChars))
+    addLine(formatRow('Discount:', `-${formatEscPosMoney(sale.discount, options.currency)}`, maxChars))
+    addLine(divider)
   }
 
-  // TOTAL in double height & bold
-  addBytes(0x1b, 0x21, 0x20)
-  addLine(formatRow('TOTAL:', formatMoney(sale.total, options.currency)))
-  addBytes(0x1b, 0x21, 0x00)
+  // 10. TOTAL in double height & bold (normal width so it fits cleanly on ONE line without wrapping!)
+  addBytes(0x1b, 0x45, 0x01) // Bold ON
+  addBytes(0x1b, 0x21, 0x10) // Double height ON
+  addLine(formatRow('TOTAL:', formatEscPosMoney(sale.total, options.currency), maxChars))
+  addBytes(0x1b, 0x21, 0x00) // Reset size
+  addBytes(0x1b, 0x45, 0x00) // Bold OFF
 
   addLine(divider)
 
-  // Center align for footer
+  // 11. Center align for footer
   addBytes(0x1b, 0x61, 0x01)
-  addLine(options.footerText || 'Thank you for shopping with us!')
+  addLine(toAscii(options.footerText || 'Thank you for shopping with us!'))
   addLine('Powered by CM-RetailOS')
 
   // Feed 4 lines
@@ -354,28 +397,34 @@ export function buildEscPosReceipt(
  */
 export function buildEscPosTestPrint(printerName: string, paperWidth: '58mm' | '80mm' = '58mm'): Uint8Array {
   const is58mm = paperWidth === '58mm'
-  const maxChars = is58mm ? 32 : 48
+  const maxChars = is58mm ? 30 : 48
   const divider = '-'.repeat(maxChars)
 
-  const bytes: number[] = [0x1b, 0x40, 0x1b, 0x61, 0x01] // Init + Center
+  const bytes: number[] = [
+    0x1b, 0x40,        // ESC @ : Init
+    0x1c, 0x2e,        // FS . : Cancel Chinese mode
+    0x1b, 0x74, 0x00,  // ESC t 0 : Code Page 0 (PC437)
+    0x1b, 0x61, 0x01,  // ESC a 1 : Center
+  ]
   const encoder = new TextEncoder()
 
   function addText(text: string) {
-    for (const b of encoder.encode(text + '\n')) bytes.push(b)
+    const clean = toAscii(text)
+    for (const b of encoder.encode(clean + '\n')) bytes.push(b)
   }
 
-  bytes.push(0x1b, 0x21, 0x30) // Double height bold
+  bytes.push(0x1b, 0x45, 0x01, 0x1b, 0x21, 0x10) // Double height + Bold
   addText('BLUETOOTH PRINTER')
-  bytes.push(0x1b, 0x21, 0x00) // Reset
+  bytes.push(0x1b, 0x21, 0x00, 0x1b, 0x45, 0x00) // Reset
   addText('TEST RECEIPT')
   addText(divider)
-  addText(`Printer: ${printerName}`)
+  addText(`Printer: ${toAscii(printerName)}`)
   addText(`Paper: ${paperWidth}`)
   addText(`Protocol: ESC/POS`)
   addText(`Status: Online & Ready`)
   addText(divider)
   addText('CM-RetailOS Bluetooth Driver')
-  addText(new Date().toLocaleString())
+  addText(toAscii(new Date().toLocaleString()))
   bytes.push(0x1b, 0x64, 0x04, 0x1d, 0x56, 0x00) // Feed & cut
 
   return new Uint8Array(bytes)

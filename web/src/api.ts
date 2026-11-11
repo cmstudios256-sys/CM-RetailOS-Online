@@ -116,7 +116,9 @@ export function formatMoney(value: number, currency: string): string {
       style: 'currency',
       currency: currency || 'UGX',
       maximumFractionDigits: currency === 'UGX' ? 0 : 2,
-    }).format(value)
+    })
+      .format(value)
+      .replace(/[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ')
   } catch {
     return `${currency || 'UGX'} ${value.toLocaleString()}`
   }
