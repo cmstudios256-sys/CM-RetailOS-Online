@@ -30,6 +30,7 @@ import {
   Package,
   Clock,
   Activity,
+  Users,
   Settings as SettingsIcon,
 } from '@lucide/vue'
 import { apiRequest, formatTime, getComplementaryColor, readOnlinePrefs, syncOnlinePrefsFromServer } from '../api'
@@ -378,6 +379,12 @@ const settingsMenu = [
     category: 'OPERATIONS & POS',
     items: [
       { id: 'pos-config', label: 'POS Configuration', description: 'POS behavior & defaults', icon: ShoppingCart },
+    ],
+  },
+  {
+    category: 'SECURITY & ACCESS',
+    items: [
+      { id: 'users-staff', label: 'Users & Staff', description: 'Manage users & permissions', icon: Users },
     ],
   },
   {
@@ -1864,6 +1871,7 @@ onUnmounted(() => {
                     <textarea
                       rows="2"
                       v-model="appSettings.receiptsSettings.headerText"
+                      @input="handleReceiptSettingChange"
                       placeholder="e.g. Welcome to our store!"
                     ></textarea>
                   </div>
@@ -1872,6 +1880,7 @@ onUnmounted(() => {
                     <textarea
                       rows="2"
                       v-model="appSettings.receiptsSettings.footerText"
+                      @input="handleReceiptSettingChange"
                       placeholder="e.g. Goods once sold are not returnable. Thank you for shopping with us!"
                     ></textarea>
                   </div>
@@ -2005,7 +2014,7 @@ onUnmounted(() => {
 
         <!-- Add / Edit Printer Modal -->
         <Teleport to="body">
-          <div v-if="showAddPrinterModal" class="modal-overlay printer-modal-overlay" @click.self="showAddPrinterModal = false">
+          <div v-if="showAddPrinterModal" class="modal-overlay printer-modal-overlay">
             <div class="modal-content printer-modal-content" style="max-width: 580px;">
             <div class="modal-header">
               <h3>{{ isMobile ? (isEditingPrinter ? 'Edit Bluetooth Printer' : 'Connect Bluetooth Thermal Printer') : (isEditingPrinter ? 'Edit POS Printer' : 'Add ESC/POS Thermal Printer') }}</h3>
@@ -2255,7 +2264,7 @@ onUnmounted(() => {
         </Teleport>
 
         <!-- Spooler Queue / Print History Modal -->
-        <div v-if="showJobsModal" class="modal-overlay" @click.self="showJobsModal = false">
+        <div v-if="showJobsModal" class="modal-overlay">
           <div class="modal-content" style="max-width: 720px;">
             <div class="modal-header">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -2344,22 +2353,28 @@ onUnmounted(() => {
               <h3>Checkout Workflow</h3>
             </div>
             <div class="card-body toggle-list">
-              <div class="toggle-group">
+              <div
+                class="toggle-group clickable-toggle-row"
+                @click="appSettings.applicationSettings.autoClearCart = !appSettings.applicationSettings.autoClearCart; handleGeneralAppSettingChange()"
+              >
                 <div class="toggle-info">
                   <span class="toggle-label">Auto-Clear Cart</span>
                   <span class="toggle-desc">Clear cart automatically after a successful sale.</span>
                 </div>
-                <label class="switch">
+                <label class="switch" @click.stop>
                   <input type="checkbox" v-model="appSettings.applicationSettings.autoClearCart" @change="handleGeneralAppSettingChange" />
                   <span class="slider round"></span>
                 </label>
               </div>
-              <div class="toggle-group">
+              <div
+                class="toggle-group clickable-toggle-row"
+                @click="appSettings.applicationSettings.barcodeBeep = !appSettings.applicationSettings.barcodeBeep; handleGeneralAppSettingChange()"
+              >
                 <div class="toggle-info">
                   <span class="toggle-label">Scanner Beep Sound</span>
                   <span class="toggle-desc">Play a beep when a barcode is scanned.</span>
                 </div>
-                <label class="switch">
+                <label class="switch" @click.stop>
                   <input type="checkbox" v-model="appSettings.applicationSettings.barcodeBeep" @change="handleGeneralAppSettingChange" />
                   <span class="slider round"></span>
                 </label>
@@ -2373,22 +2388,28 @@ onUnmounted(() => {
               <h3>Display</h3>
             </div>
             <div class="card-body toggle-list">
-              <div class="toggle-group">
+              <div
+                class="toggle-group clickable-toggle-row"
+                @click="appSettings.applicationSettings.showPosImages = !appSettings.applicationSettings.showPosImages; handleGeneralAppSettingChange()"
+              >
                 <div class="toggle-info">
                   <span class="toggle-label">Show Product Images</span>
                   <span class="toggle-desc">Display thumbnails in the POS product grid.</span>
                 </div>
-                <label class="switch">
+                <label class="switch" @click.stop>
                   <input type="checkbox" v-model="appSettings.applicationSettings.showPosImages" @change="handleGeneralAppSettingChange" />
                   <span class="slider round"></span>
                 </label>
               </div>
-              <div class="toggle-group">
+              <div
+                class="toggle-group clickable-toggle-row"
+                @click="appSettings.applicationSettings.hideOutOfStock = !appSettings.applicationSettings.hideOutOfStock; handleGeneralAppSettingChange()"
+              >
                 <div class="toggle-info">
                   <span class="toggle-label">Hide Out of Stock</span>
                   <span class="toggle-desc">Do not show items with 0 inventory.</span>
                 </div>
-                <label class="switch">
+                <label class="switch" @click.stop>
                   <input type="checkbox" v-model="appSettings.applicationSettings.hideOutOfStock" @change="handleGeneralAppSettingChange" />
                   <span class="slider round"></span>
                 </label>
@@ -2578,6 +2599,257 @@ onUnmounted(() => {
         </div>
       </template>
 
+      <!-- Users & Staff -->
+      <template v-else-if="activeTab === 'users-staff'">
+        <div class="table-container staff-directory-container" style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+          <div class="table-header staff-directory-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary);">Accounts</h3>
+              <span class="staff-quota-badge">
+                <Users :size="12" />
+                <span>{{ systemUsers.length }} staff account{{ systemUsers.length === 1 ? '' : 's' }}</span>
+              </span>
+            </div>
+            <div class="table-filters" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+              <div class="search-input" style="position: relative; min-width: 220px;">
+                <Search :size="14" style="position: absolute; left: 12px; top: 12px; color: var(--text-muted);" />
+                <input
+                  type="text"
+                  v-model="userSearchTerm"
+                  placeholder="Search staff accounts..."
+                  style="width: 100%; padding: 8px 12px 8px 36px; background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px;"
+                />
+              </div>
+              <button
+                type="button"
+                class="btn btn-primary"
+                @click="openAddUserModal"
+                style="display: flex; align-items: center; gap: 6px; white-space: nowrap; padding: 8px 16px;"
+              >
+                <Plus :size="15" />
+                <span>Add User</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="staff-grid">
+            <div
+              class="staff-card"
+              v-for="user in filteredSystemUsers"
+              :key="user.id"
+              :class="{ 'inactive-user': !user.isActive }"
+            >
+              <div class="staff-card-header">
+                <div
+                  class="staff-avatar"
+                  :style="{
+                    background: user.role === 'Administrator'
+                      ? 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)'
+                      : user.role === 'Store Manager'
+                        ? 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)'
+                        : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    opacity: user.isActive ? 1 : 0.5,
+                  }"
+                >
+                  {{ (user.fullName || user.username).split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() }}
+                </div>
+                <div class="staff-actions" v-if="props.userId !== user.id">
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    @click="openEditPermissionsModal(user)"
+                    title="Edit Staff & Permissions"
+                  >
+                    <Edit2 :size="16" style="color: var(--accent-color);" />
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    @click="handleToggleUserStatus(user.id, user.fullName, user.isActive)"
+                    :title="user.isActive ? 'Deactivate User' : 'Activate User'"
+                  >
+                    <Power :size="16" :style="{ color: user.isActive ? '#eab308' : '#10b981' }" />
+                  </button>
+                </div>
+              </div>
+
+              <div class="staff-info" :style="{ opacity: user.isActive ? 1 : 0.6 }">
+                <h3>
+                  {{ user.fullName }}
+                  <div class="status-dot" :class="{ 'online': user.isActive, 'offline': !user.isActive }"></div>
+                </h3>
+                <span class="staff-email">{{ user.username }}</span>
+                <div
+                  class="role-badge"
+                  :class="{
+                    'admin': user.role === 'Administrator',
+                    'manager': user.role === 'Store Manager',
+                    'cashier': user.role === 'Cashier'
+                  }"
+                >
+                  {{ user.role }}
+                </div>
+                <span v-if="!user.isActive" style="font-size: 11px; color: #ef4444; margin-top: 4px; font-weight: 600;">DEACTIVATED</span>
+              </div>
+
+              <div class="staff-footer" style="margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted);">
+                <span class="last-login">ID: {{ user.id.substring(0, 8) }}...</span>
+                <span v-if="props.userId === user.id" style="color: var(--accent-color); font-weight: 600;">You</span>
+              </div>
+            </div>
+
+            <div v-if="filteredSystemUsers.length === 0" style="padding: 2.5rem; color: var(--text-muted); text-align: center; grid-column: 1 / -1;">
+              No staff members found matching your search.
+            </div>
+          </div>
+        </div>
+
+        <!-- Add User Modal -->
+        <Teleport to="body">
+          <div v-if="showAddUserModal" class="modal-overlay" style="z-index: 1050;">
+            <div class="modal-content" style="max-width: 580px; max-height: 90vh; display: flex; flex-direction: column;">
+              <div class="modal-header">
+                <h3>Add New Staff Account</h3>
+                <button type="button" @click="showAddUserModal = false" class="close-btn"><X :size="20" /></button>
+              </div>
+              <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+                <p style="color: var(--text-muted); font-size: 13px; margin: 0;">Provision a new cashier or manager account with credentials and permissions.</p>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="input-group">
+                    <label>Full Name *</label>
+                    <input type="text" v-model="newUser.fullName" placeholder="e.g. Jane Doe" />
+                  </div>
+                  <div class="input-group">
+                    <label>Username / Email *</label>
+                    <input type="text" v-model="newUser.username" placeholder="e.g. jane_doe" />
+                  </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="input-group">
+                    <label>Role</label>
+                    <CustomSelect v-model="newUser.role" :options="addUserRoleOptions" :fullWidth="true" :dropUp="false" />
+                  </div>
+                  <div class="input-group">
+                    <label>Password (min 8 chars) *</label>
+                    <input type="password" v-model="newUser.password" placeholder="At least 8 characters" />
+                  </div>
+                </div>
+
+                <!-- Granular Permissions Section -->
+                <div class="perm-container-card">
+                  <div class="perm-section-header">
+                    <div class="perm-section-title-wrap">
+                      <h4 class="perm-section-title">Granular Permissions</h4>
+                      <span class="perm-section-subtitle">Select which workspaces and pages this account can access</span>
+                    </div>
+                  </div>
+                  <div class="perm-items-grid">
+                    <label
+                      v-for="perm in allPermissions"
+                      :key="perm.id"
+                      class="perm-item-card"
+                      :class="{ 'perm-active': newUser.permissions.includes(perm.id) }"
+                    >
+                      <input
+                        type="checkbox"
+                        v-model="newUser.permissions"
+                        :value="perm.id"
+                        class="perm-checkbox"
+                      />
+                      <div class="perm-icon-wrap" :class="{ 'text-primary': newUser.permissions.includes(perm.id) }">
+                        <component :is="perm.icon" :size="18" />
+                      </div>
+                      <div class="perm-info-wrap">
+                        <div class="perm-label-row">
+                          <span class="perm-name">{{ perm.label }}</span>
+                        </div>
+                        <span class="perm-desc">{{ perm.desc }}</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <p v-if="addUserError" style="color: #ef4444; font-size: 13px; margin: 0; padding: 8px 12px; background: rgba(239,68,68,0.1); border-radius: 6px; border: 1px solid rgba(239,68,68,0.25);">{{ addUserError }}</p>
+              </div>
+              <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border-subtle); background: var(--bg-card);">
+                <button type="button" class="btn btn-outline" @click="showAddUserModal = false; addUserError = ''" style="padding: 9px 18px;">Cancel</button>
+                <button type="button" class="btn btn-primary" @click="handleAddUser" :disabled="!newUser.username || !newUser.password || addUserLoading" style="padding: 9px 20px; display: flex; align-items: center; gap: 6px;">
+                  <Plus :size="15" />
+                  <span>{{ addUserLoading ? 'Creating...' : 'Create Account' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </Teleport>
+
+        <!-- Edit Permissions Modal -->
+        <Teleport to="body">
+          <div v-if="showEditPermissionsModal" class="modal-overlay" style="z-index: 1050;">
+            <div class="modal-content" style="max-width: 580px; max-height: 90vh; display: flex; flex-direction: column;">
+              <div class="modal-header">
+                <h3>Edit Staff Account &amp; Permissions</h3>
+                <button type="button" @click="showEditPermissionsModal = false" class="close-btn"><X :size="20" /></button>
+              </div>
+              <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+                <div class="input-group full-width">
+                  <label>Staff Name</label>
+                  <input
+                    type="text"
+                    v-model="editingUser.username"
+                    placeholder="e.g. Jane Doe"
+                  />
+                </div>
+
+                <!-- Granular Permissions Section -->
+                <div class="perm-container-card">
+                  <div class="perm-section-header">
+                    <div class="perm-section-title-wrap">
+                      <h4 class="perm-section-title">Granular Permissions</h4>
+                      <span class="perm-section-subtitle">Toggle specific system areas for this staff member</span>
+                    </div>
+                  </div>
+                  <div class="perm-items-grid">
+                    <label
+                      v-for="perm in allPermissions"
+                      :key="perm.id"
+                      class="perm-item-card"
+                      :class="{ 'perm-active': editingUser.permissions.includes(perm.id) }"
+                    >
+                      <input
+                        type="checkbox"
+                        v-model="editingUser.permissions"
+                        :value="perm.id"
+                        class="perm-checkbox"
+                      />
+                      <div class="perm-icon-wrap" :class="{ 'text-primary': editingUser.permissions.includes(perm.id) }">
+                        <component :is="perm.icon" :size="18" />
+                      </div>
+                      <div class="perm-info-wrap">
+                        <div class="perm-label-row">
+                          <span class="perm-name">{{ perm.label }}</span>
+                        </div>
+                        <span class="perm-desc">{{ perm.desc }}</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <p v-if="editUserError" style="color: #ef4444; font-size: 13px; margin: 0; padding: 8px 12px; background: rgba(239,68,68,0.1); border-radius: 6px; border: 1px solid rgba(239,68,68,0.25);">{{ editUserError }}</p>
+              </div>
+              <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border-subtle); background: var(--bg-card);">
+                <button type="button" class="btn btn-outline" @click="showEditPermissionsModal = false; editUserError = ''" style="padding: 9px 18px;">Cancel</button>
+                <button type="button" class="btn btn-primary" @click="handleUpdateUser" :disabled="!editingUser.username || editUserLoading" style="padding: 9px 20px; display: flex; align-items: center; gap: 6px;">
+                  <Check :size="15" />
+                  <span>{{ editUserLoading ? 'Saving...' : 'Save Permissions' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </Teleport>
+      </template>
+
       <!-- About -->
       <template v-else-if="activeTab === 'about'">
         <div class="about-grid">
@@ -2665,7 +2937,7 @@ onUnmounted(() => {
     </main>
 
     <!-- Delete Printer Confirmation Modal -->
-    <div v-if="showDeletePrinterModal" class="modal-overlay" @click.self="showDeletePrinterModal = false" style="z-index: 1100;">
+    <div v-if="showDeletePrinterModal" class="modal-overlay" style="z-index: 1100;">
       <div class="modal-content" style="max-width: 420px; border-radius: 16px; overflow: hidden;">
         <div style="background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%); padding: 20px 24px; display: flex; align-items: center; gap: 12px; position: relative;">
           <div style="width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
