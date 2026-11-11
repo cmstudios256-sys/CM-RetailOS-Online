@@ -1301,11 +1301,50 @@ export function populateDemoData(): GuestState {
       },
     },
     members: existing?.members || [],
-    auditLogs: existing?.auditLogs || [],
+    auditLogs: (existing?.auditLogs && existing.auditLogs.some(l => l.action !== 'Preferences updated'))
+      ? existing.auditLogs
+      : createDemoAuditLogs(sales, demo),
   }
 
   writeState(populated)
   return populated
+}
+
+function createDemoAuditLogs(sales: Sale[], demo: Product[]): Array<{ id: string; user: string; action: string; details: string; level: string; timestamp: string }> {
+  return [
+    ...sales.slice(0, 35).map(s => ({
+      id: uuid(),
+      user: s.cashierName || 'Shop Owner',
+      action: 'Sale completed',
+      details: `Sale #${s.id.slice(0, 8)} for UGX ${s.total.toLocaleString()} (${s.paymentMethod.replace('_', ' ')}, ${s.items.length} items)`,
+      level: 'INFO',
+      timestamp: s.completedAt,
+    })),
+    ...demo.slice(0, 15).map(p => ({
+      id: uuid(),
+      user: 'Shop Owner',
+      action: 'Opening stock recorded',
+      details: `${p.name}: +${p.quantity} ${p.unit} (Opening stock)`,
+      level: 'AUDIT',
+      timestamp: new Date(Date.now() - 2 * 86400000).toISOString(),
+    })),
+    {
+      id: uuid(),
+      user: 'Shop Owner',
+      action: 'Shop profile configured',
+      details: 'Store currency set to UGX, address: Kampala, Uganda',
+      level: 'AUDIT',
+      timestamp: new Date(Date.now() - 3 * 86400000).toISOString(),
+    },
+    {
+      id: uuid(),
+      user: 'System',
+      action: 'Store initialized',
+      details: 'Demo catalog and opening stock generated',
+      level: 'INFO',
+      timestamp: new Date(Date.now() - 4 * 86400000).toISOString(),
+    },
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 }
 
 function seedState(): GuestState {
@@ -1355,6 +1394,10 @@ function readState(): GuestState {
     }
     writeState(populated)
     return populated
+  }
+  if (!state.auditLogs || state.auditLogs.length === 0 || state.auditLogs.every(l => l.action === 'Preferences updated')) {
+    state.auditLogs = createDemoAuditLogs(state.sales, state.products)
+    writeState(state)
   }
   return state
 }
@@ -1769,7 +1812,14 @@ export async function guestApiRequest<T>(path: string, options: { method?: strin
     return { fullName } as T
   }
   if (url.pathname.endsWith('/business-intelligence')) return businessIntelligenceFor(state, url) as T
-  if (url.pathname.endsWith('/audit-logs')) return { logs: state.auditLogs } as T
+  if (url.pathname.endsWith('/audit-logs')) {
+    if (method === 'DELETE') {
+      state.auditLogs = []
+      writeState(state)
+      return { success: true, logs: [] } as T
+    }
+    return { logs: state.auditLogs } as T
+  }
   if (url.pathname.endsWith('/team-members') && method === 'GET') return { members: state.members } as T
   if (url.pathname.endsWith('/team-members') && method === 'POST') {
     const member: GuestMember = {
