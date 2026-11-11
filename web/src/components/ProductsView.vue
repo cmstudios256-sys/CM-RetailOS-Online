@@ -1115,13 +1115,16 @@ onUnmounted(() => {
       <div v-if="showForm" class="modal-backdrop product-modal-backdrop">
         <div class="modal-content product-editor-modal" v-draggable="'.modal-header'">
           <div class="modal-header">
-            <h3>{{ editingProductId === null ? 'Add Product' : 'Edit Product' }}</h3>
+            <div class="modal-title-group">
+              <h3>{{ editingProductId === null ? 'Add Product' : 'Edit Product' }}</h3>
+              <p class="modal-subtitle">Configure product identity, pricing margins, and stock thresholds.</p>
+            </div>
             <button type="button" class="close-btn" aria-label="Close" @click="closeForm">
               <X :size="20" />
             </button>
           </div>
 
-          <form id="productForm" class="modal-body horizontal-form" @submit.prevent="saveProduct" novalidate>
+          <form id="productForm" class="modal-body standalone-product-form" @submit.prevent="saveProduct" novalidate>
             <div v-if="error" class="form-warning-alert">
               <AlertTriangle :size="18" class="warning-icon" />
               <div class="warning-message">
@@ -1129,159 +1132,158 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="top-section">
-              <div class="top-fields">
-                <div class="form-row">
-                  <label for="name">Product Name *:</label>
-                  <div class="field-control">
-                    <input id="name" type="text" v-model.trim="form.name" placeholder="e.g. Fresh Orange Juice 1L" required />
-                  </div>
-                </div>
+            <!-- Top Center Photo Section (Matches Standalone Exactly) -->
+            <input ref="imageInputRef" type="file" accept="image/*" style="display: none" @change="handleImageUpload" />
+            <input ref="cameraInputRef" type="file" accept="image/*" capture="environment" style="display: none" @change="handleImageUpload" />
 
-                <div class="form-row">
-                  <label for="sku">SKU *:</label>
-                  <div class="field-control">
-                    <input id="sku" type="text" v-model.trim="form.sku" placeholder="SKU-XXXXXX" required />
-                  </div>
+            <div class="product-photo-center-section">
+              <div class="photo-preview-card">
+                <img v-if="form.image" :src="form.image" alt="Product Image" class="uploaded-preview" />
+                <div v-else class="photo-placeholder" @click="triggerGalleryUpload">
+                  <ImagePlus :size="38" color="var(--text-muted)" stroke-width="1.5" />
                 </div>
-
-                <div class="form-row">
-                  <label for="category">Category *:</label>
-                  <div class="field-control">
-                    <select id="category" v-model="form.category" required class="modal-select">
-                      <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <input ref="imageInputRef" type="file" accept="image/*" style="display: none" @change="handleImageUpload" />
-              <input ref="cameraInputRef" type="file" accept="image/*" capture="environment" style="display: none" @change="handleImageUpload" />
-              <div class="image-upload-wrapper">
-                <button
-                  type="button"
-                  class="image-upload-square"
-                  :class="{ 'has-image': !!form.image }"
-                  :title="form.image ? 'Change product photo' : 'Add product photo'"
-                  @click="openPhotoPicker"
-                >
-                  <img v-if="form.image" :src="form.image" alt="Product Image" class="uploaded-preview" />
-                  <ImagePlus v-else :size="32" color="var(--text-muted)" stroke-width="1.5" />
-                </button>
                 <button
                   v-if="form.image"
                   type="button"
-                  class="remove-image-btn"
+                  class="remove-photo-circle-btn"
                   title="Remove photo"
                   aria-label="Remove photo"
                   @click.stop="removeProductImage"
                 >
-                  <Trash2 :size="12" />
+                  <Trash2 :size="14" />
                 </button>
+                <div class="photo-change-bar" @click="triggerGalleryUpload">
+                  <Camera :size="14" />
+                  <span>Change</span>
+                </div>
+              </div>
+              <div class="photo-action-pills">
+                <button type="button" class="photo-pill-btn take-photo-pill" @click="triggerCameraCapture">
+                  <Camera :size="15" />
+                  <span>Take Photo</span>
+                </button>
+                <button type="button" class="photo-pill-btn gallery-pill" @click="triggerGalleryUpload">
+                  <ImagePlus :size="15" />
+                  <span>Gallery</span>
+                </button>
+              </div>
+              <div class="photo-helper-text">High quality photos boost POS and sales visibility</div>
+            </div>
+
+            <!-- Product Name * (Full width) -->
+            <div class="standalone-form-group full-width">
+              <label for="name">Product Name *</label>
+              <input id="name" type="text" v-model.trim="form.name" placeholder="e.g. 20W USB-C Power Adapter" required />
+            </div>
+
+            <!-- SKU / Item Code * & Category * (2 Columns) -->
+            <div class="standalone-grid-2col">
+              <div class="standalone-form-group">
+                <label for="sku">SKU / Item Code *</label>
+                <input id="sku" type="text" v-model.trim="form.sku" placeholder="ELC-ADP-009" required />
+              </div>
+              <div class="standalone-form-group">
+                <label for="category">Category *</label>
+                <select id="category" v-model="form.category" required class="modal-select">
+                  <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+                </select>
               </div>
             </div>
 
-            <div class="form-row barcode-row">
-              <label for="barcode">Barcode:</label>
-              <div class="barcode-inputs">
-                <div class="input-with-button" :class="{ 'scanning-active': isBarcodeScanning }">
+            <!-- Barcode / Scanner Code & Format (2 Columns) -->
+            <div class="standalone-grid-2col barcode-format-grid">
+              <div class="standalone-form-group">
+                <label for="barcode">Barcode / Scanner Code</label>
+                <div class="barcode-input-container" :class="{ 'scanning-active': isBarcodeScanning }">
                   <input
                     ref="barcodeInputRef"
                     id="barcode"
                     type="text"
                     v-model.trim="form.barcode"
-                    placeholder="Scan or enter..."
+                    placeholder="640000000095"
                     @focus="isBarcodeScanning = true"
                     @blur="isBarcodeScanning = false"
                     @keyup.enter="handleBarcodeScanned"
                   />
-                  <button
-                    type="button"
-                    class="btn-inside-input"
-                    :class="{ 'pulse-active': isBarcodeScanning }"
-                    title="Click to activate scanner & focus input"
-                    @click="triggerBarcodeScan"
-                  >
-                    <Barcode :size="16" />
-                  </button>
-                  <transition name="fade">
-                    <div v-if="isBarcodeScanning" class="scan-laser-indicator">
-                      <span class="laser-dot" />
-                      <span>Scanner ready • scan now...</span>
-                    </div>
-                  </transition>
+                  <div class="barcode-inline-actions">
+                    <button
+                      type="button"
+                      class="barcode-btn-cam"
+                      title="Scan barcode with camera"
+                      @click="openBarcodeCamera"
+                    >
+                      <Camera :size="15" />
+                    </button>
+                    <button
+                      type="button"
+                      class="barcode-btn-scan"
+                      :class="{ 'pulse-active': isBarcodeScanning }"
+                      title="Activate hardware scanner"
+                      @click="triggerBarcodeScan"
+                    >
+                      <Barcode :size="15" />
+                    </button>
+                  </div>
                 </div>
-                <select v-model="barcodeType" class="modal-select barcode-type" aria-label="Barcode type">
+              </div>
+              <div class="standalone-form-group">
+                <label>&nbsp;</label>
+                <select v-model="barcodeType" class="modal-select" aria-label="Barcode format">
                   <option v-for="type in barcodeTypes" :key="type" :value="type">{{ type }}</option>
                 </select>
               </div>
             </div>
 
-            <fieldset class="form-fieldset">
-              <legend>Pricing Margin</legend>
-              <div class="form-grid-2">
-                <div class="form-col">
-                  <label for="costPrice">Cost Price *:</label>
-                  <input id="costPrice" type="number" step="0.01" min="0" v-model.number="form.costPrice" required />
-                </div>
-                <div class="form-col">
-                  <label for="sellingPrice">Selling Price *:</label>
-                  <input id="sellingPrice" type="number" step="0.01" min="0" v-model.number="form.sellingPrice" required />
-                </div>
+            <!-- PRICING MARGIN -->
+            <div class="standalone-section-block">
+              <div class="standalone-section-title">
+                <span>PRICING MARGIN</span>
+                <span class="section-title-line"></span>
               </div>
-            </fieldset>
-
-            <fieldset class="form-fieldset">
-              <legend>Stock Levels & Unit</legend>
-              <div class="form-grid-2">
-                <div class="form-col">
-                  <label for="quantity">{{ editingProductId === null ? 'Initial Qty' : 'Current Qty' }} *:</label>
-                  <input id="quantity" type="number" step="0.01" min="0" v-model.number="form.quantity" required />
+              <div class="standalone-grid-2col">
+                <div class="standalone-form-group">
+                  <label for="costPrice">Cost Price</label>
+                  <div class="standalone-currency-input">
+                    <span class="currency-tag">{{ currency }}</span>
+                    <input id="costPrice" type="number" step="0.01" min="0" v-model.number="form.costPrice" required />
+                  </div>
                 </div>
-                <div class="form-col">
-                  <label for="minStock">Min Stock *:</label>
-                  <input id="minStock" type="number" step="0.01" min="0" v-model.number="form.minStock" required />
-                </div>
-                <div class="form-col" style="grid-column: 1 / -1;">
-                  <label>Unit *:</label>
-                  <div class="unit-pills">
-                    <button
-                      type="button"
-                      v-for="opt in availableUnitOptions"
-                      :key="opt.value"
-                      @click="form.unit = opt.value"
-                      :class="{ active: form.unit === opt.value }"
-                      class="unit-pill"
-                    >
-                      {{ opt.label }}
-                    </button>
+                <div class="standalone-form-group">
+                  <label for="sellingPrice">Selling Price</label>
+                  <div class="standalone-currency-input">
+                    <span class="currency-tag">{{ currency }}</span>
+                    <input id="sellingPrice" type="number" step="0.01" min="0" v-model.number="form.sellingPrice" required />
                   </div>
                 </div>
               </div>
-            </fieldset>
+              <div class="pricing-profit-summary">
+                <span>Profit per unit:</span>
+                <strong class="profit-highlight">{{ formatMoney(formProfit, currency) }}</strong>
+              </div>
+            </div>
 
-            <!-- Photo Source Picker Bottom Sheet (Camera vs Gallery for mobile/touch) -->
-            <div v-if="showPhotoPicker" class="photo-picker-backdrop" @click.self="showPhotoPicker = false">
-              <div class="photo-picker-sheet" role="dialog" aria-modal="true" aria-label="Choose photo source">
-                <div class="photo-picker-header">
-                  <h3>Product Photo</h3>
-                  <button type="button" class="photo-picker-close" @click="showPhotoPicker = false"><X :size="18" /></button>
+            <!-- STOCK LEVELS & UNIT -->
+            <div class="standalone-section-block">
+              <div class="standalone-section-title">
+                <span>STOCK LEVELS & UNIT</span>
+                <span class="section-title-line"></span>
+                <span class="stock-status-pill" :class="formStockStatus.class">
+                  <span class="status-dot"></span>
+                  {{ formStockStatus.label }}
+                </span>
+              </div>
+              <div class="standalone-grid-3col">
+                <div class="standalone-form-group">
+                  <label for="quantity">{{ editingProductId === null ? 'Initial Qty' : 'Current Qty' }}</label>
+                  <input id="quantity" type="number" step="0.01" min="0" v-model.number="form.quantity" required />
                 </div>
-                <div class="photo-picker-options">
-                  <button type="button" class="photo-picker-option" @click="triggerCameraCapture">
-                    <div class="option-icon camera-icon-wrap"><Camera :size="22" /></div>
-                    <div class="option-details">
-                      <strong>Take Photo with Camera</strong>
-                      <small>Snap a photo directly using your phone's camera</small>
-                    </div>
-                  </button>
-                  <button type="button" class="photo-picker-option" @click="triggerGalleryUpload">
-                    <div class="option-icon gallery-icon-wrap"><ImagePlus :size="22" /></div>
-                    <div class="option-details">
-                      <strong>Choose from Gallery</strong>
-                      <small>Select an existing image from your photo library</small>
-                    </div>
-                  </button>
+                <div class="standalone-form-group">
+                  <label for="minStock">Min Stock</label>
+                  <input id="minStock" type="number" step="0.01" min="0" v-model.number="form.minStock" required />
+                </div>
+                <div class="standalone-form-group">
+                  <label for="unit">Unit</label>
+                  <input id="unit" type="text" v-model.trim="form.unit" placeholder="pcs" required />
                 </div>
               </div>
             </div>
@@ -1290,7 +1292,7 @@ onUnmounted(() => {
 
           <div class="modal-footer">
             <button type="button" class="btn-secondary" @click="closeForm">Cancel</button>
-            <button type="submit" form="productForm" class="btn-primary" :disabled="saving" @click="saveProduct">
+            <button type="submit" form="productForm" class="btn-primary" :disabled="saving">
               {{ saving ? 'Saving…' : editingProductId === null ? 'Add Product' : 'Save Product' }}
             </button>
           </div>
@@ -3749,296 +3751,426 @@ tbody tr:hover {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-/* Standalone App Modal Styles */
+/* Standalone App Modal Styles (Matches Standalone Exactly) */
 .product-editor-modal {
   pointer-events: auto;
-  background-color: var(--bg-sidebar, #0a101d);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 1rem;
+  background-color: #0b1329;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
   width: 100%;
-  max-width: 500px;
+  max-width: 520px;
   max-height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding: 0 !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(56, 189, 248, 0.15);
 }
 
 .product-editor-modal .modal-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 0.6rem 1.25rem;
-  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  align-items: flex-start;
+  padding: 1.25rem 1.5rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
-  cursor: grab;
 }
 
-.product-editor-modal .modal-header:active {
-  cursor: grabbing;
-}
-
-.product-editor-modal .modal-header h3 {
-  margin: 0;
+.product-editor-modal .modal-title-group h3 {
+  margin: 0 0 4px 0;
   font-size: 1.25rem;
-  color: var(--accent-color, #38bdf8);
+  color: #f8fafc;
   font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.product-editor-modal .modal-subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.4;
 }
 
 .product-editor-modal .close-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted, #94a3b8);
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
   cursor: pointer;
-  padding: 0.4rem;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .product-editor-modal .close-btn:hover {
   color: #ffffff;
-  background-color: rgba(239, 68, 68, 0.8);
-  transform: rotate(90deg);
+  background-color: #ef4444;
+  border-color: #ef4444;
 }
 
-.horizontal-form {
+.standalone-product-form {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
+  padding: 1rem 1.5rem;
   overflow-y: auto;
   flex: 1;
+  gap: 0.85rem;
 }
 
-.horizontal-form .top-section {
+/* Photo Centered Section */
+.product-photo-center-section {
   display: flex;
-  gap: 1rem;
-  align-items: stretch;
+  flex-direction: column;
+  align-items: center;
   margin-bottom: 0.25rem;
 }
 
-.horizontal-form .top-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.horizontal-form .form-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.horizontal-form .form-row label {
-  flex: 0 0 110px;
-  font-size: 0.875rem;
-  color: var(--text-primary, #e2e8f0);
-  text-align: left;
-}
-
-.horizontal-form .field-control {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.horizontal-form .form-row input,
-.horizontal-form .form-row select,
-.horizontal-form .form-col input,
-.horizontal-form .form-col select {
-  flex: 1;
-  width: 100%;
-  background-color: var(--bg-app, #070d18);
-  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.2));
-  border-radius: 0.375rem;
-  padding: 0.4rem 0.6rem;
-  color: var(--text-primary, #e2e8f0);
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2);
-}
-
-.horizontal-form .form-row input:focus,
-.horizontal-form .form-row select:focus,
-.horizontal-form .form-col input:focus,
-.horizontal-form .form-col select:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
-}
-
-.horizontal-form .barcode-row {
-  align-items: center;
-}
-
-.horizontal-form .barcode-inputs {
-  flex: 1;
-  display: flex;
-  gap: 0.5rem;
-}
-
-.horizontal-form .input-with-button {
+.photo-preview-card {
+  width: 124px;
+  height: 124px;
+  border-radius: 20px;
+  background-color: #162032;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
   position: relative;
-  display: flex;
-  flex: 1;
-  min-width: 0;
-}
-
-.horizontal-form .input-with-button input {
-  width: 100%;
-  padding-right: 2rem;
-}
-
-.horizontal-form .btn-inside-input {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  color: #38bdf8;
-  cursor: pointer;
-  padding: 0.3rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
-  transition: all 0.2s ease;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
-.horizontal-form .btn-inside-input:hover {
-  background: rgba(56, 189, 248, 0.2);
-  border-color: rgba(56, 189, 248, 0.4);
-  transform: translateY(-50%) scale(1.05);
+.photo-preview-card .uploaded-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.horizontal-form .input-with-button.scanning-active input {
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25), 0 0 12px rgba(239, 68, 68, 0.2) !important;
-}
-
-.horizontal-form .btn-inside-input.pulse-active {
-  background: rgba(239, 68, 68, 0.25) !important;
-  border-color: #ef4444 !important;
-  color: #ef4444 !important;
-  animation: barcode-laser-pulse 1.2s infinite ease-in-out;
-}
-
-.horizontal-form .scan-laser-indicator {
-  position: absolute;
-  bottom: -18px;
-  left: 2px;
+.photo-preview-card .photo-placeholder {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #ef4444;
-  pointer-events: none;
-  z-index: 5;
-  white-space: nowrap;
-}
-
-.horizontal-form .scan-laser-indicator .laser-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 6px #ef4444;
-  animation: laser-blink 0.8s infinite alternate;
-}
-
-.horizontal-form .barcode-type {
-  width: 115px;
-  flex: 0 0 115px;
-}
-
-.horizontal-form .form-fieldset {
-  border: 1px solid rgba(59, 130, 246, 0.15);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  margin-top: 0;
-  background: rgba(255, 255, 255, 0.02);
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.horizontal-form .form-fieldset legend {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--accent-color, #38bdf8);
-  padding: 0 0.5rem;
-}
-
-.horizontal-form .form-grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.horizontal-form .form-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.horizontal-form .form-col label {
-  font-size: 0.875rem;
-  color: var(--text-primary, #e2e8f0);
-}
-
-.horizontal-form .unit-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  justify-content: center;
   width: 100%;
+  height: 100%;
+  cursor: pointer;
 }
 
-.horizontal-form .unit-pill {
-  flex: 1 1 calc(25% - 0.5rem);
-  min-width: 45px;
-  padding: 0.45rem 0.25rem;
-  background-color: transparent;
-  border: 1px solid var(--border-color, rgba(148, 163, 184, 0.2));
-  color: var(--text-muted, #94a3b8);
-  border-radius: 0.375rem;
+.photo-preview-card .remove-photo-circle-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  z-index: 2;
+}
+
+.photo-preview-card .remove-photo-circle-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.photo-preview-card .photo-change-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.photo-preview-card .photo-change-bar:hover {
+  background: rgba(56, 189, 248, 0.9);
+  color: #0b1329;
+}
+
+.photo-action-pills {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.photo-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.photo-pill-btn.take-photo-pill {
+  background: #111a2e;
+  border: 1.5px solid #ffffff;
+  color: #38bdf8;
+}
+
+.photo-pill-btn.take-photo-pill:hover {
+  background: #1e293b;
+  border-color: #38bdf8;
+}
+
+.photo-pill-btn.gallery-pill {
+  background: #162032;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.photo-pill-btn.gallery-pill:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.photo-helper-text {
+  font-size: 11px;
+  color: #64748b;
   text-align: center;
 }
 
-.horizontal-form .unit-pill:hover {
-  background-color: var(--bg-surface-hover, rgba(255, 255, 255, 0.06));
+/* Fields & Grids */
+.standalone-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
-.horizontal-form .unit-pill.active {
-  background-color: rgba(56, 189, 248, 0.15);
+.standalone-form-group.full-width {
+  width: 100%;
+}
+
+.standalone-form-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.standalone-form-group input,
+.standalone-form-group select {
+  width: 100%;
+  background-color: #070d19;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #f8fafc;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.standalone-form-group input:focus,
+.standalone-form-group select:focus {
   border-color: #38bdf8;
+}
+
+.standalone-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.standalone-grid-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+/* Barcode input with inline action buttons */
+.barcode-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.barcode-input-container input {
+  padding-right: 68px;
+}
+
+.barcode-inline-actions {
+  position: absolute;
+  right: 5px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.barcode-btn-cam,
+.barcode-btn-scan {
+  background: #162032;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 4px 6px;
   color: #38bdf8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.barcode-btn-cam:hover {
+  background: rgba(56, 189, 248, 0.2);
+}
+
+.barcode-btn-scan {
+  color: #10b981;
+}
+
+.barcode-btn-scan:hover {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.barcode-input-container.scanning-active input {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
+}
+
+.barcode-btn-scan.pulse-active {
+  background: rgba(16, 185, 129, 0.25) !important;
+  border-color: #10b981 !important;
+  animation: barcode-laser-pulse 1.2s infinite ease-in-out;
+}
+
+/* Section Blocks (Pricing Margin & Stock Levels) */
+.standalone-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.standalone-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.section-title-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(56, 189, 248, 0.2);
+}
+
+.standalone-currency-input {
+  display: flex;
+  align-items: center;
+  background-color: #070d19;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.standalone-currency-input .currency-tag {
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background-color: #0f172a;
+  border-right: 1px solid #1e293b;
+  line-height: 36px;
+  height: 36px;
+}
+
+.standalone-currency-input input {
+  border: none !important;
+  background: transparent !important;
+  padding: 8px 10px;
+}
+
+.pricing-profit-summary {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: -2px;
+}
+
+.profit-highlight {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stock-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: none;
+}
+
+.stock-status-pill.in-stock {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.stock-status-pill.low {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+}
+
+.stock-status-pill.out {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.stock-status-pill .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .product-editor-modal .modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  padding: 0.6rem 1.25rem;
-  border-top: 1px solid var(--border-color, rgba(148, 163, 184, 0.15));
-  background-color: rgba(10, 16, 29, 0.8);
-  border-bottom-left-radius: 1rem;
-  border-bottom-right-radius: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background-color: #070d19;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
 }
 
 .form-warning-alert {
@@ -4059,48 +4191,81 @@ tbody tr:hover {
   color: #f59e0b;
 }
 
-/* Light Theme overrides for Product Editor Modal */
+/* Light Theme overrides for Standalone Product Editor Modal */
 [data-theme='light'] .product-editor-modal {
   background-color: #ffffff;
-  border-color: #cbd5e1;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+  border-color: #e2e8f0;
+  box-shadow: 0 25px 60px -10px rgba(15, 23, 42, 0.25);
 }
 
 [data-theme='light'] .product-editor-modal .modal-header {
   border-bottom-color: #e2e8f0;
 }
 
-[data-theme='light'] .product-editor-modal .modal-header h3 {
-  color: #0284c7;
-}
-
-[data-theme='light'] .product-editor-modal .form-row label,
-[data-theme='light'] .product-editor-modal .form-col label {
-  color: #334155;
-}
-
-[data-theme='light'] .product-editor-modal .form-row input,
-[data-theme='light'] .product-editor-modal .form-row select,
-[data-theme='light'] .product-editor-modal .form-col input,
-[data-theme='light'] .product-editor-modal .form-col select {
-  background-color: #f8fafc;
-  border-color: #cbd5e1;
+[data-theme='light'] .product-editor-modal .modal-title-group h3 {
   color: #0f172a;
-  box-shadow: none;
 }
 
-[data-theme='light'] .product-editor-modal .form-fieldset {
-  background: #f8fafc;
+[data-theme='light'] .product-editor-modal .modal-subtitle {
+  color: #64748b;
+}
+
+[data-theme='light'] .product-editor-modal .close-btn {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+[data-theme='light'] .photo-preview-card {
+  background-color: #f8fafc;
   border-color: #e2e8f0;
 }
 
-[data-theme='light'] .product-editor-modal .form-fieldset legend {
+[data-theme='light'] .photo-pill-btn.take-photo-pill {
+  background: #ffffff;
+  border-color: #0ea5e9;
   color: #0284c7;
 }
 
-[data-theme='light'] .product-editor-modal .unit-pill {
+[data-theme='light'] .photo-pill-btn.gallery-pill {
+  background: #f1f5f9;
   border-color: #cbd5e1;
-  color: #64748b;
+  color: #334155;
+}
+
+[data-theme='light'] .standalone-form-group label {
+  color: #334155;
+}
+
+[data-theme='light'] .standalone-form-group input,
+[data-theme='light'] .standalone-form-group select,
+[data-theme='light'] .standalone-currency-input {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme='light'] .standalone-currency-input .currency-tag {
+  background-color: #f1f5f9;
+  border-right-color: #cbd5e1;
+  color: #475569;
+}
+
+[data-theme='light'] .barcode-input-container input {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme='light'] .barcode-btn-cam,
+[data-theme='light'] .barcode-btn-scan {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+[data-theme='light'] .product-editor-modal .modal-footer {
+  background-color: #f8fafc;
+  border-top-color: #e2e8f0;
 }
 
 [data-theme='light'] .product-editor-modal .unit-pill:hover {

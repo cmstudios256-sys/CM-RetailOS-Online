@@ -56,7 +56,13 @@ const emit = defineEmits<{
   'sign-out': []
   'user-updated': [settings: Pick<User, 'fullName' | 'shopName' | 'currency'>]
 }>()
-const activePage = ref('dashboard')
+const activePage = ref(props.user.role.toLowerCase() === 'cashier' ? 'pos' : 'dashboard')
+
+watch(() => props.user.role, (newRole) => {
+  if (newRole && newRole.toLowerCase() === 'cashier') {
+    activePage.value = 'pos'
+  }
+}, { immediate: true })
 const { isDesktop } = useDesktopBreakpoint()
 const { isPhone } = usePhoneBreakpoint()
 const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
@@ -503,6 +509,24 @@ onUnmounted(() => {
               <span class="about-feature"><Zap :size="12" /> Fast Checkout</span>
               <span class="about-feature"><BarChart3 :size="12" /> Live Reports</span>
               <span class="about-feature"><PackageCheck :size="12" /> Stock Tracking</span>
+              <span class="about-feature"><LockKeyhole :size="12" /> Secure Access</span>
+            </div>
+            <div class="about-copyright">© 2026 CM RetailOS</div>
+          </div>
+        </div>
+
+        <div v-if="user.role.toLowerCase() === 'manager' && !sidebarCollapsed" class="sidebar-manager-banner">
+          <div class="info-graphic"><ShieldCheck :size="40" /></div>
+          <div class="info-brand">CM RETAILOS</div>
+          <h3 class="info-heading">Manager Terminal</h3>
+          <p class="info-text">Oversee store operations, monitor inventory, and assist cashier staff.</p>
+          <div class="info-secure"><ShieldCheck :size="12" /><span>Manager supervisor session</span></div>
+          <div class="info-about">
+            <div class="about-divider"></div>
+            <div class="about-features">
+              <span class="about-feature"><Zap :size="12" /> Staff Oversight</span>
+              <span class="about-feature"><BarChart3 :size="12" /> Sales Analytics</span>
+              <span class="about-feature"><PackageCheck :size="12" /> Stock Control</span>
               <span class="about-feature"><LockKeyhole :size="12" /> Secure Access</span>
             </div>
             <div class="about-copyright">© 2026 CM RetailOS</div>
