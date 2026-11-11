@@ -111,39 +111,6 @@ watch([isPhone, isTablet], ([phone, tablet]) => {
   }
 })
 
-const productImagePreview = ref<{ src: string; alt: string; left: number; top: number } | null>(null)
-
-function updateProductImagePreview(event: MouseEvent, product: Product) {
-  if (isPhone.value || isTablet.value || mobileTouch.value) {
-    hideProductImagePreview()
-    return
-  }
-  if (!product.image) {
-    hideProductImagePreview()
-    return
-  }
-  const previewWidth = 180
-  const previewHeight = 220
-  const left = event.clientX + previewWidth + 24 <= window.innerWidth
-    ? event.clientX + 16
-    : Math.max(12, event.clientX - previewWidth - 16)
-  const top = Math.min(
-    Math.max(12, event.clientY - previewHeight / 2),
-    Math.max(12, window.innerHeight - previewHeight - 12)
-  )
-
-  productImagePreview.value = {
-    src: product.image,
-    alt: product.name,
-    left,
-    top,
-  }
-}
-
-function hideProductImagePreview() {
-  productImagePreview.value = null
-}
-
 const paymentMethod = ref<'cash' | 'mobile_money' | 'card'>('cash')
 const discountAmount = ref<number | ''>('')
 const amountTendered = ref<number | ''>('')
@@ -919,9 +886,6 @@ onUnmounted(() => {
                   v-if="shouldShowPosImages"
                   class="product-image-small"
                   :class="{ 'has-image': !!product.image }"
-                  @pointerenter="!isPhone && !isTablet && !mobileTouch && product.image && updateProductImagePreview($event, product)"
-                  @pointermove="!isPhone && !isTablet && !mobileTouch && product.image && updateProductImagePreview($event, product)"
-                  @pointerleave="hideProductImagePreview"
                 >
                   <img
                     v-if="product.image"
@@ -1292,17 +1256,6 @@ onUnmounted(() => {
         :currency="currency"
         @close="shareSale = null"
       />
-    </Teleport>
-    <Teleport to="body">
-      <div
-        v-if="productImagePreview && !isPhone && !isTablet && !mobileTouch"
-        class="product-image-hover-preview"
-        :style="{ left: `${productImagePreview.left}px`, top: `${productImagePreview.top}px` }"
-        aria-hidden="true"
-      >
-        <img :src="productImagePreview.src" :alt="productImagePreview.alt" />
-        <span>{{ productImagePreview.alt }}</span>
-      </div>
     </Teleport>
   </div>
 </template>
@@ -1739,6 +1692,142 @@ onUnmounted(() => {
   box-sizing: border-box;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   user-select: none;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.product-card::after {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  right: 12px;
+  left: 12px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, transparent, var(--card-status-accent, var(--accent-color)), transparent);
+  content: '';
+  pointer-events: none;
+}
+
+.product-card.in-stock { --card-status-accent: #10b981; }
+.product-card.low-stock { --card-status-accent: #f59e0b; }
+.product-card.out-of-stock { --card-status-accent: #ef4444; }
+
+.product-card.has-product-image {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.35);
+}
+
+.product-card.has-product-image::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 14, 24, 0.72) 0%, rgba(8, 14, 24, 0.42) 50%, rgba(8, 14, 24, 0.85) 100%);
+  content: '';
+  pointer-events: none;
+  transition: background 0.25s ease;
+}
+
+.product-card.has-product-image:hover::before {
+  background: linear-gradient(180deg, rgba(8, 14, 24, 0.62) 0%, rgba(8, 14, 24, 0.32) 50%, rgba(8, 14, 24, 0.78) 100%);
+}
+
+.product-card.has-product-image > .product-name,
+.product-card.has-product-image > .product-category,
+.product-card.has-product-image .card-meta {
+  position: relative;
+  z-index: 2;
+}
+
+.product-card.has-product-image > .product-card-body {
+  position: static;
+}
+
+.product-card.has-product-image .product-image-small.has-image {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: none !important;
+  border-radius: inherit;
+  opacity: 1;
+}
+
+.product-card.has-product-image .real-product-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.product-card.has-product-image:hover .real-product-img {
+  transform: scale(1.05);
+}
+
+.product-card.has-product-image .product-name,
+.product-card.has-product-image .product-category,
+.product-card.has-product-image .product-price {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.85);
+  box-shadow: none;
+}
+
+.product-card.has-product-image .product-name {
+  font-weight: 700;
+}
+
+.product-card.has-product-image .product-category {
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+  color: #cbd5e1 !important;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.product-card.has-product-image .product-stock {
+  position: relative;
+  z-index: 2;
+  padding: 1px 0;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font-size: 11px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 7px rgba(0, 0, 0, 0.8);
+}
+
+.product-card.has-product-image .product-price {
+  color: #ffb14a !important;
+  font-size: 14px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.98), 0 0 8px rgba(0, 0, 0, 0.85);
+}
+
+.product-card.has-product-image.out-of-stock {
+  opacity: 1;
+  filter: none;
+}
+
+.product-card.has-product-image.out-of-stock .real-product-img {
+  filter: grayscale(100%) brightness(0.65);
+}
+
+[data-theme='light'] .product-card.has-product-image::before {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.7) 0%, rgba(15, 23, 42, 0.4) 50%, rgba(15, 23, 42, 0.8) 100%);
+}
+
+.product-card.no-image .product-image-small {
+  width: 48px;
+  height: 48px;
+  flex-basis: 48px;
 }
 
 [data-theme='light'] .product-card {
@@ -1945,7 +2034,7 @@ onUnmounted(() => {
 }
 
 @media (hover: hover) and (pointer: fine) and (min-width: 1081px) {
-  .product-card:hover .product-image-small {
+  .product-card.no-image:hover .product-image-small {
     transform: scale(1.04);
     border-color: rgba(14, 165, 233, 0.35);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
@@ -1956,74 +2045,6 @@ onUnmounted(() => {
     opacity: 1;
     transform: scale(1.06);
   }
-}
-
-@media (max-width: 1080px), (hover: none), (pointer: coarse) {
-  .product-card:hover .product-image-small,
-  .product-card:active .product-image-small,
-  .product-image-small {
-    transform: none !important;
-    box-shadow: none !important;
-  }
-
-  .product-card:hover .fallback-icon,
-  .product-card:active .fallback-icon,
-  .fallback-icon {
-    transform: none !important;
-  }
-
-  .product-image-hover-preview {
-    display: none !important;
-  }
-}
-
-/* Floating Hover Preview */
-.product-image-hover-preview {
-  position: fixed;
-  z-index: 10000;
-  width: 180px;
-  height: 220px;
-  box-sizing: border-box;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.18));
-  border-radius: 14px;
-  background: var(--bg-sidebar, #0f172a);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.65);
-  pointer-events: none;
-  animation: previewFadeIn 0.15s ease-out;
-}
-
-@keyframes previewFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.product-image-hover-preview img {
-  width: 100%;
-  height: 168px;
-  min-height: 0;
-  border-radius: 10px;
-  object-fit: contain;
-  background: rgba(15, 23, 42, 0.4);
-}
-
-.product-image-hover-preview span {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 20px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* List View */
