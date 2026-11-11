@@ -21,7 +21,7 @@ export type GuestSettings = {
 }
 
 export type GuestBundle = {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
   guestDeviceId: string
   idempotencyKey: string
   products: Product[]
@@ -667,201 +667,525 @@ export function createDemoSales(products: Product[]): Sale[] {
     discount?: number
     items: Array<{ productId: number; quantity: number }>
   }> = [
-    // Today's Sales
+    // Today's Sales (12 sales)
     {
-      id: 'SALE-801',
+      id: 'SALE-001',
       customer: 'Sarah Kigozi',
       payment: 'mobile_money',
-      completedAt: getTime(0, 8, 30),
+      completedAt: getTime(0, 8, 15),
       items: [
         { productId: 26, quantity: 2 }, // Whole Wheat Bread
         { productId: 31, quantity: 1 }, // Premium Ground Coffee
       ],
     },
     {
-      id: 'SALE-802',
+      id: 'SALE-002',
       customer: 'David Mukasa',
       payment: 'cash',
-      completedAt: getTime(0, 9, 45),
+      completedAt: getTime(0, 8, 45),
       items: [
-        { productId: 5, quantity: 1 },  // Wireless Headphones
-        { productId: 7, quantity: 1 },  // 20W Power Adapter
+        { productId: 4, quantity: 1 }, // Studio Wireless Headphones
+        { productId: 8, quantity: 2 }, // USB-C Charging Cable
       ],
     },
     {
-      id: 'SALE-803',
+      id: 'SALE-003',
       customer: 'Amina Nalubega',
       payment: 'mobile_money',
-      completedAt: getTime(0, 11, 15),
+      completedAt: getTime(0, 9, 20),
       items: [
-        { productId: 22, quantity: 2 }, // Basmati Rice 5kg
+        { productId: 22, quantity: 1 }, // Basmati Rice 5kg
         { productId: 25, quantity: 1 }, // Sunflower Cooking Oil
         { productId: 41, quantity: 3 }, // Antibacterial Body Soap
       ],
     },
     {
-      id: 'SALE-804',
+      id: 'SALE-004',
       customer: 'Brian Okello',
       payment: 'cash',
-      completedAt: getTime(0, 12, 40),
+      completedAt: getTime(0, 10, 10),
       items: [
         { productId: 1, quantity: 1 },  // Classic Red Sneakers
-        { productId: 17, quantity: 1 }, // Everyday Water Bottle
+        { productId: 11, quantity: 1 }, // Everyday Water Bottle
       ],
     },
     {
-      id: 'SALE-805',
+      id: 'SALE-005',
       customer: 'Grace Tumusiime',
       payment: 'card',
-      completedAt: getTime(0, 14, 20),
-      discount: 10000,
+      completedAt: getTime(0, 11, 0),
+      discount: 5000,
       items: [
-        { productId: 15, quantity: 1 }, // Stainless Steel Watch
-        { productId: 12, quantity: 1 }, // Polarized Sunglasses
+        { productId: 12, quantity: 1 }, // Minimalist Wristwatch
+        { productId: 13, quantity: 1 }, // Polarized Sunglasses
       ],
     },
     {
-      id: 'SALE-806',
+      id: 'SALE-006',
       customer: 'Patrick Waiswa',
       payment: 'mobile_money',
-      completedAt: getTime(0, 15, 50),
+      completedAt: getTime(0, 12, 15),
       items: [
-        { productId: 8, quantity: 2 },  // 20000mAh Power Bank
+        { productId: 10, quantity: 1 }, // 20000mAh Power Bank
         { productId: 6, quantity: 1 },  // Bluetooth Speaker Mini
       ],
     },
     {
-      id: 'SALE-807',
+      id: 'SALE-007',
       customer: 'Ritah Atuhaire',
       payment: 'cash',
-      completedAt: getTime(0, 17, 10),
+      completedAt: getTime(0, 13, 30),
       items: [
-        { productId: 11, quantity: 1 }, // Classic Canvas Backpack
-        { productId: 37, quantity: 2 }, // Dark Chocolate Bar
+        { productId: 14, quantity: 1 }, // Classic Canvas Backpack
+        { productId: 38, quantity: 2 }, // Dark Chocolate Bar
       ],
     },
     {
-      id: 'SALE-808',
+      id: 'SALE-008',
       customer: 'Walk-in Customer',
       payment: 'cash',
+      completedAt: getTime(0, 14, 10),
+      items: [
+        { productId: 6, quantity: 1 }, // Bluetooth Speaker Mini
+        { productId: 9, quantity: 1 }, // 20W Power Adapter
+      ],
+    },
+    {
+      id: 'SALE-009',
+      customer: 'Fatuma Kemigisha',
+      payment: 'mobile_money',
+      completedAt: getTime(0, 15, 25),
+      items: [
+        { productId: 18, quantity: 2 }, // Premium Long Grain Rice
+        { productId: 21, quantity: 1 }, // Pure Vegetable Cooking Oil 1L
+        { productId: 17, quantity: 3 }, // Pure Granulated Sugar 1kg
+      ],
+    },
+    {
+      id: 'SALE-010',
+      customer: 'Christine Nabatanzi',
+      payment: 'card',
+      completedAt: getTime(0, 16, 40),
+      items: [
+        { productId: 2, quantity: 1 },  // White Canvas Low-Tops
+        { productId: 15, quantity: 1 }, // Genuine Leather Wallet
+      ],
+    },
+    {
+      id: 'SALE-011',
+      customer: 'Moses Kato',
+      payment: 'cash',
+      completedAt: getTime(0, 17, 50),
+      items: [
+        { productId: 33, quantity: 3 }, // Cola Soda 500ml
+        { productId: 27, quantity: 2 }, // Salted Potato Crisps
+      ],
+    },
+    {
+      id: 'SALE-012',
+      customer: 'Doreen Namutebi',
+      payment: 'mobile_money',
       completedAt: getTime(0, 18, 30),
       items: [
-        { productId: 6, quantity: 1 },  // Bluetooth Speaker Mini
-        { productId: 7, quantity: 1 },  // 20W Power Adapter
+        { productId: 7, quantity: 1 }, // True Wireless Earbuds
+        { productId: 8, quantity: 1 }, // USB-C Charging Cable
       ],
     },
 
-    // Yesterday's Sales
+    // Yesterday's Sales (10 sales)
     {
-      id: 'SALE-701',
-      customer: 'Fatuma Kemigisha',
-      payment: 'mobile_money',
-      completedAt: getTime(1, 9, 20),
+      id: 'SALE-013',
+      customer: 'Isaac Mugisha',
+      payment: 'cash',
+      completedAt: getTime(1, 8, 30),
       items: [
-        { productId: 5, quantity: 2 },  // Wireless Headphones
-        { productId: 11, quantity: 1 }, // Canvas Backpack
+        { productId: 4, quantity: 1 },  // Studio Wireless Headphones
+        { productId: 13, quantity: 2 }, // Polarized Sunglasses
       ],
     },
     {
-      id: 'SALE-702',
-      customer: 'Samuel Egesa',
+      id: 'SALE-014',
+      customer: 'Hellen Kyomugisha',
+      payment: 'mobile_money',
+      completedAt: getTime(1, 9, 45),
+      items: [
+        { productId: 1, quantity: 1 },  // Classic Red Sneakers
+        { productId: 14, quantity: 1 }, // Classic Canvas Backpack
+        { productId: 11, quantity: 1 }, // Everyday Water Bottle
+      ],
+    },
+    {
+      id: 'SALE-015',
+      customer: 'Robert Asiimwe',
+      payment: 'card',
+      completedAt: getTime(1, 10, 50),
+      items: [
+        { productId: 22, quantity: 2 }, // Basmati Rice 5kg
+        { productId: 21, quantity: 2 }, // Pure Vegetable Cooking Oil 1L
+        { productId: 16, quantity: 1 }, // Coffee Beans 500g
+      ],
+    },
+    {
+      id: 'SALE-016',
+      customer: 'Agnes Mbabazi',
       payment: 'cash',
       completedAt: getTime(1, 11, 40),
       items: [
-        { productId: 3, quantity: 1 },  // Leather Oxford Shoes
+        { productId: 11, quantity: 2 }, // Everyday Water Bottle
+        { productId: 38, quantity: 4 }, // Dark Chocolate Bar
       ],
     },
     {
-      id: 'SALE-703',
-      customer: 'John Baptist',
-      payment: 'card',
+      id: 'SALE-017',
+      customer: 'Joseph Ssempijja',
+      payment: 'mobile_money',
+      completedAt: getTime(1, 12, 35),
+      items: [
+        { productId: 3, quantity: 1 },  // Leather Oxford Dress Shoes
+        { productId: 15, quantity: 1 }, // Genuine Leather Wallet
+      ],
+    },
+    {
+      id: 'SALE-018',
+      customer: 'Florence Namaganda',
+      payment: 'cash',
       completedAt: getTime(1, 14, 15),
       items: [
-        { productId: 1, quantity: 2 },  // Classic Red Sneakers
-        { productId: 8, quantity: 1 },  // Power Bank
+        { productId: 48, quantity: 2 }, // Laundry Detergent Powder
+        { productId: 49, quantity: 3 }, // Antibacterial Dish Soap
+        { productId: 50, quantity: 1 }, // Multi-Surface Floor Cleaner
       ],
     },
     {
-      id: 'SALE-704',
-      customer: 'Walk-in Customer',
+      id: 'SALE-019',
+      customer: 'John Bosco',
       payment: 'cash',
-      completedAt: getTime(1, 16, 50),
+      completedAt: getTime(1, 15, 20),
       items: [
-        { productId: 22, quantity: 3 }, // Basmati Rice
-        { productId: 25, quantity: 2 }, // Sunflower Cooking Oil
+        { productId: 34, quantity: 4 }, // Lemon-Lime Soda
+        { productId: 28, quantity: 2 }, // Roasted Salted Peanuts
+      ],
+    },
+    {
+      id: 'SALE-020',
+      customer: 'Prossy Nanteza',
+      payment: 'mobile_money',
+      completedAt: getTime(1, 16, 45),
+      discount: 4000,
+      items: [
+        { productId: 43, quantity: 1 }, // Body Lotion 400ml
+        { productId: 44, quantity: 2 }, // Roll-On Deodorant
+      ],
+    },
+    {
+      id: 'SALE-021',
+      customer: 'Charles Lwanga',
+      payment: 'card',
+      completedAt: getTime(1, 17, 30),
+      items: [
+        { productId: 5, quantity: 1 }, // Instant Film Camera
+      ],
+    },
+    {
+      id: 'SALE-022',
+      customer: 'Stella Namubiru',
+      payment: 'cash',
+      completedAt: getTime(1, 18, 15),
+      items: [
+        { productId: 19, quantity: 2 }, // Fortified Maize Flour 2kg
+        { productId: 20, quantity: 2 }, // Refined Table Salt 1kg
+        { productId: 23, quantity: 1 }, // Organic Brown Beans 1kg
       ],
     },
 
-    // Earlier This Week
+    // 2 Days Ago (6 sales)
     {
-      id: 'SALE-601',
-      customer: 'Christine Nabatanzi',
+      id: 'SALE-023',
+      customer: 'Geoffrey Otim',
       payment: 'mobile_money',
-      completedAt: getTime(2, 10, 10),
+      completedAt: getTime(2, 9, 10),
       items: [
-        { productId: 15, quantity: 2 }, // Stainless Steel Watch
+        { productId: 10, quantity: 1 }, // Power Bank
+        { productId: 8, quantity: 2 },  // USB-C Cable
       ],
     },
     {
-      id: 'SALE-602',
-      customer: 'Moses Kato',
+      id: 'SALE-024',
+      customer: 'Brenda Akello',
       payment: 'cash',
-      completedAt: getTime(2, 13, 30),
+      completedAt: getTime(2, 11, 25),
       items: [
-        { productId: 3, quantity: 1 },  // Leather Oxford Shoes
-        { productId: 1, quantity: 1 },  // Classic Red Sneakers
+        { productId: 24, quantity: 2 }, // Full Cream Milk Powder
+        { productId: 17, quantity: 3 }, // Granulated Sugar 1kg
       ],
     },
     {
-      id: 'SALE-603',
-      customer: 'Doreen Namutebi',
+      id: 'SALE-025',
+      customer: 'Emmanuel Kaggwa',
       payment: 'card',
-      completedAt: getTime(2, 16, 0),
+      completedAt: getTime(2, 13, 40),
       items: [
-        { productId: 6, quantity: 2 },  // Bluetooth Speaker Mini
-        { productId: 8, quantity: 1 },  // Power Bank
+        { productId: 6, quantity: 2 }, // Bluetooth Speaker Mini
+        { productId: 9, quantity: 1 }, // 20W Power Adapter
       ],
     },
     {
-      id: 'SALE-501',
-      customer: 'Isaac Mugisha',
-      payment: 'cash',
-      completedAt: getTime(3, 11, 20),
-      items: [
-        { productId: 5, quantity: 1 },  // Wireless Headphones
-        { productId: 12, quantity: 2 }, // Polarized Sunglasses
-      ],
-    },
-    {
-      id: 'SALE-502',
-      customer: 'Hellen Kyomugisha',
+      id: 'SALE-026',
+      customer: 'Juliet Nabirye',
       payment: 'mobile_money',
-      completedAt: getTime(3, 15, 10),
+      completedAt: getTime(2, 15, 0),
       items: [
-        { productId: 1, quantity: 1 },  // Classic Red Sneakers
-        { productId: 11, quantity: 1 }, // Canvas Backpack
-        { productId: 17, quantity: 2 }, // Water Bottle
+        { productId: 42, quantity: 3 }, // Herbal Fluoride Toothpaste
+        { productId: 41, quantity: 4 }, // Antibacterial Body Soap
       ],
     },
     {
-      id: 'SALE-401',
-      customer: 'Robert Asiimwe',
+      id: 'SALE-027',
+      customer: 'Ronald Kigozi',
+      payment: 'cash',
+      completedAt: getTime(2, 16, 50),
+      items: [
+        { productId: 29, quantity: 3 }, // Butter Shortbread Biscuits
+        { productId: 32, quantity: 2 }, // Chocolate Chip Cookies
+      ],
+    },
+    {
+      id: 'SALE-028',
+      customer: 'Beatrice Alupo',
+      payment: 'cash',
+      completedAt: getTime(2, 18, 10),
+      items: [
+        { productId: 36, quantity: 6 }, // Natural Mineral Water 500ml
+        { productId: 35, quantity: 2 }, // Energy Drink Can 400ml
+      ],
+    },
+
+    // 3 Days Ago (5 sales)
+    {
+      id: 'SALE-029',
+      customer: 'Denis Mugerwa',
+      payment: 'mobile_money',
+      completedAt: getTime(3, 10, 0),
+      items: [
+        { productId: 2, quantity: 1 },  // White Canvas Low-Tops
+        { productId: 13, quantity: 1 }, // Polarized Sunglasses
+      ],
+    },
+    {
+      id: 'SALE-030',
+      customer: 'Sandra Nakato',
+      payment: 'cash',
+      completedAt: getTime(3, 11, 45),
+      items: [
+        { productId: 18, quantity: 1 }, // Long Grain Rice 2kg
+        { productId: 25, quantity: 2 }, // Sunflower Cooking Oil
+      ],
+    },
+    {
+      id: 'SALE-031',
+      customer: 'Gerald Katende',
       payment: 'card',
+      completedAt: getTime(3, 14, 20),
+      discount: 10000,
+      items: [
+        { productId: 3, quantity: 1 }, // Leather Oxford Shoes
+      ],
+    },
+    {
+      id: 'SALE-032',
+      customer: 'Mariam Nabukenya',
+      payment: 'mobile_money',
+      completedAt: getTime(3, 15, 55),
+      items: [
+        { productId: 45, quantity: 4 }, // Pocket Hand Sanitizer
+        { productId: 46, quantity: 3 }, // Facial Tissues
+      ],
+    },
+    {
+      id: 'SALE-033',
+      customer: 'Ivan Wasswa',
+      payment: 'cash',
+      completedAt: getTime(3, 17, 30),
+      items: [
+        { productId: 30, quantity: 4 }, // Sweet Buttered Popcorn
+        { productId: 33, quantity: 2 }, // Cola Soda 500ml
+      ],
+    },
+
+    // 4 Days Ago (4 sales)
+    {
+      id: 'SALE-034',
+      customer: 'Lillian Namagembe',
+      payment: 'cash',
+      completedAt: getTime(4, 9, 30),
+      items: [
+        { productId: 48, quantity: 1 }, // Laundry Detergent
+        { productId: 50, quantity: 2 }, // Floor Cleaner 1L
+      ],
+    },
+    {
+      id: 'SALE-035',
+      customer: 'Samson Byaruhanga',
+      payment: 'mobile_money',
       completedAt: getTime(4, 12, 15),
       items: [
-        { productId: 22, quantity: 1 }, // Basmati Rice
-        { productId: 25, quantity: 2 }, // Cooking Oil
-        { productId: 31, quantity: 2 }, // Ground Coffee
+        { productId: 7, quantity: 1 },  // Wireless Earbuds
+        { productId: 10, quantity: 1 }, // Power Bank
       ],
     },
     {
-      id: 'SALE-301',
-      customer: 'Agnes Mbabazi',
-      payment: 'mobile_money',
-      completedAt: getTime(5, 14, 45),
+      id: 'SALE-036',
+      customer: 'Harriet Nakabugo',
+      payment: 'cash',
+      completedAt: getTime(4, 14, 40),
       items: [
-        { productId: 17, quantity: 2 }, // Water Bottle
-        { productId: 37, quantity: 4 }, // Dark Chocolate
+        { productId: 26, quantity: 3 }, // Whole Wheat Bread
+        { productId: 27, quantity: 2 }, // Salted Potato Crisps
+      ],
+    },
+    {
+      id: 'SALE-037',
+      customer: 'Timothy Musoke',
+      payment: 'card',
+      completedAt: getTime(4, 16, 20),
+      items: [
+        { productId: 14, quantity: 1 }, // Classic Canvas Backpack
+        { productId: 11, quantity: 1 }, // Everyday Water Bottle
+      ],
+    },
+
+    // 5 Days Ago (4 sales)
+    {
+      id: 'SALE-038',
+      customer: 'Diana Kobusinge',
+      payment: 'mobile_money',
+      completedAt: getTime(5, 10, 15),
+      items: [
+        { productId: 43, quantity: 1 }, // Body Lotion 400ml
+        { productId: 47, quantity: 2 }, // Pure Petroleum Jelly 250g
+      ],
+    },
+    {
+      id: 'SALE-039',
+      customer: 'Fred Sekitoleko',
+      payment: 'cash',
+      completedAt: getTime(5, 11, 50),
+      items: [
+        { productId: 17, quantity: 5 }, // Granulated Sugar 1kg
+        { productId: 19, quantity: 3 }, // Maize Flour 2kg
+      ],
+    },
+    {
+      id: 'SALE-040',
+      customer: 'Winnie Nassolo',
+      payment: 'cash',
+      completedAt: getTime(5, 15, 10),
+      items: [
+        { productId: 39, quantity: 2 }, // Tropical Fruit Juice
+        { productId: 40, quantity: 1 }, // Instant Ginger Tea
+      ],
+    },
+    {
+      id: 'SALE-041',
+      customer: 'Arthur Kiwanuka',
+      payment: 'mobile_money',
+      completedAt: getTime(5, 17, 45),
+      items: [
+        { productId: 8, quantity: 3 }, // USB-C Cables
+        { productId: 9, quantity: 1 }, // 20W Power Adapter
+      ],
+    },
+
+    // 6 Days Ago (3 sales)
+    {
+      id: 'SALE-042',
+      customer: 'Mercy Ainembabazi',
+      payment: 'card',
+      completedAt: getTime(6, 11, 0),
+      items: [
+        { productId: 12, quantity: 1 }, // Minimalist Wristwatch
+      ],
+    },
+    {
+      id: 'SALE-043',
+      customer: 'Martin Lubega',
+      payment: 'cash',
+      completedAt: getTime(6, 13, 30),
+      items: [
+        { productId: 21, quantity: 2 }, // Cooking Oil 1L
+        { productId: 22, quantity: 1 }, // Basmati Rice 5kg
+      ],
+    },
+    {
+      id: 'SALE-044',
+      customer: 'Patricia Nakayiza',
+      payment: 'mobile_money',
+      completedAt: getTime(6, 16, 15),
+      items: [
+        { productId: 41, quantity: 5 }, // Antibacterial Body Soap
+        { productId: 42, quantity: 2 }, // Fluoride Toothpaste
+      ],
+    },
+
+    // 1-2 Weeks Ago (3 sales)
+    {
+      id: 'SALE-045',
+      customer: 'Victor Tumwine',
+      payment: 'cash',
+      completedAt: getTime(9, 12, 0),
+      items: [
+        { productId: 4, quantity: 1 }, // Wireless Headphones
+        { productId: 6, quantity: 1 }, // Bluetooth Speaker Mini
+      ],
+    },
+    {
+      id: 'SALE-046',
+      customer: 'Rebecca Namubiru',
+      payment: 'mobile_money',
+      completedAt: getTime(11, 14, 20),
+      items: [
+        { productId: 1, quantity: 1 }, // Classic Red Sneakers
+      ],
+    },
+    {
+      id: 'SALE-047',
+      customer: 'Daniel Kato',
+      payment: 'card',
+      completedAt: getTime(13, 16, 40),
+      items: [
+        { productId: 5, quantity: 1 },  // Instant Camera
+        { productId: 10, quantity: 1 }, // Power Bank
+      ],
+    },
+
+    // 3-4 Weeks Ago (3 sales)
+    {
+      id: 'SALE-048',
+      customer: 'Judith Nansubuga',
+      payment: 'cash',
+      completedAt: getTime(18, 11, 30),
+      items: [
+        { productId: 14, quantity: 2 }, // Canvas Backpack
+      ],
+    },
+    {
+      id: 'SALE-049',
+      customer: 'Herbert Wandera',
+      payment: 'mobile_money',
+      completedAt: getTime(22, 15, 10),
+      items: [
+        { productId: 22, quantity: 2 }, // Basmati Rice
+        { productId: 24, quantity: 2 }, // Milk Powder
+      ],
+    },
+    {
+      id: 'SALE-050',
+      customer: 'Evelyn Birungi',
+      payment: 'cash',
+      completedAt: getTime(27, 13, 45),
+      items: [
+        { productId: 2, quantity: 1 },  // Canvas Low-Tops
+        { productId: 15, quantity: 1 }, // Leather Wallet
       ],
     },
   ]
@@ -898,29 +1222,56 @@ export function createDemoSales(products: Product[]): Sale[] {
   })
 }
 
-function seedState(): GuestState {
-  return {
-    schemaVersion: 8,
+export function populateDemoData(): GuestState {
+  const demo = createDemoProducts()
+  const sales = createDemoSales(demo)
+  const existing = (() => {
+    try {
+      const raw = localStorage.getItem(STORE_KEY)
+      return raw ? JSON.parse(raw) as GuestState : null
+    } catch {
+      return null
+    }
+  })()
+
+  const populated: GuestState = {
+    schemaVersion: 9,
     guestDeviceId: getGuestDeviceId(),
     idempotencyKey: uuid(),
-    demoData: false,
-    products: [],
-    categories: [],
-    sales: [],
-    stockMovements: [],
+    demoData: true,
+    products: demo,
+    categories: Array.from(new Set(demo.map(p => p.category))).sort(),
+    sales,
+    stockMovements: demo.map(p => ({
+      id: uuid(),
+      productId: p.id,
+      quantityDelta: p.quantity,
+      reason: 'Demo opening stock',
+      createdAt: new Date().toISOString(),
+    })),
     settings: {
-      shopName: 'My Shop',
-      currency: 'UGX',
-      address: '',
-      phone: '',
-      receiptHeader: '',
-      receiptFooter: 'Thank you for shopping with us!',
-      receiptShowPhone: false,
-      preferences: readExistingPreferences(),
+      shopName: existing?.settings?.shopName || 'Demo Shop',
+      currency: existing?.settings?.currency || 'UGX',
+      address: existing?.settings?.address || 'Kampala, Uganda',
+      phone: existing?.settings?.phone || '+256 700 000 000',
+      receiptHeader: existing?.settings?.receiptHeader || 'Welcome to our store!',
+      receiptFooter: existing?.settings?.receiptFooter || 'Thank you for shopping with us!',
+      receiptShowPhone: existing?.settings?.receiptShowPhone ?? true,
+      preferences: {
+        ...readExistingPreferences(),
+        ...(existing?.settings?.preferences || {}),
+      },
     },
-    members: [],
-    auditLogs: [],
+    members: existing?.members || [],
+    auditLogs: existing?.auditLogs || [],
   }
+
+  writeState(populated)
+  return populated
+}
+
+function seedState(): GuestState {
+  return populateDemoData()
 }
 
 function readState(): GuestState {
@@ -946,26 +1297,26 @@ function readState(): GuestState {
     writeState(initial)
     return initial
   }
-  if (!state.schemaVersion || state.schemaVersion < 8) {
-    const clean = seedState()
+  if (!state.schemaVersion || state.schemaVersion < 9 || state.products.length === 0 || state.sales.length < 50) {
+    const populated = populateDemoData()
     if (state.settings) {
-      clean.settings = {
-        ...clean.settings,
-        shopName: state.settings.shopName || 'My Shop',
+      populated.settings = {
+        ...populated.settings,
+        shopName: state.settings.shopName || populated.settings.shopName,
         currency: state.settings.currency || 'UGX',
-        address: state.settings.address || '',
-        phone: state.settings.phone || '',
-        receiptHeader: state.settings.receiptHeader || '',
+        address: state.settings.address || populated.settings.address,
+        phone: state.settings.phone || populated.settings.phone,
+        receiptHeader: state.settings.receiptHeader || populated.settings.receiptHeader,
         receiptFooter: state.settings.receiptFooter || 'Thank you for shopping with us!',
-        receiptShowPhone: !!state.settings.receiptShowPhone,
+        receiptShowPhone: state.settings.receiptShowPhone ?? true,
         preferences: {
-          ...(clean.settings.preferences || {}),
+          ...(populated.settings.preferences || {}),
           ...(state.settings.preferences || {}),
         },
       }
     }
-    writeState(clean)
-    return clean
+    writeState(populated)
+    return populated
   }
   return state
 }
@@ -1206,6 +1557,10 @@ export async function guestApiRequest<T>(path: string, options: { method?: strin
       ownerName: (state.settings.preferences?.ownerName as string) || 'Shop Owner',
       demo: state.demoData,
     } as T
+  }
+  if (url.pathname.endsWith('/demo/populate')) {
+    const populated = populateDemoData()
+    return { ok: true, productsCount: populated.products.length, salesCount: populated.sales.length } as T
   }
   if (url.pathname.endsWith('/public/dashboard') || url.pathname.endsWith('/dashboard')) return dashboardFor(state, url) as T
   if (url.pathname.endsWith('/public/products') || url.pathname.endsWith('/products') && method === 'GET') {
