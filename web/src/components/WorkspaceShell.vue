@@ -120,9 +120,24 @@ const isStandalone = ref(false)
 const isInstalled = ref(false)
 const showIosInstallSheet = ref(false)
 const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true)
+const reconnectRefreshKey = ref(0)
+let reconnectTimer: number | null = null
 
 function updateOnlineStatus() {
-  isOnline.value = typeof navigator !== 'undefined' ? navigator.onLine : true
+  const wasOffline = !isOnline.value
+  const nowOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
+  isOnline.value = nowOnline
+  if (wasOffline && nowOnline) {
+    if (reconnectTimer !== null) window.clearTimeout(reconnectTimer)
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = null
+      if (isOnline.value) {
+        notificationError.value = ''
+        if (notificationLoaded.value) void loadNotifications()
+        reconnectRefreshKey.value += 1
+      }
+    }, 350)
+  }
 }
 
 const isIos = computed(() => {
@@ -511,6 +526,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   window.clearInterval(clockTimer)
+  if (reconnectTimer !== null) window.clearTimeout(reconnectTimer)
   document.removeEventListener('pointerdown', handleOutsidePointer)
   window.removeEventListener('keydown', handleEscape)
   window.removeEventListener('online-prefs-updated', handlePrefsUpdated)
@@ -748,11 +764,11 @@ onUnmounted(() => {
             <h2>{{ desktopLockedPageName }}</h2>
             <p>{{ desktopLockedPageName }} is available on desktop — open CM RetailOS on a computer.</p>
           </section>
-          <DashboardView v-else-if="activePage === 'dashboard'" key="dashboard" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
-          <PointOfSaleView v-else-if="activePage === 'pos'" key="pos" :currency="user.currency" :shop-name="user.shopName" :role="user.role" />
+          <DashboardView v-else-if="activePage === 'dashboard'" :key="`dashboard-${reconnectRefreshKey}`" :currency="user.currency" :role="user.role" @navigate="activePage = $event" />
+          <PointOfSaleView v-else-if="activePage === 'pos'" :key="`pos-${reconnectRefreshKey}`" :currency="user.currency" :shop-name="user.shopName" :role="user.role" />
           <ProductsView
             v-else-if="activePage === 'products'"
-            key="products"
+            :key="`products-${reconnectRefreshKey}`"
             :currency="user.currency"
             :role="user.role"
             :user-email="user.email"
@@ -762,13 +778,13 @@ onUnmounted(() => {
             @clear-target-stock-product="targetStockAlertProductId = null"
             @stock-adjusted="loadNotifications"
           />
-          <StockLevelsView v-else-if="activePage === 'stock-levels' && !isMobileOrTablet" key="stock-levels" :currency="user.currency" :role="user.role" />
-          <ReceiptsView v-else-if="activePage === 'receipts'" key="receipts" :shop-name="user.shopName" :currency="user.currency" />
-          <SalesView v-else-if="activePage === 'sales'" key="sales" :shop-name="user.shopName" :currency="user.currency" />
-          <ProfitAnalyticsView v-else-if="activePage === 'profit-analytics'" key="profit-analytics" :shop-name="user.shopName" :currency="user.currency" />
-          <BusinessIntelligenceView v-else-if="activePage === 'business-intelligence'" key="business-intelligence" :shop-name="user.shopName" :currency="user.currency" />
-          <AuditLogsView v-else-if="activePage === 'audit-logs'" key="audit-logs" />
-          <SettingsView v-else-if="activePage === 'settings'" key="settings" :shop-name="user.shopName" :currency="user.currency" :role="user.role" :user-id="user.id" :user-name="user.fullName" :user-email="user.email" @user-updated="emit('user-updated', $event)" />
+          <StockLevelsView v-else-if="activePage === 'stock-levels' && !isMobileOrTablet" :key="`stock-levels-${reconnectRefreshKey}`" :currency="user.currency" :role="user.role" />
+          <ReceiptsView v-else-if="activePage === 'receipts'" :key="`receipts-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" />
+          <SalesView v-else-if="activePage === 'sales'" :key="`sales-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" />
+          <ProfitAnalyticsView v-else-if="activePage === 'profit-analytics'" :key="`profit-analytics-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" />
+          <BusinessIntelligenceView v-else-if="activePage === 'business-intelligence'" :key="`business-intelligence-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" />
+          <AuditLogsView v-else-if="activePage === 'audit-logs'" :key="`audit-logs-${reconnectRefreshKey}`" />
+          <SettingsView v-else-if="activePage === 'settings'" :key="`settings-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" :role="user.role" :user-id="user.id" :user-name="user.fullName" :user-email="user.email" @user-updated="emit('user-updated', $event)" />
         </Transition>
       </main>
 
