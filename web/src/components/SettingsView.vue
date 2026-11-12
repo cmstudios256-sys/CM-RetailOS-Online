@@ -399,7 +399,7 @@ const filteredSettingsMenu = computed(() => {
   return settingsMenu.map(category => ({
     ...category,
     items: category.items.filter(item => {
-      if (isMobile.value && (item.id === 'appearance-theme' || item.id === 'pos-config')) {
+      if (isMobile.value && (item.id === 'appearance-theme' || item.id === 'pos-config' || item.id === 'users-staff')) {
         return false
       }
       return true
@@ -409,7 +409,7 @@ const filteredSettingsMenu = computed(() => {
 
 watch(isMobile, (mobile) => {
   if (mobile) {
-    if (activeTab.value === 'appearance-theme' || activeTab.value === 'pos-config') {
+    if (activeTab.value === 'appearance-theme' || activeTab.value === 'pos-config' || activeTab.value === 'users-staff') {
       activeTab.value = 'business-info'
     }
     appSettings.value.applicationSettings.autoClearCart = true
@@ -2595,8 +2595,8 @@ onUnmounted(() => {
         </div>
       </template>
 
-      <!-- Users & Staff -->
-      <template v-else-if="activeTab === 'users-staff'">
+      <!-- Users & Staff (Desktop Only) -->
+      <template v-else-if="!isMobile && activeTab === 'users-staff'">
         <div class="table-container staff-directory-container" style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
           <div class="table-header staff-directory-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">

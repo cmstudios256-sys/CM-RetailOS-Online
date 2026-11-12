@@ -354,7 +354,32 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		input.Email,
 	).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Email, &user.Role, &passwordHash, &emailVerified, &user.ShopName, &user.Currency, &googlePictureURL, &googleSubject, &cloudGmail)
 	if err != nil {
-		if input.Email == "cashier" || input.Email == "manager" {
+		if input.Email == "admin" || input.Email == "owner" {
+			var ownerUser identity
+			var oHash []byte
+			var oVerified bool
+			var oShopName, oCurrency string
+			var oGooglePic, oGoogleSub, oCloudGmail sql.NullString
+			oErr := s.db.QueryRowContext(r.Context(), `
+				SELECT u.id::text, u.shop_id::text, u.full_name, u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
+				       u.google_picture_url, u.google_subject, sh.preferences->>'cloud_gmail'
+				FROM users u
+				JOIN shops sh ON sh.id = u.shop_id
+				WHERE u.role = 'owner' AND u.active = TRUE
+				ORDER BY u.created_at ASC LIMIT 1
+			`).Scan(&ownerUser.UserID, &ownerUser.ShopID, &ownerUser.FullName, &ownerUser.Email, &ownerUser.Role, &oHash, &oVerified, &oShopName, &oCurrency, &oGooglePic, &oGoogleSub, &oCloudGmail)
+			if oErr == nil {
+				user = ownerUser
+				user.ShopName = oShopName
+				user.Currency = oCurrency
+				passwordHash = oHash
+				emailVerified = oVerified
+				googlePictureURL = oGooglePic
+				googleSubject = oGoogleSub
+				cloudGmail = oCloudGmail
+				err = nil
+			}
+		} else if input.Email == "cashier" || input.Email == "manager" {
 			var shopID, shopName, currency string
 			sErr := s.db.QueryRowContext(r.Context(), `SELECT id::text, name, currency FROM shops ORDER BY is_demo DESC, created_at ASC LIMIT 1`).Scan(&shopID, &shopName, &currency)
 			if sErr == nil {
@@ -400,16 +425,18 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		user.GoogleEmail = user.Email
 	}
 
-	// Owner requires password. Managers and Cashiers log in with their assigned username only.
+	// Owner requires password if set. Managers and Cashiers log in with their assigned username only.
 	if user.Role == "owner" {
 		if len(passwordHash) == 0 && googleSubject.Valid && strings.TrimSpace(googleSubject.String) != "" {
 			writeError(w, http.StatusUnauthorized, "google_password_not_set",
 				"This account was created with Google. Use Sign in with Google, or choose Forgot password to create a separate CM RetailOS password.")
 			return
 		}
-		if input.Password == "" || bcrypt.CompareHashAndPassword(passwordHash, []byte(input.Password)) != nil {
-			writeError(w, http.StatusUnauthorized, "invalid_credentials", "Password is incorrect.")
-			return
+		if len(passwordHash) > 0 {
+			if input.Password == "" || bcrypt.CompareHashAndPassword(passwordHash, []byte(input.Password)) != nil {
+				writeError(w, http.StatusUnauthorized, "invalid_credentials", "Password is incorrect.")
+				return
+			}
 		}
 	} else {
 		// Manager and Cashier log in with their username only. If a password is set and provided, verify it.
@@ -485,6 +512,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateProfile(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		FullName string `json:"fullName"`
+		Password string `json:"password,omitempty"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
@@ -496,12 +524,31 @@ func (s *Server) updateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	claims := claimsFrom(r)
 	var fullName string
-	err := s.db.QueryRowContext(r.Context(), `
-		UPDATE users SET full_name = $1
-		WHERE id = $2 AND shop_id = $3 AND active = TRUE
-		RETURNING full_name`,
-		input.FullName, claims.Subject, claims.ShopID,
-	).Scan(&fullName)
+	var err error
+	if strings.TrimSpace(input.Password) != "" {
+		if len(input.Password) < 8 {
+			writeError(w, http.StatusBadRequest, "invalid_password", "Password must be at least 8 characters.")
+			return
+		}
+		hash, hErr := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		if hErr != nil {
+			writeError(w, http.StatusInternalServerError, "hash_failed", "Failed to secure password.")
+			return
+		}
+		err = s.db.QueryRowContext(r.Context(), `
+			UPDATE users SET full_name = $1, password_hash = $4
+			WHERE id = $2 AND shop_id = $3 AND active = TRUE
+			RETURNING full_name`,
+			input.FullName, claims.Subject, claims.ShopID, hash,
+		).Scan(&fullName)
+	} else {
+		err = s.db.QueryRowContext(r.Context(), `
+			UPDATE users SET full_name = $1
+			WHERE id = $2 AND shop_id = $3 AND active = TRUE
+			RETURNING full_name`,
+			input.FullName, claims.Subject, claims.ShopID,
+		).Scan(&fullName)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "user_not_found", "The account profile could not be found.")
 		return

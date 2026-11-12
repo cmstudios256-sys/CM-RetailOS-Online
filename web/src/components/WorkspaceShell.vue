@@ -3,7 +3,7 @@ import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } fr
 import { useDesktopBreakpoint, useMobileOrTabletBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import { useBottomSheetDrag } from '../utils/useBottomSheetDrag'
 import {
-  BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, Cloud, Download, FileClock, History, LayoutDashboard,
+  BarChart3, Bell, Boxes, BrainCircuit, Calculator, CalendarDays, Cloud, Download, Eye, EyeOff, FileClock, History, LayoutDashboard,
   LockKeyhole, LogOut, Menu, Moon, Package, PackageCheck, PlusSquare, ReceiptText, Settings as SettingsIcon, Share, ShieldCheck, ShoppingCart,
   Store, Sun, Tag, LineChart, Monitor, Users, X, Zap,
 } from '@lucide/vue'
@@ -280,13 +280,20 @@ function toggleProfile() {
 
 const staffLoginModalOpen = ref(false)
 const staffLoginUsername = ref('')
+const staffLoginPassword = ref('')
+const staffLoginShowPassword = ref(false)
+const terminalLoginRole = ref<'Admin' | 'Manager' | 'Cashier'>('Cashier')
 const staffLoginLoading = ref(false)
 const staffLoginError = ref('')
 
 async function handleStaffLogin() {
   const uname = staffLoginUsername.value.trim()
   if (!uname) {
-    staffLoginError.value = 'Please enter your staff username.'
+    staffLoginError.value = 'Please enter your username.'
+    return
+  }
+  if (terminalLoginRole.value === 'Admin' && !staffLoginPassword.value) {
+    staffLoginError.value = 'Please enter your administrator password.'
     return
   }
   staffLoginLoading.value = true
@@ -297,17 +304,20 @@ async function handleStaffLogin() {
       method: 'POST',
       body: {
         email: uname,
-        password: '',
+        password: staffLoginPassword.value,
       },
     })
     staffLoginModalOpen.value = false
     staffLoginUsername.value = ''
+    staffLoginPassword.value = ''
     emit('staff-login-success', result.user)
     if (result.user.role.toLowerCase() === 'cashier') {
       activePage.value = 'pos'
+    } else {
+      activePage.value = 'dashboard'
     }
   } catch (err) {
-    staffLoginError.value = err instanceof Error ? err.message : 'Invalid staff username.'
+    staffLoginError.value = err instanceof Error ? err.message : 'Invalid username or password.'
   } finally {
     staffLoginLoading.value = false
   }
@@ -567,6 +577,7 @@ onUnmounted(() => {
             <span>Sign in with Google</span>
           </button>
           <button
+            v-if="isDesktop"
             type="button"
             class="staff-signin-topbar-btn"
             @click="staffLoginModalOpen = true; staffLoginError = ''"
@@ -576,7 +587,7 @@ onUnmounted(() => {
             <span>{{ user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager' ? 'Switch Staff' : 'Staff Sign In' }}</span>
           </button>
           <button
-            v-if="user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager'"
+            v-if="isDesktop && (user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager')"
             type="button"
             class="staff-signin-topbar-btn exit-admin-btn"
             title="Exit terminal and return to Admin workspace"
@@ -647,12 +658,12 @@ onUnmounted(() => {
               <div class="popover-role"><ShieldCheck :size="14" /><span>{{ isGuest ? 'Local guest' : displayRole }}</span><i></i><small>{{ isGuest ? (demoMode ? 'Demo data' : 'Local device') : 'Connected' }}</small></div>
               <div class="popover-menu">
                 <button v-if="hasNavPermission('settings')" type="button" @click="activePage = 'settings'; profileOpen = false"><SettingsIcon :size="15" />Settings</button>
-                <button type="button" @click="profileOpen = false; staffLoginModalOpen = true; staffLoginError = ''">
+                <button v-if="isDesktop" type="button" @click="profileOpen = false; staffLoginModalOpen = true; staffLoginError = ''">
                   <Users :size="15" />
                   <span>{{ user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager' ? 'Switch Staff Account' : 'Staff Sign In' }}</span>
                 </button>
                 <button
-                  v-if="user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager'"
+                  v-if="isDesktop && (user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager')"
                   type="button"
                   @click="profileOpen = false; emit('sign-out')"
                   style="color: #f87171;"
@@ -861,32 +872,91 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Staff Sign In Modal -->
+    <!-- Staff / Terminal Sign In Modal (Desktop Only) -->
     <Teleport to="body">
-      <div v-if="staffLoginModalOpen" class="modal-overlay" style="z-index: 1200;">
+      <div v-if="isDesktop && staffLoginModalOpen" class="modal-overlay" style="z-index: 1200;">
         <div class="modal-content" style="max-width: 420px; border-radius: 16px; overflow: hidden; padding: 24px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <h3 style="margin: 0; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
               <Users :size="19" style="color: var(--accent-color);" />
-              Staff Sign In
+              Terminal Sign In
             </h3>
             <button type="button" class="close-btn" @click="staffLoginModalOpen = false"><X :size="18" /></button>
           </div>
+
+          <!-- Role Toggle Buttons -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: rgba(0,0,0,0.18); padding: 4px; border-radius: 10px; margin-bottom: 16px; border: 1px solid var(--border-color);">
+            <button
+              type="button"
+              @click="terminalLoginRole = 'Admin'; staffLoginError = ''"
+              style="padding: 8px 12px; font-size: 13px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s;"
+              :style="terminalLoginRole === 'Admin' ? 'background: var(--accent-color); color: #fff;' : 'background: transparent; color: var(--text-muted);'"
+            >
+              Admin
+            </button>
+            <button
+              type="button"
+              @click="terminalLoginRole = 'Manager'; staffLoginError = ''"
+              style="padding: 8px 12px; font-size: 13px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s;"
+              :style="terminalLoginRole === 'Manager' ? 'background: var(--accent-color); color: #fff;' : 'background: transparent; color: var(--text-muted);'"
+            >
+              Manager
+            </button>
+            <button
+              type="button"
+              @click="terminalLoginRole = 'Cashier'; staffLoginError = ''"
+              style="padding: 8px 12px; font-size: 13px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s;"
+              :style="terminalLoginRole === 'Cashier' ? 'background: var(--accent-color); color: #fff;' : 'background: transparent; color: var(--text-muted);'"
+            >
+              Cashier
+            </button>
+          </div>
+
           <p style="color: var(--text-muted); font-size: 13px; margin: 0 0 16px; line-height: 1.5;">
-            Cashiers and Store Managers log in using their assigned username. No password required.
+            <span v-if="terminalLoginRole === 'Admin'">Administrator access requires username/email and password.</span>
+            <span v-else-if="terminalLoginRole === 'Manager'">Store Managers log in using their username and password.</span>
+            <span v-else>Cashiers log in using their assigned username. No password required.</span>
           </p>
+
           <form @submit.prevent="handleStaffLogin">
-            <div class="input-group full-width" style="margin-bottom: 16px;">
-              <label style="font-weight: 600; font-size: 12px; margin-bottom: 6px; display: block; color: var(--text-primary);">Username *</label>
+            <div class="input-group full-width" style="margin-bottom: 14px;">
+              <label style="font-weight: 600; font-size: 12px; margin-bottom: 6px; display: block; color: var(--text-primary);">
+                {{ terminalLoginRole === 'Admin' ? 'Username or Email *' : 'Username *' }}
+              </label>
               <input
                 type="text"
                 v-model="staffLoginUsername"
-                placeholder="e.g. nalongo"
+                :placeholder="terminalLoginRole === 'Admin' ? 'admin or your email' : (terminalLoginRole === 'Manager' ? 'e.g. manager' : 'e.g. cashier')"
                 required
                 autofocus
                 style="width: 100%; padding: 10px 14px; background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px;"
               />
             </div>
+
+            <!-- Password field for Admin and Manager -->
+            <div v-if="terminalLoginRole !== 'Cashier'" class="input-group full-width" style="margin-bottom: 16px;">
+              <label style="font-weight: 600; font-size: 12px; margin-bottom: 6px; display: block; color: var(--text-primary);">
+                Password {{ terminalLoginRole === 'Admin' ? '*' : '(if assigned)' }}
+              </label>
+              <div style="position: relative; display: flex; align-items: center;">
+                <input
+                  :type="staffLoginShowPassword ? 'text' : 'password'"
+                  v-model="staffLoginPassword"
+                  placeholder="Enter your password"
+                  :required="terminalLoginRole === 'Admin'"
+                  style="width: 100%; padding: 10px 40px 10px 14px; background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px;"
+                />
+                <button
+                  type="button"
+                  @click="staffLoginShowPassword = !staffLoginShowPassword"
+                  style="position: absolute; right: 10px; background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; padding: 4px;"
+                >
+                  <EyeOff v-if="staffLoginShowPassword" :size="16" />
+                  <Eye v-else :size="16" />
+                </button>
+              </div>
+            </div>
+
             <p v-if="staffLoginError" style="color: #ef4444; font-size: 13px; margin: 0 0 14px; padding: 8px 12px; background: rgba(239,68,68,0.1); border-radius: 6px; border: 1px solid rgba(239,68,68,0.25);">
               {{ staffLoginError }}
             </p>

@@ -192,26 +192,50 @@ async function openGuestWorkspace(): Promise<void> {
   }
 }
 
+const PERSISTED_AUTH_USER_KEY = 'cm_retailos_auth_user_v1'
+
 async function openWorkspace(): Promise<void> {
   loading.value = true
   loadError.value = ''
   claimNotice.value = ''
   businessSetupOpen.value = false
+
+  // 1. Check for cached authenticated user so offline reloads stay signed in
+  const cachedUserRaw = typeof localStorage !== 'undefined' ? localStorage.getItem(PERSISTED_AUTH_USER_KEY) : null
+  let cachedUser: User | null = null
+  if (cachedUserRaw) {
+    try {
+      const parsed = JSON.parse(cachedUserRaw) as User
+      if (parsed && parsed.id && parsed.id !== 'guest') {
+        cachedUser = parsed
+        user.value = parsed
+        guestMode.value = false
+        demoMode.value = false
+      }
+    } catch {
+      cachedUser = null
+    }
+  }
+
   try {
     setApiMode('cloud')
     const result = await apiRequest<{ user: User | null }>('/auth/session')
     if (!result.user) {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(PERSISTED_AUTH_USER_KEY)
       await openGuestWorkspace()
       return
     }
     guestMode.value = false
     demoMode.value = false
     user.value = result.user
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(PERSISTED_AUTH_USER_KEY, JSON.stringify(result.user))
+    }
 
-    // Clear out local guest/demo data so the signed-in user receives a completely fresh workspace
+    // Clear out local guest data so the signed-in user receives a completely fresh workspace
     clearGuestDataAfterClaim()
     clearSignedInUserLocalData()
-    await syncOnlinePrefsFromServer(result.user.id)
+    await syncOnlinePrefsFromServer(result.user.id).catch(() => {})
 
     // Clean up any residual OAuth query params
     const params = new URLSearchParams(window.location.search)
@@ -222,6 +246,13 @@ async function openWorkspace(): Promise<void> {
       window.history.replaceState({}, document.title, `${window.location.pathname}${query ? `?${query}` : ''}`)
     }
   } catch (error) {
+    // If offline or network connection is down, KEEP the cached user signed in!
+    if (cachedUser) {
+      user.value = cachedUser
+      guestMode.value = false
+      demoMode.value = false
+      return
+    }
     try {
       await openGuestWorkspace()
     } catch (guestError) {
@@ -240,13 +271,14 @@ async function openWorkspace(): Promise<void> {
 async function signOut(): Promise<void> {
   try {
     setApiMode('cloud')
-    await apiRequest<void>('/auth/logout', { method: 'POST' })
+    await apiRequest<void>('/auth/logout', { method: 'POST' }).catch(() => {})
+  } catch {
+    // ignore
+  } finally {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(PERSISTED_AUTH_USER_KEY)
     clearSignedInUserLocalData()
     claimNotice.value = ''
     await openGuestWorkspace()
-  } catch (error) {
-    user.value = null
-    loadError.value = error instanceof Error ? error.message : 'Sign out could not be completed.'
   }
 }
 
@@ -254,8 +286,11 @@ async function handleStaffLoginSuccess(signedInUser: any): Promise<void> {
   guestMode.value = false
   demoMode.value = false
   user.value = signedInUser
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(PERSISTED_AUTH_USER_KEY, JSON.stringify(signedInUser))
+  }
   clearSignedInUserLocalData()
-  await syncOnlinePrefsFromServer(signedInUser.id)
+  await syncOnlinePrefsFromServer(signedInUser.id).catch(() => {})
 }
 
 onMounted(() => {

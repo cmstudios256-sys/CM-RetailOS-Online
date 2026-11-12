@@ -1348,7 +1348,42 @@ function createDemoAuditLogs(sales: Sale[], demo: Product[]): Array<{ id: string
 }
 
 function seedState(): GuestState {
-  return populateDemoData()
+  const existingPrefs = readExistingPreferences()
+  return {
+    schemaVersion: 10,
+    guestDeviceId: getGuestDeviceId(),
+    idempotencyKey: uuid(),
+    demoData: false,
+    products: [],
+    categories: [],
+    sales: [],
+    stockMovements: [],
+    settings: {
+      shopName: (existingPrefs.shopName as string) || 'My Shop',
+      currency: (existingPrefs.currency as string) || 'UGX',
+      address: '',
+      phone: '',
+      receiptHeader: '',
+      receiptFooter: 'Thank you for shopping with us!',
+      receiptShowPhone: true,
+      preferences: {
+        receiptsSettings: {
+          paperWidth: '80mm',
+          autoPrint: true,
+          showLogo: true,
+          showCashier: true,
+        },
+        applicationSettings: {
+          barcodeBeep: true,
+          showPosImages: true,
+          hideOutOfStock: false,
+        },
+        ...existingPrefs,
+      },
+    },
+    members: [],
+    auditLogs: [],
+  }
 }
 
 function readState(): GuestState {
@@ -1374,29 +1409,12 @@ function readState(): GuestState {
     writeState(initial)
     return initial
   }
-  if (!state.schemaVersion || state.schemaVersion < 10 || state.products.length === 0 || state.sales.length < 50 || state.products.some(p => !p.image)) {
-    const populated = populateDemoData()
-    if (state.settings) {
-      populated.settings = {
-        ...populated.settings,
-        shopName: state.settings.shopName || populated.settings.shopName,
-        currency: state.settings.currency || 'UGX',
-        address: state.settings.address || populated.settings.address,
-        phone: state.settings.phone || populated.settings.phone,
-        receiptHeader: state.settings.receiptHeader || populated.settings.receiptHeader,
-        receiptFooter: state.settings.receiptFooter || 'Thank you for shopping with us!',
-        receiptShowPhone: state.settings.receiptShowPhone ?? true,
-        preferences: {
-          ...(populated.settings.preferences || {}),
-          ...(state.settings.preferences || {}),
-        },
-      }
-    }
-    writeState(populated)
-    return populated
+  if (!state.schemaVersion) {
+    state.schemaVersion = 10
+    writeState(state)
   }
-  if (!state.auditLogs || state.auditLogs.length === 0 || state.auditLogs.every(l => l.action === 'Preferences updated')) {
-    state.auditLogs = createDemoAuditLogs(state.sales, state.products)
+  if (!state.auditLogs) {
+    state.auditLogs = []
     writeState(state)
   }
   return state
