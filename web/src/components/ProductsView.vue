@@ -402,7 +402,8 @@ const filteredProducts = computed(() => {
 
 const productsGridRef = ref<HTMLElement | null>(null)
 const productsGridColumns = ref(3)
-const productsGridRowHeight = computed(() => isPhone.value ? 244 : 268)
+const productsGridRowHeight = computed(() => isPhone.value ? 276 : 296)
+const productsGridCardHeight = computed(() => isPhone.value ? 260 : 278)
 
 function updateProductsGridColumns() {
   if (isPhone.value) {
@@ -1011,7 +1012,7 @@ onUnmounted(() => {
             class="virtual-grid-row products-virtual-row"
             :style="{
               transform: `translateY(${virtualRow.start}px)`,
-              height: `${productsGridRowHeight}px`,
+              height: `${productsGridCardHeight}px`,
               gridTemplateColumns: `repeat(${productsGridColumns}, minmax(0, 1fr))`,
             }"
           >
@@ -1920,8 +1921,8 @@ onUnmounted(() => {
 .product-grid-header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-height: 80px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .product-grid-header-meta {
@@ -1929,7 +1930,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 40px;
+  min-height: 38px;
 }
 
 .product-grid-header-meta .stock-badge {
@@ -1974,8 +1975,9 @@ onUnmounted(() => {
 .product-grid-details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem 0.65rem;
-  margin: 0;
+  gap: 0.45rem 0.65rem;
+  margin: 6px 0;
+  flex-shrink: 0;
 }
 
 .product-grid-details > div {
@@ -2001,6 +2003,7 @@ onUnmounted(() => {
   gap: 6px;
   padding-top: 8px;
   border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .product-grid-actions button {
@@ -4603,25 +4606,32 @@ tbody tr:hover {
 
   .products-grid {
     display: block;
-    padding: 2px 8px 8px 8px !important;
+    padding: 6px 12px 96px 12px !important;
   }
 
   .virtual-grid-row {
-    gap: 8px;
+    gap: 12px;
   }
 
   .product-grid-card {
     min-width: 0;
-    padding: 8px;
-    gap: 6px;
+    padding: 10px;
     height: 100%;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    border: none !important;
-    outline: none !important;
-    box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.28) !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    border-radius: 14px !important;
+    background: #111c2e !important;
+    box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.38) !important;
+    overflow: hidden;
+  }
+
+  [data-theme='light'] .product-grid-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08) !important;
   }
 
   .stock-badge,
@@ -4633,9 +4643,11 @@ tbody tr:hover {
   }
 
   .product-grid-header {
-    gap: 5px;
-    min-height: 74px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     align-items: stretch;
+    flex-shrink: 0;
   }
 
   .product-grid-header-meta {
@@ -4690,6 +4702,8 @@ tbody tr:hover {
 
   .product-grid-details {
     gap: 4px 6px;
+    margin: 6px 0;
+    flex-shrink: 0;
   }
 
   .product-grid-details dt {
@@ -4713,10 +4727,11 @@ tbody tr:hover {
     gap: 4px;
     padding-top: 6px;
     border-top: none !important;
+    flex-shrink: 0;
   }
 
   .product-grid-actions button {
-    min-height: 34px;
+    min-height: 32px;
     padding: 0 4px;
     font-size: 11px;
     gap: 2px;
@@ -4726,6 +4741,7 @@ tbody tr:hover {
 
   .product-grid-actions button.delete {
     grid-column: 1 / -1;
+    min-height: 28px;
   }
 
   .product-modal-backdrop {
