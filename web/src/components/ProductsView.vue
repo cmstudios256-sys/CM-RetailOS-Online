@@ -68,6 +68,10 @@ const viewMode = ref<'grid' | 'list'>(
 )
 
 function setViewMode(mode: 'grid' | 'list') {
+  if (isMobileOrTablet.value) {
+    viewMode.value = 'grid'
+    return
+  }
   viewMode.value = mode
   savedProductsViewMode = mode
   try {
@@ -917,7 +921,7 @@ onUnmounted(() => {
         </div>
 
         <div class="header-controls">
-          <div class="view-switcher" role="group" aria-label="Product view switcher">
+          <div v-if="!isMobileOrTablet" class="view-switcher" role="group" aria-label="Product view switcher">
             <button
               type="button"
               :class="{ active: viewMode === 'grid' }"
@@ -1837,6 +1841,12 @@ onUnmounted(() => {
   background-color: #ffffff;
   color: #0f172a;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 1080px) {
+  .view-switcher {
+    display: none !important;
+  }
 }
 
 .product-grid-thumb {
