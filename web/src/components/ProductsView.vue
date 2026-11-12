@@ -406,8 +406,8 @@ const filteredProducts = computed(() => {
 
 const productsGridRef = ref<HTMLElement | null>(null)
 const productsGridColumns = ref(3)
-const productsGridRowHeight = computed(() => isPhone.value ? 306 : 264)
-const productsGridCardHeight = computed(() => isPhone.value ? 290 : 248)
+const productsGridRowHeight = computed(() => isPhone.value ? 270 : 264)
+const productsGridCardHeight = computed(() => isPhone.value ? 256 : 248)
 
 function updateProductsGridColumns() {
   if (isPhone.value) {
@@ -4646,7 +4646,8 @@ tbody tr:hover {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 4px;
     border: 1px solid rgba(148, 163, 184, 0.2) !important;
     border-radius: 14px !important;
     background: #111c2e !important;
@@ -4733,7 +4734,7 @@ tbody tr:hover {
 
   .product-grid-details {
     gap: 4px 6px;
-    margin: 6px 0;
+    margin: 2px 0;
     flex-shrink: 0;
   }
 
@@ -4756,7 +4757,8 @@ tbody tr:hover {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 6px;
-    padding-top: 6px;
+    margin-top: auto;
+    padding-top: 4px;
     border-top: none !important;
     flex-shrink: 0;
   }
