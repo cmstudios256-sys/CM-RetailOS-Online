@@ -1140,9 +1140,9 @@ onUnmounted(() => {
             <input ref="cameraInputRef" type="file" accept="image/*" capture="environment" style="display: none" @change="handleImageUpload" />
 
             <div class="product-photo-center-section">
-              <div class="photo-preview-card">
+              <div class="photo-preview-card" @click="triggerGalleryUpload">
                 <img v-if="form.image" :src="form.image" alt="Product Image" class="uploaded-preview" />
-                <div v-else class="photo-placeholder" @click="triggerGalleryUpload">
+                <div v-else class="photo-placeholder">
                   <ImagePlus :size="38" color="var(--text-muted)" stroke-width="1.5" />
                 </div>
                 <button
@@ -1155,12 +1155,12 @@ onUnmounted(() => {
                 >
                   <Trash2 :size="14" />
                 </button>
-                <div class="photo-change-bar" @click="triggerGalleryUpload">
+                <div class="photo-change-bar">
                   <Camera :size="14" />
-                  <span>Change</span>
+                  <span>{{ isMobileOrTablet && !form.image ? 'Add Photo' : 'Change' }}</span>
                 </div>
               </div>
-              <div class="photo-action-pills">
+              <div v-if="!isMobileOrTablet" class="photo-action-pills">
                 <button type="button" class="photo-pill-btn take-photo-pill" @click="triggerCameraCapture">
                   <Camera :size="15" />
                   <span>Take Photo</span>
@@ -3866,6 +3866,7 @@ tbody tr:hover {
   justify-content: center;
   margin-bottom: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
 }
 
 .photo-preview-card .uploaded-preview {
@@ -3935,6 +3936,12 @@ tbody tr:hover {
   gap: 10px;
   align-items: center;
   margin-bottom: 6px;
+}
+
+@media (max-width: 1080px) {
+  .photo-action-pills {
+    display: none !important;
+  }
 }
 
 .photo-pill-btn {
