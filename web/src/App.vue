@@ -200,7 +200,7 @@ async function openWorkspace(): Promise<void> {
   claimNotice.value = ''
   businessSetupOpen.value = false
 
-  // 1. Check for cached authenticated user so offline reloads stay signed in
+  // 1. Check for cached authenticated user so offline/warm reloads render immediately
   const cachedUserRaw = typeof localStorage !== 'undefined' ? localStorage.getItem(PERSISTED_AUTH_USER_KEY) : null
   let cachedUser: User | null = null
   if (cachedUserRaw) {
@@ -211,10 +211,28 @@ async function openWorkspace(): Promise<void> {
         user.value = parsed
         guestMode.value = false
         demoMode.value = false
+        loading.value = false
       }
     } catch {
       cachedUser = null
     }
+  }
+
+  // Fast-path when offline: skip network wait entirely
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (cachedUser) {
+      loading.value = false
+      return
+    }
+    try {
+      await openGuestWorkspace()
+    } catch (guestError) {
+      user.value = null
+      loadError.value = guestError instanceof Error ? guestError.message : 'Guest data could not be opened in this browser.'
+    } finally {
+      loading.value = false
+    }
+    return
   }
 
   try {

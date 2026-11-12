@@ -11,12 +11,42 @@ import { apiRequest, applyOnlinePrefsToDom, formatDate, formatTime, readStaffPer
 import { clearChartTooltips } from '../utils/chartTooltip'
 import AsyncViewLoading from './AsyncViewLoading.vue'
 import DashboardView from './DashboardView.vue'
-import PointOfSaleView from './PointOfSaleView.vue'
-import ProductsView from './ProductsView.vue'
-import ReceiptsView from './ReceiptsView.vue'
-import SalesView from './SalesView.vue'
-import StockLevelsView from './StockLevelsView.vue'
-import SettingsView from './SettingsView.vue'
+
+const PointOfSaleView = defineAsyncComponent({
+  loader: () => import('./PointOfSaleView.vue'),
+  loadingComponent: AsyncViewLoading,
+  delay: 150,
+})
+
+const ProductsView = defineAsyncComponent({
+  loader: () => import('./ProductsView.vue'),
+  loadingComponent: AsyncViewLoading,
+  delay: 150,
+})
+
+const ReceiptsView = defineAsyncComponent({
+  loader: () => import('./ReceiptsView.vue'),
+  loadingComponent: AsyncViewLoading,
+  delay: 150,
+})
+
+const SalesView = defineAsyncComponent({
+  loader: () => import('./SalesView.vue'),
+  loadingComponent: AsyncViewLoading,
+  delay: 150,
+})
+
+const StockLevelsView = defineAsyncComponent({
+  loader: () => import('./StockLevelsView.vue'),
+  loadingComponent: AsyncViewLoading,
+  delay: 150,
+})
+
+const SettingsView = defineAsyncComponent({
+  loader: () => import('./SettingsView.vue'),
+  loadingComponent: AsyncViewLoading,
+  delay: 150,
+})
 
 const ProfitAnalyticsView = defineAsyncComponent({
   loader: () => import('./ProfitAnalyticsView.vue'),
@@ -412,6 +442,19 @@ function handleAppInstalled() {
 
 onMounted(() => {
   checkStandalone()
+  // Prefetch the most-used secondary tabs during browser idle time so switching is instant
+  const prefetchTabs = () => {
+    void import('./PointOfSaleView.vue')
+    void import('./ProductsView.vue')
+  }
+  if (typeof window !== 'undefined') {
+    const win = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }
+    if (typeof win.requestIdleCallback === 'function') {
+      win.requestIdleCallback(prefetchTabs, { timeout: 2000 })
+    } else {
+      window.setTimeout(prefetchTabs, 1200)
+    }
+  }
   if (typeof window !== 'undefined' && window.matchMedia) {
     displayModeQuery = window.matchMedia('(display-mode: standalone)')
     displayModeQuery.addEventListener('change', handleDisplayModeChange)

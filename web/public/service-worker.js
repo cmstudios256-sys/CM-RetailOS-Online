@@ -1,4 +1,5 @@
 const CACHE_NAME = 'cm-retailos-shell-v19'
+const PRECACHE_ASSETS = []
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -21,9 +22,10 @@ self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME)
     
-    // Cache static shell entries
+    // Cache static shell + build assets
+    const initialUrls = new Set([...APP_SHELL, ...PRECACHE_ASSETS])
     await Promise.allSettled(
-      APP_SHELL.map(async url => {
+      [...initialUrls].map(async url => {
         try {
           const res = await fetch(url, { cache: 'reload' })
           if (res.ok) await cache.put(url, res)
@@ -33,17 +35,19 @@ self.addEventListener('install', event => {
       })
     )
 
-    // Precache assets referenced in root index.html
+    // Precache any additional assets referenced in root index.html
     try {
       const response = await fetch('/', { cache: 'reload' })
       if (response.ok) {
         const html = await response.clone().text()
-        await cache.put('/', response)
+        await cache.put('/', response.clone())
+        await cache.put('/index.html', response)
         const assets = [...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css)(?:\?[^"]*)?)"/g)]
           .map(match => new URL(match[1], self.location.origin))
           .filter(url => url.origin === self.location.origin)
           .map(url => url.pathname + url.search)
-        
+          .filter(assetUrl => !initialUrls.has(assetUrl))
+
         await Promise.allSettled(
           assets.map(async assetUrl => {
             const assetRes = await fetch(assetUrl)
@@ -91,10 +95,14 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // Navigation mode: Network-first when online (guarantees fresh deployed HTML/JS hashes), falls back to cached shell when offline
+  // Navigation mode: Cache-first for instant PWA startup, while SW update checks handle fresh deployments
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME)
+      const cached = (await cache.match('/')) || (await cache.match('/index.html'))
+      if (cached) {
+        return cached
+      }
       try {
         const networkResponse = await fetch(request)
         if (networkResponse && networkResponse.ok && isCacheSafeResponse(networkResponse)) {
@@ -103,7 +111,7 @@ self.addEventListener('fetch', event => {
         }
         return networkResponse
       } catch {
-        return (await cache.match(request)) || (await cache.match('/')) || (await cache.match('/index.html')) || Response.error()
+        return (await cache.match(request)) || Response.error()
       }
     })())
     return
