@@ -402,7 +402,7 @@ const filteredProducts = computed(() => {
 
 const productsGridRef = ref<HTMLElement | null>(null)
 const productsGridColumns = ref(3)
-const productsGridRowHeight = computed(() => isPhone.value ? 240 : 264)
+const productsGridRowHeight = computed(() => isPhone.value ? 244 : 268)
 
 function updateProductsGridColumns() {
   if (isPhone.value) {
@@ -1011,7 +1011,7 @@ onUnmounted(() => {
             class="virtual-grid-row products-virtual-row"
             :style="{
               transform: `translateY(${virtualRow.start}px)`,
-              height: isPhone ? '226px' : '248px',
+              height: `${productsGridRowHeight}px`,
               gridTemplateColumns: `repeat(${productsGridColumns}, minmax(0, 1fr))`,
             }"
           >
@@ -1021,16 +1021,18 @@ onUnmounted(() => {
               class="product-grid-card"
             >
               <div class="product-grid-header">
-                <div v-if="product.image" class="product-grid-thumb">
-                  <img :src="product.image" :alt="product.name" loading="lazy" />
+                <div class="product-grid-header-meta">
+                  <div v-if="product.image" class="product-grid-thumb">
+                    <img :src="product.image" :alt="product.name" loading="lazy" />
+                  </div>
+                  <span class="stock-badge" :class="getStockStatusClass(product)">
+                    {{ getStockStatusText(product) }}
+                  </span>
                 </div>
                 <div class="product-grid-name">
-                  <h3>{{ product.name }}</h3>
-                  <span>{{ product.category || 'General' }}</span>
+                  <h3 :title="product.name">{{ product.name }}</h3>
+                  <span :title="product.category || 'General'">{{ product.category || 'General' }}</span>
                 </div>
-                <span class="stock-badge" :class="getStockStatusClass(product)">
-                  {{ getStockStatusText(product) }}
-                </span>
               </div>
               <dl class="product-grid-details">
                 <div><dt>Selling price</dt><dd>{{ formatMoney(product.sellingPrice, currency) }}</dd></div>
@@ -1917,46 +1919,56 @@ onUnmounted(() => {
 
 .product-grid-header {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 80px;
+}
+
+.product-grid-header-meta {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  width: 100%;
   min-height: 40px;
 }
 
+.product-grid-header-meta .stock-badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
 .product-grid-name {
-  flex: 1;
+  width: 100%;
   min-width: 0;
 }
 
 .product-grid-name h3 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 650;
-  line-height: 1.25;
+  line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 .product-grid-name > span {
   display: block;
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
   color: var(--text-muted);
   font-size: 0.75rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.product-grid-header .stock-badge {
-  flex-shrink: 0;
-  white-space: nowrap;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 6px;
 }
 
 .product-grid-details {
@@ -4621,24 +4633,49 @@ tbody tr:hover {
   }
 
   .product-grid-header {
-    gap: 4px;
-    min-height: 48px;
-    align-items: flex-start;
+    gap: 5px;
+    min-height: 74px;
+    align-items: stretch;
+  }
+
+  .product-grid-header-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 36px;
+  }
+
+  .product-grid-header-meta .stock-badge {
+    margin-left: auto;
+    font-size: 10.5px;
+    padding: 2.5px 7px;
+  }
+
+  .product-grid-thumb {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 6px;
   }
 
   .product-grid-name {
-    flex: 1;
+    width: 100%;
     min-width: 0;
   }
 
   .product-grid-name h3 {
-    font-size: 13px;
+    font-size: 12.5px;
     line-height: 1.25;
-    height: 33px;
+    min-height: 31px;
+    max-height: 34px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: none;
   }
 
   .product-grid-name > span {
