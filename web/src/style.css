@@ -1690,6 +1690,12 @@ input[type=number] {
 [data-theme='light'] .staff-signin-topbar-btn:hover {
   background: rgba(14, 165, 233, 0.2) !important;
 }
+@media (max-width: 1080px) {
+  .staff-signin-topbar-btn,
+  .exit-admin-btn {
+    display: none !important;
+  }
+}
 .claim-notice {
   margin: 12px clamp(12px, 3vw, 36px) 0;
   padding: 10px 14px;
@@ -2246,8 +2252,10 @@ input[type=number] {
   .topbar-actions .connection-chip,
   .topbar-actions .demo-badge,
   .topbar-actions .connect-google-button,
-  .topbar-actions .workspace-clock {
-    display: none;
+  .topbar-actions .workspace-clock,
+  .topbar-actions .staff-signin-topbar-btn,
+  .topbar-actions .exit-admin-btn {
+    display: none !important;
   }
 
   .topbar-icon,
@@ -2946,8 +2954,10 @@ input[type=number] {
   .workspace-topbar .connection-chip,
   .workspace-topbar .demo-badge,
   .workspace-topbar .connect-google-button,
-  .workspace-topbar .workspace-clock {
-    display: none;
+  .workspace-topbar .workspace-clock,
+  .workspace-topbar .staff-signin-topbar-btn,
+  .workspace-topbar .exit-admin-btn {
+    display: none !important;
   }
 
   .workspace-topbar .topbar-actions {

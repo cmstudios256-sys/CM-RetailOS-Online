@@ -402,8 +402,8 @@ const filteredProducts = computed(() => {
 
 const productsGridRef = ref<HTMLElement | null>(null)
 const productsGridColumns = ref(3)
-const productsGridRowHeight = computed(() => isPhone.value ? 306 : 296)
-const productsGridCardHeight = computed(() => isPhone.value ? 290 : 278)
+const productsGridRowHeight = computed(() => isPhone.value ? 306 : 264)
+const productsGridCardHeight = computed(() => isPhone.value ? 290 : 248)
 
 function updateProductsGridColumns() {
   if (isPhone.value) {
@@ -1920,39 +1920,37 @@ onUnmounted(() => {
 
 .product-grid-header {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-  flex-shrink: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 40px;
 }
 
 .product-grid-header-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  min-height: 38px;
+  display: contents;
 }
 
-.product-grid-header-meta .stock-badge {
-  margin-left: auto;
-  flex-shrink: 0;
-  white-space: nowrap;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 6px;
+.product-grid-thumb {
+  order: 1;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .product-grid-name {
-  width: 100%;
+  order: 2;
+  flex: 1;
   min-width: 0;
 }
 
 .product-grid-name h3 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 650;
-  line-height: 1.3;
+  line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1960,6 +1958,17 @@ onUnmounted(() => {
   word-break: normal;
   overflow-wrap: break-word;
   hyphens: none;
+}
+
+.product-grid-header .stock-badge,
+.product-grid-header-meta .stock-badge {
+  order: 3;
+  margin-left: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 
 .product-grid-name > span {
@@ -4643,25 +4652,28 @@ tbody tr:hover {
   }
 
   .product-grid-header {
-    display: flex;
-    flex-direction: column;
+    display: flex !important;
+    flex-direction: column !important;
     gap: 4px;
     align-items: stretch;
     flex-shrink: 0;
+    min-height: auto;
   }
 
   .product-grid-header-meta {
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: space-between;
     width: 100%;
     min-height: 36px;
+    order: 1;
   }
 
   .product-grid-header-meta .stock-badge {
     margin-left: auto;
     font-size: 10.5px;
     padding: 2.5px 7px;
+    order: 2;
   }
 
   .product-grid-thumb {
@@ -4669,11 +4681,13 @@ tbody tr:hover {
     height: 36px;
     min-width: 36px;
     border-radius: 6px;
+    order: 1;
   }
 
   .product-grid-name {
     width: 100%;
     min-width: 0;
+    order: 2;
   }
 
   .product-grid-name h3 {

@@ -66,6 +66,7 @@ watch(() => props.user.role, (newRole) => {
 const { isDesktop } = useDesktopBreakpoint()
 const { isPhone } = usePhoneBreakpoint()
 const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
+const isDesktopOnly = computed(() => isDesktop.value && !isMobileOrTablet.value && !isPhone.value)
 const isGuest = computed(() => props.guestMode === true)
 const sidebarCollapsed = ref(false)
 const mobileMoreOpen = ref(false)
@@ -577,7 +578,7 @@ onUnmounted(() => {
             <span>Sign in with Google</span>
           </button>
           <button
-            v-if="isDesktop"
+            v-if="isDesktopOnly"
             type="button"
             class="staff-signin-topbar-btn"
             @click="staffLoginModalOpen = true; staffLoginError = ''"
@@ -587,7 +588,7 @@ onUnmounted(() => {
             <span>{{ user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager' ? 'Switch Staff' : 'Staff Sign In' }}</span>
           </button>
           <button
-            v-if="isDesktop && (user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager')"
+            v-if="isDesktopOnly && (user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager')"
             type="button"
             class="staff-signin-topbar-btn exit-admin-btn"
             title="Exit terminal and return to Admin workspace"
@@ -658,12 +659,12 @@ onUnmounted(() => {
               <div class="popover-role"><ShieldCheck :size="14" /><span>{{ isGuest ? 'Local guest' : displayRole }}</span><i></i><small>{{ isGuest ? (demoMode ? 'Demo data' : 'Local device') : 'Connected' }}</small></div>
               <div class="popover-menu">
                 <button v-if="hasNavPermission('settings')" type="button" @click="activePage = 'settings'; profileOpen = false"><SettingsIcon :size="15" />Settings</button>
-                <button v-if="isDesktop" type="button" @click="profileOpen = false; staffLoginModalOpen = true; staffLoginError = ''">
+                <button v-if="isDesktopOnly" type="button" @click="profileOpen = false; staffLoginModalOpen = true; staffLoginError = ''">
                   <Users :size="15" />
                   <span>{{ user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager' ? 'Switch Staff Account' : 'Staff Sign In' }}</span>
                 </button>
                 <button
-                  v-if="isDesktop && (user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager')"
+                  v-if="isDesktopOnly && (user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager')"
                   type="button"
                   @click="profileOpen = false; emit('sign-out')"
                   style="color: #f87171;"
@@ -874,7 +875,7 @@ onUnmounted(() => {
 
     <!-- Staff / Terminal Sign In Modal (Desktop Only) -->
     <Teleport to="body">
-      <div v-if="isDesktop && staffLoginModalOpen" class="modal-overlay" style="z-index: 1200;">
+      <div v-if="isDesktopOnly && staffLoginModalOpen" class="modal-overlay" style="z-index: 1200;">
         <div class="modal-content" style="max-width: 420px; border-radius: 16px; overflow: hidden; padding: 24px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
             <h3 style="margin: 0; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px;">

@@ -48,7 +48,8 @@ type GuestState = GuestBundle & {
 }
 
 const DEVICE_KEY = 'cm_retailos_guest_device_v1'
-const STORE_KEY = 'cm_retailos_guest_data_v1'
+const STORE_KEY = 'cm_retailos_guest_data_v2'
+const OLD_STORE_KEY = 'cm_retailos_guest_data_v1'
 const LOCAL_PREFS_KEY = 'cm_retailos_online_settings_prefs_v1'
 
 function readExistingPreferences(): Record<string, unknown> {
@@ -1261,53 +1262,9 @@ export function createDemoSales(products: Product[]): Sale[] {
 }
 
 export function populateDemoData(): GuestState {
-  const demo = createDemoProducts()
-  const sales = createDemoSales(demo)
-  const existing = (() => {
-    try {
-      const raw = localStorage.getItem(STORE_KEY)
-      return raw ? JSON.parse(raw) as GuestState : null
-    } catch {
-      return null
-    }
-  })()
-
-  const populated: GuestState = {
-    schemaVersion: 10,
-    guestDeviceId: getGuestDeviceId(),
-    idempotencyKey: uuid(),
-    demoData: true,
-    products: demo,
-    categories: Array.from(new Set(demo.map(p => p.category))).sort(),
-    sales,
-    stockMovements: demo.map(p => ({
-      id: uuid(),
-      productId: p.id,
-      quantityDelta: p.quantity,
-      reason: 'Demo opening stock',
-      createdAt: new Date().toISOString(),
-    })),
-    settings: {
-      shopName: existing?.settings?.shopName || 'Demo Shop',
-      currency: existing?.settings?.currency || 'UGX',
-      address: existing?.settings?.address || 'Kampala, Uganda',
-      phone: existing?.settings?.phone || '+256 700 000 000',
-      receiptHeader: existing?.settings?.receiptHeader || 'Welcome to our store!',
-      receiptFooter: existing?.settings?.receiptFooter || 'Thank you for shopping with us!',
-      receiptShowPhone: existing?.settings?.receiptShowPhone ?? true,
-      preferences: {
-        ...readExistingPreferences(),
-        ...(existing?.settings?.preferences || {}),
-      },
-    },
-    members: existing?.members || [],
-    auditLogs: (existing?.auditLogs && existing.auditLogs.some(l => l.action !== 'Preferences updated'))
-      ? existing.auditLogs
-      : createDemoAuditLogs(sales, demo),
-  }
-
-  writeState(populated)
-  return populated
+  const empty = seedState()
+  writeState(empty)
+  return empty
 }
 
 function createDemoAuditLogs(sales: Sale[], demo: Product[]): Array<{ id: string; user: string; action: string; details: string; level: string; timestamp: string }> {
@@ -1387,7 +1344,12 @@ function seedState(): GuestState {
 }
 
 function readState(): GuestState {
-  const raw = localStorage.getItem(STORE_KEY)
+  if (typeof localStorage !== 'undefined') {
+    if (localStorage.getItem(OLD_STORE_KEY)) {
+      localStorage.removeItem(OLD_STORE_KEY)
+    }
+  }
+  const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORE_KEY) : null
   if (!raw) {
     const initial = seedState()
     writeState(initial)
@@ -1408,6 +1370,12 @@ function readState(): GuestState {
     const initial = seedState()
     writeState(initial)
     return initial
+  }
+  // Automatically purge legacy demo data so users always find an empty workspace
+  if (state.demoData || (state.settings && state.settings.shopName === 'Demo Shop') || state.products.some(p => p.sku && (p.sku.startsWith('FTW-') || p.sku.startsWith('ELC-') || p.sku.startsWith('ACC-') || p.sku.startsWith('SNK-') || p.sku.startsWith('BEV-') || p.sku.startsWith('GRC-') || p.sku.startsWith('HSH-') || p.sku.startsWith('BTY-')))) {
+    const fresh = seedState()
+    writeState(fresh)
+    return fresh
   }
   if (!state.schemaVersion) {
     state.schemaVersion = 10
@@ -1651,10 +1619,10 @@ export async function guestApiRequest<T>(path: string, options: { method?: strin
 
   if (url.pathname.endsWith('/public/workspace')) {
     return {
-      shopName: state.demoData ? 'Demo Shop' : (state.settings.shopName || 'My Shop'),
+      shopName: state.settings.shopName && state.settings.shopName !== 'Demo Shop' ? state.settings.shopName : 'My Shop',
       currency: state.settings.currency || 'UGX',
       ownerName: (state.settings.preferences?.ownerName as string) || 'Shop Owner',
-      demo: state.demoData,
+      demo: false,
     } as T
   }
   if (url.pathname.endsWith('/demo/populate')) {

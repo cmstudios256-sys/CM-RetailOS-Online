@@ -11,19 +11,40 @@ app.directive('draggable', draggable)
 app.mount('#app')
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/service-worker.js').then(registration => {
-      void registration.update()
-    }).catch(error => {
-      console.error('CM RetailOS offline support could not be enabled.', error)
-    })
-  })
-
+  const hadController = Boolean(navigator.serviceWorker.controller)
   let refreshing = false
+
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
+    if (hadController && !refreshing) {
       refreshing = true
       window.location.reload()
     }
+  })
+
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' }).then(registration => {
+      const checkForUpdate = () => {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return
+        void registration.update().catch(() => {})
+      }
+
+      checkForUpdate()
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          checkForUpdate()
+        }
+      })
+
+      window.addEventListener('focus', checkForUpdate)
+      window.addEventListener('online', checkForUpdate)
+      window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          checkForUpdate()
+        }
+      }, 60_000)
+    }).catch(error => {
+      console.error('CM RetailOS offline support could not be enabled.', error)
+    })
   })
 }

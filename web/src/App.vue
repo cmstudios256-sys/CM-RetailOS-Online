@@ -180,15 +180,15 @@ async function openGuestWorkspace(): Promise<void> {
   const workspace = await apiRequest<{ shopName: string; currency: string; ownerName?: string; demo: boolean }>('/public/workspace')
   businessSetupOpen.value = false
   guestMode.value = true
-  demoMode.value = workspace.demo
+  demoMode.value = false
   user.value = {
     id: 'guest',
     shopId: 'guest-device',
     fullName: workspace.ownerName || 'Shop Owner',
     email: '',
     role: 'owner',
-    shopName: workspace.shopName,
-    currency: workspace.currency,
+    shopName: workspace.shopName && workspace.shopName !== 'Demo Shop' ? workspace.shopName : 'My Shop',
+    currency: workspace.currency || 'UGX',
   }
 }
 
