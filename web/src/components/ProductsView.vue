@@ -402,8 +402,8 @@ const filteredProducts = computed(() => {
 
 const productsGridRef = ref<HTMLElement | null>(null)
 const productsGridColumns = ref(3)
-const productsGridRowHeight = computed(() => isPhone.value ? 276 : 296)
-const productsGridCardHeight = computed(() => isPhone.value ? 260 : 278)
+const productsGridRowHeight = computed(() => isPhone.value ? 306 : 296)
+const productsGridCardHeight = computed(() => isPhone.value ? 290 : 278)
 
 function updateProductsGridColumns() {
   if (isPhone.value) {
@@ -4724,24 +4724,29 @@ tbody tr:hover {
   .product-grid-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px;
+    gap: 6px;
     padding-top: 6px;
     border-top: none !important;
     flex-shrink: 0;
   }
 
   .product-grid-actions button {
-    min-height: 32px;
+    min-height: 30px;
     padding: 0 4px;
-    font-size: 11px;
-    gap: 2px;
-    border: none !important;
-    outline: none !important;
+    font-size: 11.5px;
+    font-weight: 550;
+    gap: 3px;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
   }
 
   .product-grid-actions button.delete {
     grid-column: 1 / -1;
     min-height: 28px;
+    color: #f87171 !important;
+    border-color: rgba(239, 68, 68, 0.25) !important;
+    background: rgba(239, 68, 68, 0.06) !important;
   }
 
   .product-modal-backdrop {
