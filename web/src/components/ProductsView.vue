@@ -3134,7 +3134,7 @@ tbody tr:hover {
 /* Camera Barcode Scanner Modal */
 .barcode-camera-backdrop {
   position: fixed;
-  z-index: 200;
+  z-index: 60000;
   inset: 0;
   display: grid;
   place-items: center;
@@ -4514,7 +4514,7 @@ tbody tr:hover {
 .photo-picker-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 60000;
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
