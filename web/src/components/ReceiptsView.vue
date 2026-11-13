@@ -211,7 +211,10 @@ function printSingleReceipt(sale: Sale) {
     return
   }
   const showLogo = prefs.receiptsSettings?.showLogo !== false
+  const showPhone = (prefs.receiptsSettings?.showPhone ?? settings.value?.receiptShowPhone) !== false
   const showCashier = prefs.receiptsSettings?.showCashier !== false
+  const headerText = prefs.receiptsSettings?.headerText ?? settings.value?.receiptHeader ?? ''
+  const footerText = prefs.receiptsSettings?.footerText || settings.value?.receiptFooter || 'Thank you for shopping with us!'
   const receiptMaxWidth = prefs.receiptsSettings?.paperWidth === '58mm' ? '220px' : '300px'
   const logoHtml = showLogo && prefs.logo
     ? `<div style="display:flex;justify-content:center;margin-bottom:8px;"><img src="${escapeHtml(prefs.logo)}" style="width:48px;height:48px;object-fit:contain;filter:brightness(0);" /></div>`
@@ -238,8 +241,8 @@ function printSingleReceipt(sale: Sale) {
         ${logoHtml}
         <div style="font-size:16px;font-weight:700;text-transform:uppercase;">${escapeHtml(storeTitle)}</div>
         ${settings.value?.address ? `<div>${escapeHtml(settings.value.address)}</div>` : ''}
-        ${settings.value?.receiptShowPhone && settings.value?.phone ? `<div>Tel: ${escapeHtml(settings.value.phone)}</div>` : ''}
-        ${settings.value?.receiptHeader ? `<div style="margin-top:4px;font-style:italic;">${escapeHtml(settings.value.receiptHeader)}</div>` : ''}
+        ${showPhone && settings.value?.phone ? `<div>Tel: ${escapeHtml(settings.value.phone)}</div>` : ''}
+        ${headerText ? `<div style="margin-top:4px;font-style:italic;">${escapeHtml(headerText)}</div>` : ''}
       </div>
       <div style="text-align:center;">--------------------------------</div>
       <div style="margin:6px 0;">
@@ -260,7 +263,7 @@ function printSingleReceipt(sale: Sale) {
       </div>
       <div style="text-align:center;">--------------------------------</div>
       <div style="text-align:center;margin-top:8px;">
-        <div>${escapeHtml(settings.value?.receiptFooter || 'Thank you for shopping with us!')}</div>
+        <div>${escapeHtml(footerText)}</div>
         <div style="font-size:10px;color:#555;margin-top:6px;">Powered by CM-RetailOS</div>
       </div>
     </div>`,
@@ -547,8 +550,8 @@ onUnmounted(() => {
               </div>
               <h2 class="store-name">{{ settings?.shopName || shopName }}</h2>
               <p v-if="settings?.address" class="store-info">{{ settings.address }}</p>
-              <p v-if="settings?.receiptShowPhone && settings?.phone" class="store-info">Tel: {{ settings.phone }}</p>
-              <p v-if="settings?.receiptHeader" class="custom-header">{{ settings.receiptHeader }}</p>
+              <p v-if="(onlinePrefs.receiptsSettings?.showPhone ?? settings?.receiptShowPhone) !== false && settings?.phone" class="store-info">Tel: {{ settings.phone }}</p>
+              <p v-if="onlinePrefs.receiptsSettings?.headerText ?? settings?.receiptHeader" class="custom-header">{{ onlinePrefs.receiptsSettings?.headerText ?? settings?.receiptHeader }}</p>
               <div class="dashed-divider">--------------------------------</div>
               <div class="receipt-meta">
                 <p><span>Receipt:</span> <span>#{{ receiptNumber(selectedReceipt) }}</span></p>
@@ -595,7 +598,7 @@ onUnmounted(() => {
             <div class="dashed-divider">--------------------------------</div>
 
             <div class="receipt-footer">
-              <p>{{ settings?.receiptFooter || 'Thank you for shopping with us!' }}</p>
+              <p>{{ onlinePrefs.receiptsSettings?.footerText || settings?.receiptFooter || 'Thank you for shopping with us!' }}</p>
               <p class="software-tag">Powered by CM-RetailOS</p>
             </div>
 

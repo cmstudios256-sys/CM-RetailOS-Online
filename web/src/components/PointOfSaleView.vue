@@ -574,7 +574,10 @@ function printCompletedReceipt(sale: Sale) {
   }
 
   const showLogo = prefs.receiptsSettings?.showLogo !== false
+  const showPhone = (prefs.receiptsSettings?.showPhone ?? settings?.receiptShowPhone) !== false
   const showCashier = prefs.receiptsSettings?.showCashier !== false
+  const headerText = prefs.receiptsSettings?.headerText ?? settings?.receiptHeader ?? ''
+  const footerText = prefs.receiptsSettings?.footerText || settings?.receiptFooter || 'Thank you for shopping with us!'
   const receiptMaxWidth = prefs.receiptsSettings?.paperWidth === '58mm' ? '220px' : '300px'
   const logoHtml = showLogo && prefs.logo
     ? `<div style="display:flex;justify-content:center;margin-bottom:8px;"><img src="${escapeHtml(prefs.logo)}" style="width:48px;height:48px;object-fit:contain;filter:brightness(0);" /></div>`
@@ -601,8 +604,8 @@ function printCompletedReceipt(sale: Sale) {
         ${logoHtml}
         <div style="font-size:16px;font-weight:700;text-transform:uppercase;">${escapeHtml(storeTitle)}</div>
         ${settings?.address ? `<div>${escapeHtml(settings.address)}</div>` : ''}
-        ${settings?.receiptShowPhone && settings?.phone ? `<div>Tel: ${escapeHtml(settings.phone)}</div>` : ''}
-        ${settings?.receiptHeader ? `<div style="margin-top:4px;font-style:italic;">${escapeHtml(settings.receiptHeader)}</div>` : ''}
+        ${showPhone && settings?.phone ? `<div>Tel: ${escapeHtml(settings.phone)}</div>` : ''}
+        ${headerText ? `<div style="margin-top:4px;font-style:italic;">${escapeHtml(headerText)}</div>` : ''}
       </div>
       <div style="text-align:center;">--------------------------------</div>
       <div style="margin:6px 0;">
@@ -623,7 +626,7 @@ function printCompletedReceipt(sale: Sale) {
       </div>
       <div style="text-align:center;">--------------------------------</div>
       <div style="text-align:center;margin-top:8px;">
-        <div>${escapeHtml(settings?.receiptFooter || 'Thank you for shopping with us!')}</div>
+        <div>${escapeHtml(footerText)}</div>
         <div style="font-size:10px;color:#555;margin-top:6px;">Powered by CM-RetailOS</div>
       </div>
     </div>`,
