@@ -405,9 +405,9 @@ const filteredProducts = computed(() => {
 })
 
 const productsGridRef = ref<HTMLElement | null>(null)
-const productsGridColumns = ref(3)
-const productsGridRowHeight = computed(() => isPhone.value ? 270 : 264)
-const productsGridCardHeight = computed(() => isPhone.value ? 256 : 248)
+const productsGridColumns = ref(4)
+const productsGridRowHeight = computed(() => isPhone.value ? 270 : (isMobileOrTablet.value ? 264 : 238))
+const productsGridCardHeight = computed(() => isPhone.value ? 256 : (isMobileOrTablet.value ? 248 : 224))
 
 function updateProductsGridColumns() {
   if (isPhone.value) {
@@ -415,16 +415,7 @@ function updateProductsGridColumns() {
   } else if (isMobileOrTablet.value) {
     productsGridColumns.value = window.innerWidth >= 768 ? 3 : 2
   } else {
-    const width = productsGridRef.value?.clientWidth || window.innerWidth
-    if (width >= 1700) {
-      productsGridColumns.value = 5
-    } else if (width >= 1300) {
-      productsGridColumns.value = 4
-    } else if (width >= 950) {
-      productsGridColumns.value = 3
-    } else {
-      productsGridColumns.value = 2
-    }
+    productsGridColumns.value = 4
   }
 }
 
@@ -4920,6 +4911,35 @@ tbody tr:hover {
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
+  }
+}
+
+@media (min-width: 1081px) {
+  .virtual-grid-row {
+    gap: 12px;
+  }
+
+  .product-grid-card {
+    padding: 11px 12px;
+    gap: 0.55rem;
+  }
+
+  .product-grid-details {
+    gap: 6px 8px;
+  }
+
+  .product-grid-details dd {
+    font-size: 0.8rem;
+  }
+
+  .product-grid-actions {
+    gap: 5px;
+    padding-top: 6px;
+  }
+
+  .product-grid-actions button {
+    min-height: 31px;
+    font-size: 11px;
   }
 }
 

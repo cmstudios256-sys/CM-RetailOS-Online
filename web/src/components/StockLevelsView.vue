@@ -67,8 +67,8 @@ const filteredProducts = computed(() => {
 })
 
 const stockGridRef = ref<HTMLElement | null>(null)
-const stockGridColumns = ref(3)
-const stockGridRowHeight = computed(() => isPhone.value ? 190 : 205)
+const stockGridColumns = ref(4)
+const stockGridRowHeight = computed(() => isPhone.value ? 190 : (isMobileOrTablet.value ? 205 : 192))
 
 function updateStockGridColumns() {
   if (isPhone.value) {
@@ -76,16 +76,7 @@ function updateStockGridColumns() {
   } else if (isMobileOrTablet.value) {
     stockGridColumns.value = window.innerWidth >= 768 ? 3 : 2
   } else {
-    const width = stockGridRef.value?.clientWidth || window.innerWidth
-    if (width >= 1700) {
-      stockGridColumns.value = 5
-    } else if (width >= 1300) {
-      stockGridColumns.value = 4
-    } else if (width >= 950) {
-      stockGridColumns.value = 3
-    } else {
-      stockGridColumns.value = 2
-    }
+    stockGridColumns.value = 4
   }
 }
 
@@ -992,6 +983,21 @@ tbody tr:hover {
 
   .stock-grid-card {
     padding: 10px 12px;
+  }
+}
+
+@media (min-width: 1081px) {
+  .stock-virtual-grid-row {
+    gap: 12px;
+  }
+
+  .stock-grid-card {
+    padding: 12px;
+    gap: 0.65rem;
+  }
+
+  .stock-grid-details {
+    gap: 6px 8px;
   }
 }
 </style>
