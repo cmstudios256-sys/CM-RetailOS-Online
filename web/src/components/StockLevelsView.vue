@@ -987,6 +987,21 @@ tbody tr:hover {
 }
 
 @media (min-width: 1081px) {
+  .card:has(.virtual-list-container) {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .card:has(.virtual-list-container) .card-header {
+    padding: 12px 18px 10px;
+    margin-bottom: 0;
+  }
+
+  .virtual-list-container {
+    border: none;
+    border-radius: 0;
+  }
+
   .stock-virtual-grid-row {
     gap: 12px;
   }
