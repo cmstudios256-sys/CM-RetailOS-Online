@@ -611,4 +611,21 @@ tbody tr:hover {
   border: 1px solid #cbd5e1 !important;
   color: #475569 !important;
 }
+
+@media (min-width: 1081px) {
+  .card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 14px 18px 12px;
+    margin-bottom: 0;
+  }
+
+  .table-container {
+    border: none;
+    border-radius: 0;
+  }
+}
 </style>
