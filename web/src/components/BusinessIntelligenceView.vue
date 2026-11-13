@@ -1446,4 +1446,23 @@ onUnmounted(() => {
     background: var(--accent-color, #0ea5e9);
   }
 }
+
+@media (min-width: 1081px) {
+  .bi-section {
+    gap: 10px;
+  }
+
+  .bi-grid {
+    grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 10px;
+  }
+
+  .card {
+    padding: 0.9rem 1.1rem;
+  }
+
+  .card-header {
+    margin-bottom: 0.55rem;
+  }
+}
 </style>

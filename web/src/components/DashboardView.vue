@@ -1054,6 +1054,13 @@ onUnmounted(() => {
   width: 100%;
 }
 
+@media (min-width: 1081px) {
+  .sales-chart-container,
+  .sales-chart-plot {
+    min-height: 0;
+  }
+}
+
 .chart-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

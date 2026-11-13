@@ -1572,6 +1572,10 @@ onUnmounted(() => {
    Responsive Breakpoints
    ========================================================================== */
 @media (min-width: 1081px) {
+  .analytics-section {
+    gap: 10px;
+  }
+
   .kpi-badge-hint {
     display: none;
   }
@@ -1605,6 +1609,18 @@ onUnmounted(() => {
 
   .kpi-footer {
     font-size: 0.72rem;
+  }
+
+  .chart-card {
+    padding: 0.9rem 1.1rem;
+  }
+
+  .card-header-row {
+    margin-bottom: 0.55rem;
+  }
+
+  .chart-container {
+    min-height: 0;
   }
 }
 
