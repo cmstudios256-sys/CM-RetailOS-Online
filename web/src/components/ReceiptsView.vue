@@ -1500,4 +1500,21 @@ tbody tr:hover {
     background: #f1f5f9 !important;
   }
 }
+
+@media (min-width: 1081px) {
+  .card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 14px 18px 12px;
+    margin-bottom: 0;
+  }
+
+  .virtual-list-container {
+    border: none;
+    border-radius: 0;
+  }
+}
 </style>
