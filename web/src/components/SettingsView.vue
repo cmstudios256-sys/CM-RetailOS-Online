@@ -16,6 +16,7 @@ import {
   Edit2,
   Target,
   Eye,
+  EyeOff,
   Sun,
   Moon,
   Monitor,
@@ -31,6 +32,7 @@ import {
   Clock,
   Activity,
   Users,
+  UserCheck,
   Settings as SettingsIcon,
 } from '@lucide/vue'
 import { apiRequest, formatTime, getComplementaryColor, readOnlinePrefs, syncOnlinePrefsFromServer } from '../api'
@@ -58,10 +60,11 @@ const props = defineProps<{
   userId: string
   userName?: string
   userEmail?: string
+  userUsername?: string
 }>()
 
 const emit = defineEmits<{
-  'user-updated': [settings: { fullName: string; shopName: string; currency: string }]
+  'user-updated': [settings: { fullName: string; shopName: string; currency: string; username?: string }]
 }>()
 
 type ShopSettingsResponse = {
@@ -1115,6 +1118,71 @@ const addUserRoleOptions = [
   { label: 'Manager', value: 'Manager' },
   { label: 'Cashier', value: 'Cashier' },
 ]
+
+// --- Desktop-Only Admin Terminal Credentials ---
+const adminCreds = ref({
+  username: props.userUsername || '',
+  password: '',
+  passwordConfirm: '',
+})
+const showAdminCredsPassword = ref(false)
+const savingAdminCreds = ref(false)
+
+watch(() => props.userUsername, (nextUsername) => {
+  if (nextUsername && !adminCreds.value.username) {
+    adminCreds.value.username = nextUsername
+  }
+})
+
+async function saveAdminCredentials() {
+  if (savingAdminCreds.value) return
+  const username = adminCreds.value.username.trim()
+  const password = adminCreds.value.password
+  const confirm = adminCreds.value.passwordConfirm
+
+  if (username.length < 2 || username.length > 40 || /\s/.test(username)) {
+    showToast('error', 'Admin username must be 2–40 characters with no spaces.')
+    return
+  }
+  if (password || confirm) {
+    if (password.length < 8 || password.length > 72) {
+      showToast('error', 'Admin password must be between 8 and 72 characters.')
+      return
+    }
+    if (password !== confirm) {
+      showToast('error', 'Admin passwords do not match.')
+      return
+    }
+  }
+
+  savingAdminCreds.value = true
+  try {
+    const ownerName = appSettings.value.shopDetails.owner.trim() || props.userName || 'Shop Owner'
+    const payload: { fullName: string; username: string; password?: string } = {
+      fullName: ownerName,
+      username,
+    }
+    if (password) payload.password = password
+
+    const res = await apiRequest<{ fullName: string; username?: string }>('/auth/profile', {
+      method: 'PUT',
+      body: payload,
+    })
+    adminCreds.value.password = ''
+    adminCreds.value.passwordConfirm = ''
+    emit('user-updated', {
+      fullName: res.fullName || ownerName,
+      shopName: appSettings.value.shopDetails.name || props.shopName,
+      currency: appSettings.value.shopDetails.currency || props.currency,
+      username: res.username || username,
+    })
+    showToast('success', 'Admin terminal credentials saved.')
+  } catch (err) {
+    showToast('error', err instanceof Error ? err.message : 'Failed to save admin credentials.')
+  } finally {
+    savingAdminCreds.value = false
+  }
+}
 
 const allPermissions = computed(() => [
   {
@@ -2597,6 +2665,78 @@ onUnmounted(() => {
 
       <!-- Users & Staff (Desktop Only) -->
       <template v-else-if="!isMobile && activeTab === 'users-staff'">
+        <div
+          v-if="props.role.toLowerCase() === 'owner'"
+          class="table-container"
+          style="padding: 20px 24px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 14px;"
+        >
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25);">
+                <UserCheck :size="17" />
+              </span>
+              <div>
+                <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text-primary);">Admin Terminal Credentials</h3>
+                <p style="margin: 2px 0 0; font-size: 12.5px; color: var(--text-muted);">Set or update the Admin username and password used for desktop Terminal Sign In.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="savingAdminCreds"
+              @click="saveAdminCredentials"
+              style="padding: 8px 16px; display: flex; align-items: center; gap: 6px; white-space: nowrap;"
+            >
+              <Lock :size="14" />
+              <span>{{ savingAdminCreds ? 'Saving...' : 'Save Admin Credentials' }}</span>
+            </button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+            <div class="input-group" style="margin: 0;">
+              <label>Admin Username *</label>
+              <input
+                type="text"
+                v-model="adminCreds.username"
+                autocomplete="username"
+                maxlength="40"
+                placeholder="e.g. admin or yourname"
+              />
+            </div>
+            <div class="input-group" style="margin: 0;">
+              <label>New Admin Password</label>
+              <div style="position: relative;">
+                <input
+                  :type="showAdminCredsPassword ? 'text' : 'password'"
+                  v-model="adminCreds.password"
+                  autocomplete="new-password"
+                  maxlength="72"
+                  placeholder="Min 8 characters"
+                  style="padding-right: 36px;"
+                />
+                <button
+                  type="button"
+                  @click="showAdminCredsPassword = !showAdminCredsPassword"
+                  :aria-label="showAdminCredsPassword ? 'Hide password' : 'Show password'"
+                  style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; display: grid; place-items: center;"
+                >
+                  <EyeOff v-if="showAdminCredsPassword" :size="15" />
+                  <Eye v-else :size="15" />
+                </button>
+              </div>
+            </div>
+            <div class="input-group" style="margin: 0;">
+              <label>Confirm Password</label>
+              <input
+                :type="showAdminCredsPassword ? 'text' : 'password'"
+                v-model="adminCreds.passwordConfirm"
+                autocomplete="new-password"
+                maxlength="72"
+                placeholder="Re-enter password"
+              />
+            </div>
+          </div>
+        </div>
+
         <div class="table-container staff-directory-container" style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
           <div class="table-header staff-directory-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">

@@ -85,7 +85,7 @@ const emit = defineEmits<{
   'connect-google': [page: string]
   'staff-login-success': [user: User]
   'sign-out': []
-  'user-updated': [settings: Pick<User, 'fullName' | 'shopName' | 'currency'>]
+  'user-updated': [settings: Pick<User, 'fullName' | 'shopName' | 'currency' | 'username'>]
 }>()
 const activePage = ref(props.user.role.toLowerCase() === 'cashier' ? 'pos' : 'dashboard')
 
@@ -785,7 +785,7 @@ onUnmounted(() => {
           <ProfitAnalyticsView v-else-if="activePage === 'profit-analytics'" :key="`profit-analytics-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" />
           <BusinessIntelligenceView v-else-if="activePage === 'business-intelligence'" :key="`business-intelligence-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" />
           <AuditLogsView v-else-if="activePage === 'audit-logs'" :key="`audit-logs-${reconnectRefreshKey}`" />
-          <SettingsView v-else-if="activePage === 'settings'" :key="`settings-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" :role="user.role" :user-id="user.id" :user-name="user.fullName" :user-email="user.email" @user-updated="emit('user-updated', $event)" />
+          <SettingsView v-else-if="activePage === 'settings'" :key="`settings-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" :role="user.role" :user-id="user.id" :user-name="user.fullName" :user-email="user.email" :user-username="user.username" @user-updated="emit('user-updated', $event)" />
         </Transition>
       </main>
 

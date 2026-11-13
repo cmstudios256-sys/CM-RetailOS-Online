@@ -5,6 +5,11 @@ import { ApiError, apiRequest, applyOnlinePrefsToDom, clearSignedInUserLocalData
 import { clearGuestDataAfterClaim } from './guestStore'
 import WorkspaceShell from './components/WorkspaceShell.vue'
 import { autoConnectSavedBluetoothPrinter } from './utils/bluetoothPrinter'
+import { useMobileOrTabletBreakpoint, usePhoneBreakpoint } from './utils/breakpoints'
+
+const { isPhone } = usePhoneBreakpoint()
+const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
+const isDesktopSetup = computed(() => !isPhone.value && !isMobileOrTablet.value)
 
 type ShopSettings = {
   shopName: string
@@ -52,20 +57,25 @@ const setupPasswordMismatch = computed(() =>
   businessSetup.value.adminPasswordConfirm.length > 0 &&
   businessSetup.value.adminPassword !== businessSetup.value.adminPasswordConfirm,
 )
-const canSaveBusinessSetup = computed(() =>
-  businessSetup.value.shopName.trim().length > 0 &&
-  businessSetup.value.shopName.trim().length <= 120 &&
-  businessSetup.value.ownerName.trim().length > 0 &&
-  businessSetup.value.ownerName.trim().length <= 100 &&
-  businessSetup.value.phone.trim().length > 0 &&
-  businessSetup.value.phone.trim().length <= 32 &&
-  businessSetup.value.address.trim().length > 0 &&
-  businessSetup.value.address.trim().length <= 200 &&
-  validAdminUsername.value &&
-  businessSetup.value.adminPassword.length >= 8 &&
-  businessSetup.value.adminPassword.length <= 72 &&
-  businessSetup.value.adminPassword === businessSetup.value.adminPasswordConfirm,
-)
+const canSaveBusinessSetup = computed(() => {
+  const baseValid =
+    businessSetup.value.shopName.trim().length > 0 &&
+    businessSetup.value.shopName.trim().length <= 120 &&
+    businessSetup.value.ownerName.trim().length > 0 &&
+    businessSetup.value.ownerName.trim().length <= 100 &&
+    businessSetup.value.phone.trim().length > 0 &&
+    businessSetup.value.phone.trim().length <= 32 &&
+    businessSetup.value.address.trim().length > 0 &&
+    businessSetup.value.address.trim().length <= 200
+  if (!isDesktopSetup.value) return baseValid
+  return (
+    baseValid &&
+    validAdminUsername.value &&
+    businessSetup.value.adminPassword.length >= 8 &&
+    businessSetup.value.adminPassword.length <= 72 &&
+    businessSetup.value.adminPassword === businessSetup.value.adminPasswordConfirm
+  )
+})
 
 async function markBusinessSetupComplete(existingPreferences?: Record<string, unknown>): Promise<void> {
   const preferences = existingPreferences
@@ -158,13 +168,16 @@ async function saveBusinessSetup(): Promise<void> {
         receiptShowPhone: true,
       },
     })
+    const profileBody: { fullName: string; username?: string; password?: string } = {
+      fullName: businessSetup.value.ownerName.trim(),
+    }
+    if (isDesktopSetup.value) {
+      profileBody.username = businessSetup.value.adminUsername.trim()
+      profileBody.password = businessSetup.value.adminPassword
+    }
     const profile = await apiRequest<{ fullName: string; username?: string }>('/auth/profile', {
       method: 'PUT',
-      body: {
-        fullName: businessSetup.value.ownerName.trim(),
-        username: businessSetup.value.adminUsername.trim(),
-        password: businessSetup.value.adminPassword,
-      },
+      body: profileBody,
     })
     loadedShopSettings.value = result.settings
     await markBusinessSetupComplete()
@@ -172,7 +185,7 @@ async function saveBusinessSetup(): Promise<void> {
       user.value = {
         ...user.value,
         fullName: profile.fullName,
-        username: profile.username ?? businessSetup.value.adminUsername.trim(),
+        username: profile.username ?? (isDesktopSetup.value ? businessSetup.value.adminUsername.trim() : user.value.username),
         shopName: result.settings.shopName,
         currency: result.settings.currency,
       }
@@ -433,69 +446,71 @@ onMounted(() => {
             />
           </div>
 
-          <div class="business-setup-section-divider">
-            <span>Admin Terminal Credentials</span>
-          </div>
+          <template v-if="isDesktopSetup">
+            <div class="business-setup-section-divider">
+              <span>Admin Terminal Credentials</span>
+            </div>
 
-          <label for="admin-username">Admin username</label>
-          <div class="business-setup-input-icon">
-            <UserCheck :size="16" aria-hidden="true" />
-            <input
-              id="admin-username"
-              v-model="businessSetup.adminUsername"
-              type="text"
-              autocomplete="username"
-              minlength="2"
-              maxlength="40"
-              required
-              placeholder="e.g. admin or yourname (no spaces)"
-            />
-          </div>
+            <label for="admin-username">Admin username</label>
+            <div class="business-setup-input-icon">
+              <UserCheck :size="16" aria-hidden="true" />
+              <input
+                id="admin-username"
+                v-model="businessSetup.adminUsername"
+                type="text"
+                autocomplete="username"
+                minlength="2"
+                maxlength="40"
+                required
+                placeholder="e.g. admin or yourname (no spaces)"
+              />
+            </div>
 
-          <label for="admin-password">Admin password</label>
-          <div class="business-setup-input-icon business-setup-password-wrap">
-            <Lock :size="16" aria-hidden="true" />
-            <input
-              id="admin-password"
-              v-model="businessSetup.adminPassword"
-              :type="showSetupPassword ? 'text' : 'password'"
-              autocomplete="new-password"
-              minlength="8"
-              maxlength="72"
-              required
-              placeholder="Minimum 8 characters"
-            />
-            <button
-              type="button"
-              class="business-setup-eye"
-              :aria-label="showSetupPassword ? 'Hide password' : 'Show password'"
-              @click="showSetupPassword = !showSetupPassword"
-            >
-              <EyeOff v-if="showSetupPassword" :size="16" />
-              <Eye v-else :size="16" />
-            </button>
-          </div>
+            <label for="admin-password">Admin password</label>
+            <div class="business-setup-input-icon business-setup-password-wrap">
+              <Lock :size="16" aria-hidden="true" />
+              <input
+                id="admin-password"
+                v-model="businessSetup.adminPassword"
+                :type="showSetupPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                minlength="8"
+                maxlength="72"
+                required
+                placeholder="Minimum 8 characters"
+              />
+              <button
+                type="button"
+                class="business-setup-eye"
+                :aria-label="showSetupPassword ? 'Hide password' : 'Show password'"
+                @click="showSetupPassword = !showSetupPassword"
+              >
+                <EyeOff v-if="showSetupPassword" :size="16" />
+                <Eye v-else :size="16" />
+              </button>
+            </div>
 
-          <label for="admin-password-confirm">Confirm password</label>
-          <div class="business-setup-input-icon">
-            <Lock :size="16" aria-hidden="true" />
-            <input
-              id="admin-password-confirm"
-              v-model="businessSetup.adminPasswordConfirm"
-              :type="showSetupPassword ? 'text' : 'password'"
-              autocomplete="new-password"
-              minlength="8"
-              maxlength="72"
-              required
-              placeholder="Re-enter your admin password"
-            />
-          </div>
-          <p v-if="setupPasswordMismatch" class="business-setup-error" role="alert">
-            Passwords do not match.
-          </p>
-          <p v-else class="business-setup-hint">
-            Required for signing in as Admin on the desktop terminal.
-          </p>
+            <label for="admin-password-confirm">Confirm password</label>
+            <div class="business-setup-input-icon">
+              <Lock :size="16" aria-hidden="true" />
+              <input
+                id="admin-password-confirm"
+                v-model="businessSetup.adminPasswordConfirm"
+                :type="showSetupPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                minlength="8"
+                maxlength="72"
+                required
+                placeholder="Re-enter your admin password"
+              />
+            </div>
+            <p v-if="setupPasswordMismatch" class="business-setup-error" role="alert">
+              Passwords do not match.
+            </p>
+            <p v-else class="business-setup-hint">
+              Required for signing in as Admin on the desktop terminal.
+            </p>
+          </template>
 
           <p v-if="businessSetupError" class="business-setup-error" role="alert">{{ businessSetupError }}</p>
           <button
