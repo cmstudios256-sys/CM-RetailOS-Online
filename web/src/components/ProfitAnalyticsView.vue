@@ -792,7 +792,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="chart-container" style="position: relative; height: 100%; min-height: 280px;">
+        <div class="chart-container">
           <Line :data="profitTrendData" :options="chartOptions" />
         </div>
       </div>
@@ -1287,7 +1287,7 @@ onUnmounted(() => {
    ========================================================================== */
 .charts-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(360px, 1.2fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
   gap: 12px;
   flex: 1;
   min-height: 0;
@@ -1302,6 +1302,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .card-header-row {
@@ -1360,7 +1361,7 @@ onUnmounted(() => {
 
 .chart-container {
   flex: 1;
-  min-height: 240px;
+  min-height: 260px;
   position: relative;
 }
 
@@ -1570,13 +1571,17 @@ onUnmounted(() => {
 /* ==========================================================================
    Responsive Breakpoints
    ========================================================================== */
-@media (max-width: 1200px) {
+@media (max-width: 1080px) {
+  .analytics-section {
+    height: auto;
+    overflow-y: auto;
+  }
+
   .charts-grid {
     grid-template-columns: 1fr;
+    flex: none;
   }
-}
 
-@media (max-width: 1080px) {
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
