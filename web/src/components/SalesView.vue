@@ -10,6 +10,7 @@ import { downloadCsv, escapeHtml, openPrintDocument, receiptNumber, shortSaleId 
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
 import { useMobileOrTabletBreakpoint, usePhoneBreakpoint, useTabletBreakpoint } from '../utils/breakpoints'
 import {
+  autoConnectSavedBluetoothPrinter,
   getDefaultBluetoothPrinter,
   buildEscPosReceipt,
   sendToBluetoothPrinter,
@@ -176,24 +177,42 @@ function printSalesHistory() {
 function printReceipt(sale: Sale) {
   const settings = shopSettings.value
   const storeTitle = settings?.shopName || props.shopName
+  const prefs = readOnlinePrefs()
+  const btPrinter = getDefaultBluetoothPrinter()
 
-  if (isMobileOrTablet.value) {
-    const btPrinter = getDefaultBluetoothPrinter()
-    if (btPrinter) {
-      const bytes = buildEscPosReceipt(sale, {
-        shopName: storeTitle,
-        currency: props.currency,
-        paperWidth: btPrinter.paperWidth || '58mm',
-      })
-      sendToBluetoothPrinter(btPrinter, bytes)
-      return
-    } else {
-      saleToShare.value = sale
-      return
+  if (btPrinter) {
+    const bytes = buildEscPosReceipt(sale, {
+      shopName: storeTitle,
+      currency: props.currency,
+      phone: prefs.receiptsSettings?.showPhone !== false ? settings?.phone : undefined,
+      address: settings?.address,
+      headerText: prefs.receiptsSettings?.headerText ?? settings?.receiptHeader,
+      footerText: prefs.receiptsSettings?.footerText ?? settings?.receiptFooter,
+      showCashier: prefs.receiptsSettings?.showCashier !== false,
+      paperWidth: btPrinter.paperWidth || '58mm',
+    })
+    const copies = Math.max(1, Math.min(5, prefs.receiptsSettings?.printCopies || 1))
+    const runPrint = async () => {
+      for (let i = 0; i < copies; i++) {
+        await sendToBluetoothPrinter(btPrinter, bytes)
+        if (i < copies - 1) {
+          await new Promise(resolve => setTimeout(resolve, 400))
+        }
+      }
     }
+    runPrint().catch(err => {
+      error.value = err instanceof Error ? err.message : 'Bluetooth printer error.'
+      if (isMobileOrTablet.value) {
+        saleToShare.value = sale
+      }
+    })
+    return
   }
 
-  const prefs = readOnlinePrefs()
+  if (isMobileOrTablet.value) {
+    saleToShare.value = sale
+    return
+  }
   const showLogo = prefs.receiptsSettings?.showLogo !== false
   const showCashier = prefs.receiptsSettings?.showCashier !== false
   const receiptMaxWidth = prefs.receiptsSettings?.paperWidth === '58mm' ? '220px' : '300px'
@@ -273,6 +292,7 @@ async function loadSales() {
 onMounted(() => {
   mobileTouch.value = isTouchDevice()
   void loadSales()
+  void autoConnectSavedBluetoothPrinter().catch(() => {})
 })
 </script>
 

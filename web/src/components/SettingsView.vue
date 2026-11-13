@@ -1036,19 +1036,24 @@ function confirmDeletePrinter() {
 async function handleTestPrinterCard(printer: PrinterConfig) {
   isTestingPrinterId.value = printer.id
   if (printer.connectionType === 'bluetooth' || isMobile.value) {
-    const width = (printer.paperWidth === '80mm' ? '80mm' : '58mm') as '58mm' | '80mm'
-    const bytes = buildEscPosTestPrint(printer.name, width)
-    const res = await sendToBluetoothPrinter(printer as any, bytes)
-    printJobs.value.unshift({
-      id: `job-${Date.now()}`,
-      receiptId: 'TEST-BT',
-      printerName: printer.name,
-      status: 'completed',
-      createdAt: new Date().toISOString(),
-    })
-    savePrintersToStorage()
-    showToast('success', res.message || `Test receipt printed to ${printer.name}!`)
-    isTestingPrinterId.value = null
+    try {
+      const width = (printer.paperWidth === '80mm' ? '80mm' : '58mm') as '58mm' | '80mm'
+      const bytes = buildEscPosTestPrint(printer.name, width)
+      const res = await sendToBluetoothPrinter(printer as any, bytes)
+      printJobs.value.unshift({
+        id: `job-${Date.now()}`,
+        receiptId: 'TEST-BT',
+        printerName: printer.name,
+        status: 'completed',
+        createdAt: new Date().toISOString(),
+      })
+      savePrintersToStorage()
+      showToast('success', res.message || `Test receipt printed to ${printer.name}!`)
+    } catch (err: any) {
+      showToast('error', err?.message || `Failed to print test receipt to ${printer.name}.`)
+    } finally {
+      isTestingPrinterId.value = null
+    }
     return
   }
   const widthMm = printer.paperWidth === '58mm' ? '58mm' : '80mm'
@@ -1823,9 +1828,19 @@ onUnmounted(() => {
                 <p style="margin: 0 0 14px 0; font-size: 12px; color: var(--text-muted); max-width: 400px; margin-inline: auto;">
                   Add your Windows named receipt printer or Ethernet/WiFi thermal printer to enable high-speed direct printing.
                 </p>
-                <div style="display: flex; justify-content: center; gap: 10px;">
-                  <button type="button" class="btn btn-primary" style="padding: 8px 18px; font-size: 12px;" @click="openAddPrinter">
-                    <Plus :size="14" style="margin-right: 4px;" /> Add Your First Printer
+                <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    style="padding: 8px 18px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;"
+                    @click="handlePairBluetoothMobile"
+                    :disabled="isPairingBluetooth"
+                  >
+                    <Bluetooth :size="14" />
+                    <span>{{ isPairingBluetooth ? 'Pairing Bluetooth...' : 'Pair Bluetooth Printer' }}</span>
+                  </button>
+                  <button type="button" class="btn btn-outline" style="padding: 8px 18px; font-size: 12px;" @click="openAddPrinter">
+                    <Plus :size="14" style="margin-right: 4px;" /> Add Other Printer
                   </button>
                 </div>
               </div>
