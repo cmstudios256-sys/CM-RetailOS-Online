@@ -297,15 +297,101 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 const imageInputRef = ref<HTMLInputElement | null>(null)
 const cameraInputRef = ref<HTMLInputElement | null>(null)
 const showPhotoPicker = ref(false)
+const photoCameraOpen = ref(false)
+const photoCameraError = ref('')
+const photoCameraVideo = ref<HTMLVideoElement | null>(null)
+let photoCameraStream: MediaStream | null = null
 
 function triggerGalleryUpload() {
   showPhotoPicker.value = false
   imageInputRef.value?.click()
 }
 
+function stopPhotoCameraStream() {
+  if (photoCameraStream) {
+    photoCameraStream.getTracks().forEach(track => track.stop())
+    photoCameraStream = null
+  }
+  if (photoCameraVideo.value) {
+    photoCameraVideo.value.srcObject = null
+  }
+}
+
+function closePhotoCamera() {
+  stopPhotoCameraStream()
+  photoCameraOpen.value = false
+  photoCameraError.value = ''
+}
+
+async function openPhotoCamera() {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    cameraInputRef.value?.click()
+    return
+  }
+
+  photoCameraOpen.value = true
+  photoCameraError.value = ''
+  await nextTick()
+
+  try {
+    photoCameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false,
+    })
+    if (!photoCameraOpen.value) {
+      stopPhotoCameraStream()
+      return
+    }
+    if (photoCameraVideo.value) {
+      photoCameraVideo.value.srcObject = photoCameraStream
+      await photoCameraVideo.value.play().catch(() => {})
+    }
+  } catch {
+    stopPhotoCameraStream()
+    photoCameraError.value = 'Camera access was denied or no camera was detected on this device.'
+  }
+}
+
+function captureProductPhoto() {
+  const video = photoCameraVideo.value
+  if (!video || !video.videoWidth || !video.videoHeight) return
+
+  const maxSize = 500
+  let width = video.videoWidth
+  let height = video.videoHeight
+  if (width > height) {
+    if (width > maxSize) {
+      height *= maxSize / width
+      width = maxSize
+    }
+  } else if (height > maxSize) {
+    width *= maxSize / height
+    height = maxSize
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(width)
+  canvas.height = Math.round(height)
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    form.value.image = canvas.toDataURL('image/jpeg', 0.82)
+  }
+  closePhotoCamera()
+}
+
+function triggerGalleryFromPhotoCamera() {
+  closePhotoCamera()
+  triggerGalleryUpload()
+}
+
 function triggerCameraCapture() {
   showPhotoPicker.value = false
-  cameraInputRef.value?.click()
+  if (isMobileOrTablet.value) {
+    cameraInputRef.value?.click()
+    return
+  }
+  void openPhotoCamera()
 }
 
 function openPhotoPicker() {
@@ -820,6 +906,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   closeBarcodeCamera()
+  closePhotoCamera()
   window.removeEventListener('click', closeDropdown)
   window.removeEventListener('resize', updateProductsGridColumns)
   window.removeEventListener('keydown', handleGlobalKeydown)
@@ -1135,7 +1222,7 @@ onUnmounted(() => {
             <input ref="cameraInputRef" type="file" accept="image/*" capture="environment" style="display: none" @change="handleImageUpload" />
 
             <div class="product-photo-center-section">
-              <div class="photo-preview-card" @click="triggerGalleryUpload">
+              <div class="photo-preview-card" @click="openPhotoPicker">
                 <img v-if="form.image" :src="form.image" alt="Product Image" class="uploaded-preview" />
                 <div v-else class="photo-placeholder">
                   <ImagePlus :size="38" color="var(--text-muted)" stroke-width="1.5" />
@@ -1480,6 +1567,52 @@ onUnmounted(() => {
           <p v-if="cameraError" class="barcode-camera-error" role="alert">{{ cameraError }}</p>
           <p v-else class="barcode-camera-status" role="status">Scanning with rear camera…</p>
           <button type="button" class="barcode-camera-cancel" @click="closeBarcodeCamera">Cancel scan</button>
+        </section>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="photoCameraOpen" class="barcode-camera-backdrop" @click.self="closePhotoCamera">
+        <section
+          class="barcode-camera-modal photo-camera-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="product-photo-camera-title"
+        >
+          <header class="barcode-camera-heading">
+            <div>
+              <h2 id="product-photo-camera-title">Take product photo</h2>
+              <p>Position the product in frame and capture</p>
+            </div>
+            <button type="button" class="barcode-camera-close" aria-label="Close camera" @click="closePhotoCamera">
+              <X :size="19" />
+            </button>
+          </header>
+          <div class="barcode-camera-viewfinder-wrap">
+            <video ref="photoCameraVideo" class="barcode-camera-preview" autoplay muted playsinline></video>
+          </div>
+          <p v-if="photoCameraError" class="barcode-camera-error" role="alert">{{ photoCameraError }}</p>
+          <div class="photo-camera-actions">
+            <button
+              v-if="!photoCameraError"
+              type="button"
+              class="photo-camera-capture-btn"
+              @click="captureProductPhoto"
+            >
+              <Camera :size="16" />
+              <span>Capture Photo</span>
+            </button>
+            <button
+              v-else
+              type="button"
+              class="photo-camera-capture-btn"
+              @click="triggerGalleryFromPhotoCamera"
+            >
+              <ImagePlus :size="16" />
+              <span>Choose File Instead</span>
+            </button>
+            <button type="button" class="barcode-camera-cancel" @click="closePhotoCamera">Cancel</button>
+          </div>
         </section>
       </div>
     </Teleport>
@@ -3016,6 +3149,34 @@ tbody tr:hover {
   color: #dbe5f0;
   background: rgba(148, 163, 184, .06);
   cursor: pointer;
+}
+
+.photo-camera-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.photo-camera-actions .barcode-camera-cancel {
+  flex: 1;
+}
+
+.photo-camera-capture-btn {
+  flex: 1.5;
+  min-height: 44px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--accent-color, #0ea5e9);
+  color: #ffffff;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.photo-camera-capture-btn:hover {
+  background: var(--accent-hover, #0284c7);
 }
 
 .barcode-camera-viewfinder-wrap {
