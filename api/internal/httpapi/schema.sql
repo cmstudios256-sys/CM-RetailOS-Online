@@ -33,9 +33,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS google_subject TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_picture_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
     ON users (lower(email));
+CREATE UNIQUE INDEX IF NOT EXISTS users_shop_username_unique
+    ON users (shop_id, lower(username))
+    WHERE username IS NOT NULL AND btrim(username) <> '';
 CREATE UNIQUE INDEX IF NOT EXISTS users_google_subject_unique
     ON users (google_subject) WHERE google_subject IS NOT NULL;
 CREATE INDEX IF NOT EXISTS users_shop_id_idx ON users (shop_id);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { ArrowRight, MapPin, Phone, Store } from '@lucide/vue'
+import { ArrowRight, Eye, EyeOff, Lock, MapPin, Phone, Store, UserCheck } from '@lucide/vue'
 import { ApiError, apiRequest, applyOnlinePrefsToDom, clearSignedInUserLocalData, setApiMode, syncOnlinePrefsFromServer, type User } from './api'
 import { clearGuestDataAfterClaim } from './guestStore'
 import WorkspaceShell from './components/WorkspaceShell.vue'
@@ -29,12 +29,29 @@ const businessSetupLoaded = ref(false)
 const businessSetupError = ref('')
 const loadedShopSettings = ref<ShopSettings | null>(null)
 const businessNameInput = ref<HTMLInputElement | null>(null)
-const businessSetup = ref<Pick<ShopSettings, 'shopName' | 'phone' | 'address'> & { ownerName: string }>({
+const showSetupPassword = ref(false)
+const businessSetup = ref<Pick<ShopSettings, 'shopName' | 'phone' | 'address'> & {
+  ownerName: string
+  adminUsername: string
+  adminPassword: string
+  adminPasswordConfirm: string
+}>({
   shopName: '',
   ownerName: '',
   phone: '',
   address: '',
+  adminUsername: '',
+  adminPassword: '',
+  adminPasswordConfirm: '',
 })
+const validAdminUsername = computed(() => {
+  const value = businessSetup.value.adminUsername.trim()
+  return value.length >= 2 && value.length <= 40 && !/\s/.test(value)
+})
+const setupPasswordMismatch = computed(() =>
+  businessSetup.value.adminPasswordConfirm.length > 0 &&
+  businessSetup.value.adminPassword !== businessSetup.value.adminPasswordConfirm,
+)
 const canSaveBusinessSetup = computed(() =>
   businessSetup.value.shopName.trim().length > 0 &&
   businessSetup.value.shopName.trim().length <= 120 &&
@@ -43,7 +60,11 @@ const canSaveBusinessSetup = computed(() =>
   businessSetup.value.phone.trim().length > 0 &&
   businessSetup.value.phone.trim().length <= 32 &&
   businessSetup.value.address.trim().length > 0 &&
-  businessSetup.value.address.trim().length <= 200,
+  businessSetup.value.address.trim().length <= 200 &&
+  validAdminUsername.value &&
+  businessSetup.value.adminPassword.length >= 8 &&
+  businessSetup.value.adminPassword.length <= 72 &&
+  businessSetup.value.adminPassword === businessSetup.value.adminPasswordConfirm,
 )
 
 async function markBusinessSetupComplete(existingPreferences?: Record<string, unknown>): Promise<void> {
@@ -94,6 +115,9 @@ async function loadBusinessSetup(): Promise<void> {
       ownerName: user.value?.fullName === 'Shop Owner' ? '' : user.value?.fullName ?? '',
       phone: settings.phone,
       address: settings.address,
+      adminUsername: user.value?.username ?? '',
+      adminPassword: '',
+      adminPasswordConfirm: '',
     }
     businessSetupLoaded.value = true
     const preferences = await apiRequest<{ preferences?: Record<string, unknown> }>('/settings/preferences')
@@ -134,9 +158,13 @@ async function saveBusinessSetup(): Promise<void> {
         receiptShowPhone: true,
       },
     })
-    const profile = await apiRequest<{ fullName: string }>('/auth/profile', {
+    const profile = await apiRequest<{ fullName: string; username?: string }>('/auth/profile', {
       method: 'PUT',
-      body: { fullName: businessSetup.value.ownerName.trim() },
+      body: {
+        fullName: businessSetup.value.ownerName.trim(),
+        username: businessSetup.value.adminUsername.trim(),
+        password: businessSetup.value.adminPassword,
+      },
     })
     loadedShopSettings.value = result.settings
     await markBusinessSetupComplete()
@@ -144,6 +172,7 @@ async function saveBusinessSetup(): Promise<void> {
       user.value = {
         ...user.value,
         fullName: profile.fullName,
+        username: profile.username ?? businessSetup.value.adminUsername.trim(),
         shopName: result.settings.shopName,
         currency: result.settings.currency,
       }
@@ -404,6 +433,70 @@ onMounted(() => {
             />
           </div>
 
+          <div class="business-setup-section-divider">
+            <span>Admin Terminal Credentials</span>
+          </div>
+
+          <label for="admin-username">Admin username</label>
+          <div class="business-setup-input-icon">
+            <UserCheck :size="16" aria-hidden="true" />
+            <input
+              id="admin-username"
+              v-model="businessSetup.adminUsername"
+              type="text"
+              autocomplete="username"
+              minlength="2"
+              maxlength="40"
+              required
+              placeholder="e.g. admin or yourname (no spaces)"
+            />
+          </div>
+
+          <label for="admin-password">Admin password</label>
+          <div class="business-setup-input-icon business-setup-password-wrap">
+            <Lock :size="16" aria-hidden="true" />
+            <input
+              id="admin-password"
+              v-model="businessSetup.adminPassword"
+              :type="showSetupPassword ? 'text' : 'password'"
+              autocomplete="new-password"
+              minlength="8"
+              maxlength="72"
+              required
+              placeholder="Minimum 8 characters"
+            />
+            <button
+              type="button"
+              class="business-setup-eye"
+              :aria-label="showSetupPassword ? 'Hide password' : 'Show password'"
+              @click="showSetupPassword = !showSetupPassword"
+            >
+              <EyeOff v-if="showSetupPassword" :size="16" />
+              <Eye v-else :size="16" />
+            </button>
+          </div>
+
+          <label for="admin-password-confirm">Confirm password</label>
+          <div class="business-setup-input-icon">
+            <Lock :size="16" aria-hidden="true" />
+            <input
+              id="admin-password-confirm"
+              v-model="businessSetup.adminPasswordConfirm"
+              :type="showSetupPassword ? 'text' : 'password'"
+              autocomplete="new-password"
+              minlength="8"
+              maxlength="72"
+              required
+              placeholder="Re-enter your admin password"
+            />
+          </div>
+          <p v-if="setupPasswordMismatch" class="business-setup-error" role="alert">
+            Passwords do not match.
+          </p>
+          <p v-else class="business-setup-hint">
+            Required for signing in as Admin on the desktop terminal.
+          </p>
+
           <p v-if="businessSetupError" class="business-setup-error" role="alert">{{ businessSetupError }}</p>
           <button
             class="business-setup-submit"
@@ -530,6 +623,39 @@ onMounted(() => {
 .business-setup-input-icon { position: relative; }
 .business-setup-input-icon > svg { position: absolute; z-index: 1; top: 15px; left: 13px; color: #94a3b8; pointer-events: none; }
 .business-setup-input-icon input { padding-left: 39px; }
+.business-setup-password-wrap input { padding-right: 42px; }
+.business-setup-eye {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+}
+.business-setup-eye:hover { color: #e2e8f0; background: rgba(148, 163, 184, .12); }
+.business-setup-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 14px;
+  color: #2dd4bf;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.business-setup-section-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #334155;
+}
 .business-setup-hint { margin: -12px 0 19px; color: #a5b4c7; font-size: 12px; line-height: 1.5; }
 .business-setup-error { margin: 0 0 14px; color: #fca5a5; font-size: 13px; line-height: 1.5; }
 .business-setup-submit {

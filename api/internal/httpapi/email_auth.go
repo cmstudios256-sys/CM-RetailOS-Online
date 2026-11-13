@@ -30,6 +30,7 @@ const (
 type registerRequest struct {
 	ShopName string `json:"shopName"`
 	FullName string `json:"fullName"`
+	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
@@ -41,6 +42,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 	input.ShopName = strings.TrimSpace(input.ShopName)
 	input.FullName = strings.TrimSpace(input.FullName)
+	input.Username = strings.TrimSpace(input.Username)
 	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
 	if !validLength(input.ShopName, 1, 120) || strings.ContainsRune(input.ShopName, '\x00') {
 		writeError(w, http.StatusBadRequest, "invalid_shop_name", "Shop name must be between 1 and 120 characters.")
@@ -48,6 +50,10 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validLength(input.FullName, 1, 100) || strings.ContainsRune(input.FullName, '\x00') {
 		writeError(w, http.StatusBadRequest, "invalid_full_name", "Name must be between 1 and 100 characters.")
+		return
+	}
+	if input.Username != "" && !validUsername(input.Username) {
+		writeError(w, http.StatusBadRequest, "invalid_username", "Username must be between 2 and 40 characters without spaces.")
 		return
 	}
 	if !validEmail(input.Email) {
@@ -96,9 +102,9 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := tx.QueryRowContext(r.Context(), `
-		INSERT INTO users (shop_id, full_name, email, password_hash, email_verified, role)
-		VALUES ($1, $2, $3, $4, FALSE, 'owner') RETURNING id::text`,
-		user.ShopID, input.FullName, input.Email, passwordHash,
+		INSERT INTO users (shop_id, full_name, username, email, password_hash, email_verified, role)
+		VALUES ($1, $2, NULLIF($3, ''), $4, $5, FALSE, 'owner') RETURNING id::text`,
+		user.ShopID, input.FullName, input.Username, input.Email, passwordHash,
 	).Scan(&user.UserID); err != nil {
 		if isUniqueViolation(err) {
 			writeError(w, http.StatusConflict, "email_in_use", "An account with this email already exists. Sign in or reset your password.")

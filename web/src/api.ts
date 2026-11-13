@@ -63,6 +63,7 @@ export type User = {
   id: string
   shopId: string
   fullName: string
+  username?: string
   email: string
   role: string
   shopName: string

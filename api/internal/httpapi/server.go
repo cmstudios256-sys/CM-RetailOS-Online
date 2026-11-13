@@ -30,6 +30,7 @@ const (
 	maxRequestBytes          = 1 << 20
 	initialMigrationVersion  = 1
 	demoFlagMigrationVersion = 2
+	usernameMigrationVersion = 3
 )
 
 //go:embed migrations/001_initial.sql
@@ -37,6 +38,9 @@ var initialMigration string
 
 //go:embed migrations/002_demo_shop.sql
 var demoFlagMigration string
+
+//go:embed migrations/003_user_username.sql
+var usernameMigration string
 
 type Config struct {
 	JWTSecret          []byte
@@ -79,6 +83,7 @@ type identity struct {
 	UserID           string `json:"id"`
 	ShopID           string `json:"shopId"`
 	FullName         string `json:"fullName"`
+	Username         string `json:"username,omitempty"`
 	Email            string `json:"email"`
 	Role             string `json:"role"`
 	ShopName         string `json:"shopName"`
@@ -273,39 +278,34 @@ func (s *Server) Migrate(ctx context.Context) error {
 		)`); err != nil {
 		return fmt.Errorf("create migration ledger: %w", err)
 	}
-	var applied bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, initialMigrationVersion).Scan(&applied); err != nil {
-		return fmt.Errorf("check initial migration: %w", err)
+	migrations := []struct {
+		version int
+		name    string
+		sqlText string
+	}{
+		{initialMigrationVersion, "initial", initialMigration},
+		{demoFlagMigrationVersion, "demo-shop", demoFlagMigration},
+		{usernameMigrationVersion, "user-username", usernameMigration},
 	}
-	if !applied {
-		for _, statement := range strings.Split(initialMigration, ";") {
+	for _, m := range migrations {
+		var applied bool
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, m.version).Scan(&applied); err != nil {
+			return fmt.Errorf("check %s migration: %w", m.name, err)
+		}
+		if applied {
+			continue
+		}
+		for _, statement := range strings.Split(m.sqlText, ";") {
 			statement = strings.TrimSpace(statement)
 			if statement == "" {
 				continue
 			}
 			if _, err := tx.ExecContext(ctx, statement); err != nil {
-				return fmt.Errorf("apply database schema statement: %w", err)
+				return fmt.Errorf("apply %s migration statement: %w", m.name, err)
 			}
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, initialMigrationVersion); err != nil {
-			return fmt.Errorf("record initial migration: %w", err)
-		}
-	}
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, demoFlagMigrationVersion).Scan(&applied); err != nil {
-		return fmt.Errorf("check demo-shop migration: %w", err)
-	}
-	if !applied {
-		for _, statement := range strings.Split(demoFlagMigration, ";") {
-			statement = strings.TrimSpace(statement)
-			if statement == "" {
-				continue
-			}
-			if _, err := tx.ExecContext(ctx, statement); err != nil {
-				return fmt.Errorf("apply demo-shop migration statement: %w", err)
-			}
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, demoFlagMigrationVersion); err != nil {
-			return fmt.Errorf("record demo-shop migration: %w", err)
+		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, m.version); err != nil {
+			return fmt.Errorf("record %s migration: %w", m.name, err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -342,17 +342,18 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	var googlePictureURL sql.NullString
 	var cloudGmail sql.NullString
 	err := s.db.QueryRowContext(r.Context(), `
-		SELECT u.id::text, u.shop_id::text, u.full_name, u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
+		SELECT u.id::text, u.shop_id::text, u.full_name, COALESCE(u.username, ''), u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
 		       u.google_picture_url,
 		       u.google_subject, sh.preferences->>'cloud_gmail'
 		FROM users u
 		JOIN shops sh ON sh.id = u.shop_id
 		WHERE (
 			lower(u.email) = lower($1)
+			OR lower(COALESCE(u.username, '')) = lower($1)
 			OR lower(split_part(u.email, '@', 1)) = lower($1)
 		) AND u.active = TRUE`,
 		input.Email,
-	).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Email, &user.Role, &passwordHash, &emailVerified, &user.ShopName, &user.Currency, &googlePictureURL, &googleSubject, &cloudGmail)
+	).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Username, &user.Email, &user.Role, &passwordHash, &emailVerified, &user.ShopName, &user.Currency, &googlePictureURL, &googleSubject, &cloudGmail)
 	if err != nil {
 		if input.Email == "admin" || input.Email == "owner" {
 			var ownerUser identity
@@ -361,13 +362,13 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 			var oShopName, oCurrency string
 			var oGooglePic, oGoogleSub, oCloudGmail sql.NullString
 			oErr := s.db.QueryRowContext(r.Context(), `
-				SELECT u.id::text, u.shop_id::text, u.full_name, u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
+				SELECT u.id::text, u.shop_id::text, u.full_name, COALESCE(u.username, ''), u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
 				       u.google_picture_url, u.google_subject, sh.preferences->>'cloud_gmail'
 				FROM users u
 				JOIN shops sh ON sh.id = u.shop_id
 				WHERE u.role = 'owner' AND u.active = TRUE
 				ORDER BY u.created_at ASC LIMIT 1
-			`).Scan(&ownerUser.UserID, &ownerUser.ShopID, &ownerUser.FullName, &ownerUser.Email, &ownerUser.Role, &oHash, &oVerified, &oShopName, &oCurrency, &oGooglePic, &oGoogleSub, &oCloudGmail)
+			`).Scan(&ownerUser.UserID, &ownerUser.ShopID, &ownerUser.FullName, &ownerUser.Username, &ownerUser.Email, &ownerUser.Role, &oHash, &oVerified, &oShopName, &oCurrency, &oGooglePic, &oGoogleSub, &oCloudGmail)
 			if oErr == nil {
 				user = ownerUser
 				user.ShopName = oShopName
@@ -483,12 +484,12 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	var googlePictureURL sql.NullString
 	var cloudGmail sql.NullString
 	err := s.db.QueryRowContext(r.Context(), `
-		SELECT u.id::text, u.shop_id::text, u.full_name, u.email, u.role, sh.name, sh.currency,
+		SELECT u.id::text, u.shop_id::text, u.full_name, COALESCE(u.username, ''), u.email, u.role, sh.name, sh.currency,
 		       u.google_subject, u.google_picture_url, sh.preferences->>'cloud_gmail'
 		FROM users u JOIN shops sh ON sh.id = u.shop_id
 		WHERE u.id = $1 AND u.shop_id = $2 AND u.active = TRUE`,
 		claims.Subject, claims.ShopID,
-	).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Email, &user.Role, &user.ShopName, &user.Currency, &googleSubject, &googlePictureURL, &cloudGmail)
+	).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Username, &user.Email, &user.Role, &user.ShopName, &user.Currency, &googleSubject, &googlePictureURL, &cloudGmail)
 	if errors.Is(err, sql.ErrNoRows) {
 		clearSession(w, s.config.CookieSecure)
 		writeError(w, http.StatusUnauthorized, "session_expired", "Please sign in again.")
@@ -509,48 +510,85 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]identity{"user": user})
 }
 
+func validUsername(value string) bool {
+	return validLength(value, 2, 40) && !strings.ContainsAny(value, " \t\r\n\x00")
+}
+
 func (s *Server) updateProfile(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		FullName string `json:"fullName"`
+		Username string `json:"username,omitempty"`
 		Password string `json:"password,omitempty"`
 	}
 	if !decodeJSON(w, r, &input) {
 		return
 	}
 	input.FullName = strings.TrimSpace(input.FullName)
+	input.Username = strings.TrimSpace(input.Username)
 	if !validLength(input.FullName, 1, 100) {
 		writeError(w, http.StatusBadRequest, "invalid_profile", "Enter an owner name between 1 and 100 characters.")
 		return
 	}
+	if input.Username != "" && !validUsername(input.Username) {
+		writeError(w, http.StatusBadRequest, "invalid_username", "Username must be between 2 and 40 characters without spaces.")
+		return
+	}
+	hasPassword := strings.TrimSpace(input.Password) != ""
+	if hasPassword && !validPassword(input.Password) {
+		writeError(w, http.StatusBadRequest, "invalid_password", "Password must be at least 8 characters and no more than 72 bytes.")
+		return
+	}
 	claims := claimsFrom(r)
 	var fullName string
+	var username string
 	var err error
-	if strings.TrimSpace(input.Password) != "" {
-		if len(input.Password) < 8 {
-			writeError(w, http.StatusBadRequest, "invalid_password", "Password must be at least 8 characters.")
-			return
-		}
-		hash, hErr := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
-		if hErr != nil {
-			writeError(w, http.StatusInternalServerError, "hash_failed", "Failed to secure password.")
-			return
-		}
-		err = s.db.QueryRowContext(r.Context(), `
-			UPDATE users SET full_name = $1, password_hash = $4
-			WHERE id = $2 AND shop_id = $3 AND active = TRUE
-			RETURNING full_name`,
-			input.FullName, claims.Subject, claims.ShopID, hash,
-		).Scan(&fullName)
-	} else {
+	if input.Username == "" && !hasPassword {
 		err = s.db.QueryRowContext(r.Context(), `
 			UPDATE users SET full_name = $1
 			WHERE id = $2 AND shop_id = $3 AND active = TRUE
 			RETURNING full_name`,
 			input.FullName, claims.Subject, claims.ShopID,
 		).Scan(&fullName)
+	} else {
+		var hash []byte
+		if hasPassword {
+			var hErr error
+			hash, hErr = bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+			if hErr != nil {
+				writeError(w, http.StatusInternalServerError, "hash_failed", "Failed to secure password.")
+				return
+			}
+		}
+		switch {
+		case input.Username != "" && hasPassword:
+			err = s.db.QueryRowContext(r.Context(), `
+				UPDATE users SET full_name = $1, username = $4, password_hash = $5
+				WHERE id = $2 AND shop_id = $3 AND active = TRUE
+				RETURNING full_name, COALESCE(username, '')`,
+				input.FullName, claims.Subject, claims.ShopID, input.Username, hash,
+			).Scan(&fullName, &username)
+		case input.Username != "":
+			err = s.db.QueryRowContext(r.Context(), `
+				UPDATE users SET full_name = $1, username = $4
+				WHERE id = $2 AND shop_id = $3 AND active = TRUE
+				RETURNING full_name, COALESCE(username, '')`,
+				input.FullName, claims.Subject, claims.ShopID, input.Username,
+			).Scan(&fullName, &username)
+		default:
+			err = s.db.QueryRowContext(r.Context(), `
+				UPDATE users SET full_name = $1, password_hash = $4
+				WHERE id = $2 AND shop_id = $3 AND active = TRUE
+				RETURNING full_name, COALESCE(username, '')`,
+				input.FullName, claims.Subject, claims.ShopID, hash,
+			).Scan(&fullName, &username)
+		}
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "user_not_found", "The account profile could not be found.")
+		return
+	}
+	if isUniqueViolation(err) {
+		writeError(w, http.StatusConflict, "username_in_use", "That username is already in use. Choose another.")
 		return
 	}
 	if err != nil {
@@ -558,7 +596,11 @@ func (s *Server) updateProfile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "request_failed", "The account profile could not be saved.")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"fullName": fullName})
+	response := map[string]string{"fullName": fullName}
+	if username != "" {
+		response["username"] = username
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 type sessionClaimsKey struct{}

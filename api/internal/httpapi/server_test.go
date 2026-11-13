@@ -167,6 +167,65 @@ func TestUpdateProfileRejectsBlankName(t *testing.T) {
 	}
 }
 
+func TestUpdateProfileSetsUsernameAndPassword(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create SQL mock: %v", err)
+	}
+	defer db.Close()
+
+	const (
+		shopID = "shop-id"
+		userID = "user-id"
+	)
+	config := Config{JWTSecret: []byte("01234567890123456789012345678901")}
+	expectActiveSession(mock, shopID, userID)
+	mock.ExpectQuery(`UPDATE users SET full_name = \$1, username = \$4, password_hash = \$5\s+WHERE id = \$2 AND shop_id = \$3 AND active = TRUE\s+RETURNING full_name, COALESCE\(username, ''\)`).
+		WithArgs("Alex Owner", userID, shopID, "alexadmin", sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"full_name", "username"}).AddRow("Alex Owner", "alexadmin"))
+
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/auth/profile", strings.NewReader(`{"fullName":"Alex Owner","username":" alexadmin ","password":"secretpass123"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(testSessionCookie(t, config, shopID, userID, "owner"))
+	response := httptest.NewRecorder()
+	New(db, config).Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"username":"alexadmin"`) {
+		t.Fatalf("profile credentials update response = %d %s, want updated username", response.Code, response.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("profile credentials update expectations: %v", err)
+	}
+}
+
+func TestUpdateProfileRejectsShortPassword(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("create SQL mock: %v", err)
+	}
+	defer db.Close()
+
+	const (
+		shopID = "shop-id"
+		userID = "user-id"
+	)
+	config := Config{JWTSecret: []byte("01234567890123456789012345678901")}
+	expectActiveSession(mock, shopID, userID)
+
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/auth/profile", strings.NewReader(`{"fullName":"Alex Owner","username":"alexadmin","password":"short"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(testSessionCookie(t, config, shopID, userID, "owner"))
+	response := httptest.NewRecorder()
+	New(db, config).Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "invalid_password") {
+		t.Fatalf("short password response = %d %s, want invalid_password", response.Code, response.Body.String())
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("short password expectations: %v", err)
+	}
+}
+
 func TestProductWriteRequiresOwnerOrManager(t *testing.T) {
 	secret := []byte("01234567890123456789012345678901")
 	db, mock, err := sqlmock.New()

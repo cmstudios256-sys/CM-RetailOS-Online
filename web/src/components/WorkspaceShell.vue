@@ -70,6 +70,7 @@ type User = {
   id: string
   shopId?: string
   fullName: string
+  username?: string
   email: string
   role: string
   shopName: string
@@ -350,7 +351,7 @@ async function handleStaffLogin() {
       method: 'POST',
       body: {
         email: uname,
-        password: staffLoginPassword.value,
+        password: terminalLoginRole.value === 'Admin' ? staffLoginPassword.value : '',
       },
     })
     staffLoginModalOpen.value = false
@@ -934,82 +935,77 @@ onUnmounted(() => {
 
     <!-- Staff / Terminal Sign In Modal (Desktop Only) -->
     <Teleport to="body">
-      <div v-if="isDesktopOnly && staffLoginModalOpen" class="modal-overlay" style="z-index: 1200;">
-        <div class="modal-content" style="max-width: 420px; border-radius: 16px; overflow: hidden; padding: 24px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <h3 style="margin: 0; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-              <Users :size="19" style="color: var(--accent-color);" />
-              Terminal Sign In
-            </h3>
-            <button type="button" class="close-btn" @click="staffLoginModalOpen = false"><X :size="18" /></button>
+      <div v-if="isDesktopOnly && staffLoginModalOpen" class="terminal-signin-backdrop" @click.self="staffLoginModalOpen = false">
+        <div class="terminal-signin-modal" role="dialog" aria-modal="true" aria-labelledby="terminal-signin-title">
+          <div class="terminal-signin-header">
+            <div class="terminal-signin-title-wrap">
+              <span class="terminal-signin-icon"><Users :size="18" /></span>
+              <div>
+                <h3 id="terminal-signin-title">Terminal Sign In</h3>
+                <p>Switch active staff session</p>
+              </div>
+            </div>
+            <button type="button" class="terminal-signin-close" aria-label="Close" @click="staffLoginModalOpen = false"><X :size="17" /></button>
           </div>
 
           <!-- Role Toggle Buttons -->
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: rgba(0,0,0,0.18); padding: 4px; border-radius: 10px; margin-bottom: 16px; border: 1px solid var(--border-color);">
+          <div class="terminal-role-tabs">
             <button
               type="button"
+              :class="{ active: terminalLoginRole === 'Admin' }"
               @click="terminalLoginRole = 'Admin'; staffLoginError = ''"
-              style="padding: 8px 12px; font-size: 13px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s;"
-              :style="terminalLoginRole === 'Admin' ? 'background: var(--accent-color); color: #fff;' : 'background: transparent; color: var(--text-muted);'"
             >
               Admin
             </button>
             <button
               type="button"
+              :class="{ active: terminalLoginRole === 'Manager' }"
               @click="terminalLoginRole = 'Manager'; staffLoginError = ''"
-              style="padding: 8px 12px; font-size: 13px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s;"
-              :style="terminalLoginRole === 'Manager' ? 'background: var(--accent-color); color: #fff;' : 'background: transparent; color: var(--text-muted);'"
             >
               Manager
             </button>
             <button
               type="button"
+              :class="{ active: terminalLoginRole === 'Cashier' }"
               @click="terminalLoginRole = 'Cashier'; staffLoginError = ''"
-              style="padding: 8px 12px; font-size: 13px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s;"
-              :style="terminalLoginRole === 'Cashier' ? 'background: var(--accent-color); color: #fff;' : 'background: transparent; color: var(--text-muted);'"
             >
               Cashier
             </button>
           </div>
 
-          <p style="color: var(--text-muted); font-size: 13px; margin: 0 0 16px; line-height: 1.5;">
-            <span v-if="terminalLoginRole === 'Admin'">Administrator access requires username/email and password.</span>
-            <span v-else-if="terminalLoginRole === 'Manager'">Store Managers log in using their username and password.</span>
+          <p class="terminal-signin-hint">
+            <span v-if="terminalLoginRole === 'Admin'">Administrator access requires username and password.</span>
+            <span v-else-if="terminalLoginRole === 'Manager'">Store Managers log in using their assigned username. No password required.</span>
             <span v-else>Cashiers log in using their assigned username. No password required.</span>
           </p>
 
           <form @submit.prevent="handleStaffLogin">
-            <div class="input-group full-width" style="margin-bottom: 14px;">
-              <label style="font-weight: 600; font-size: 12px; margin-bottom: 6px; display: block; color: var(--text-primary);">
-                {{ terminalLoginRole === 'Admin' ? 'Username or Email *' : 'Username *' }}
-              </label>
+            <div class="terminal-field">
+              <label>Username *</label>
               <input
                 type="text"
                 v-model="staffLoginUsername"
-                :placeholder="terminalLoginRole === 'Admin' ? 'admin or your email' : (terminalLoginRole === 'Manager' ? 'e.g. manager' : 'e.g. cashier')"
+                :placeholder="terminalLoginRole === 'Admin' ? 'e.g. admin' : (terminalLoginRole === 'Manager' ? 'e.g. manager' : 'e.g. cashier')"
                 required
                 autofocus
-                style="width: 100%; padding: 10px 14px; background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px;"
               />
             </div>
 
-            <!-- Password field for Admin and Manager -->
-            <div v-if="terminalLoginRole !== 'Cashier'" class="input-group full-width" style="margin-bottom: 16px;">
-              <label style="font-weight: 600; font-size: 12px; margin-bottom: 6px; display: block; color: var(--text-primary);">
-                Password {{ terminalLoginRole === 'Admin' ? '*' : '(if assigned)' }}
-              </label>
-              <div style="position: relative; display: flex; align-items: center;">
+            <!-- Password field for Admin only -->
+            <div v-if="terminalLoginRole === 'Admin'" class="terminal-field">
+              <label>Password *</label>
+              <div class="terminal-password-wrap">
                 <input
                   :type="staffLoginShowPassword ? 'text' : 'password'"
                   v-model="staffLoginPassword"
                   placeholder="Enter your password"
-                  :required="terminalLoginRole === 'Admin'"
-                  style="width: 100%; padding: 10px 40px 10px 14px; background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px;"
+                  required
                 />
                 <button
                   type="button"
+                  class="terminal-eye-btn"
+                  aria-label="Toggle password visibility"
                   @click="staffLoginShowPassword = !staffLoginShowPassword"
-                  style="position: absolute; right: 10px; background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; padding: 4px;"
                 >
                   <EyeOff v-if="staffLoginShowPassword" :size="16" />
                   <Eye v-else :size="16" />
@@ -1017,20 +1013,19 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <p v-if="staffLoginError" style="color: #ef4444; font-size: 13px; margin: 0 0 14px; padding: 8px 12px; background: rgba(239,68,68,0.1); border-radius: 6px; border: 1px solid rgba(239,68,68,0.25);">
+            <p v-if="staffLoginError" class="terminal-signin-error" role="alert">
               {{ staffLoginError }}
             </p>
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
-              <button type="button" class="btn btn-outline" @click="staffLoginModalOpen = false">Cancel</button>
-              <button type="submit" class="btn btn-primary" :disabled="!staffLoginUsername.trim() || staffLoginLoading" style="padding: 9px 20px;">
+            <div class="terminal-signin-actions">
+              <button type="button" class="terminal-btn-cancel" @click="staffLoginModalOpen = false">Cancel</button>
+              <button type="submit" class="terminal-btn-submit" :disabled="!staffLoginUsername.trim() || staffLoginLoading">
                 {{ staffLoginLoading ? 'Signing in...' : 'Sign In' }}
               </button>
             </div>
-            <div v-if="user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager'" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color); text-align: center;">
+            <div v-if="user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager'" class="terminal-return-row">
               <button
                 type="button"
                 @click="staffLoginModalOpen = false; emit('sign-out')"
-                style="background: none; border: none; color: var(--accent-color); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: underline;"
               >
                 Return to Admin / Owner Dashboard
               </button>
@@ -1041,3 +1036,272 @@ onUnmounted(() => {
     </Teleport>
   </div>
 </template>
+
+<style>
+@media (min-width: 1081px) {
+  .terminal-signin-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .terminal-signin-modal {
+    width: 100%;
+    max-width: 430px;
+    padding: 24px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #111c33 0%, #0b1324 100%);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+    color: var(--text-primary, #f1f5f9);
+  }
+
+  [data-theme='light'] .terminal-signin-modal {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+    color: #0f172a;
+  }
+
+  .terminal-signin-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .terminal-signin-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .terminal-signin-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    background: rgba(14, 165, 233, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: var(--accent-color, #38bdf8);
+    flex-shrink: 0;
+  }
+
+  .terminal-signin-header h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .terminal-signin-header p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--text-muted, #94a3b8);
+  }
+
+  .terminal-signin-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--text-muted, #94a3b8);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+
+  .terminal-signin-close:hover {
+    color: var(--text-primary, #f8fafc);
+    border-color: rgba(148, 163, 184, 0.45);
+    background: rgba(148, 163, 184, 0.18);
+  }
+
+  .terminal-role-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 4px;
+    border-radius: 11px;
+    margin-bottom: 14px;
+    background: rgba(2, 6, 23, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  [data-theme='light'] .terminal-role-tabs {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+
+  .terminal-role-tabs button {
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+
+  .terminal-role-tabs button.active {
+    background: var(--accent-color, #0ea5e9);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35);
+  }
+
+  .terminal-signin-hint {
+    margin: 0 0 16px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-muted, #94a3b8);
+  }
+
+  .terminal-field {
+    margin-bottom: 14px;
+  }
+
+  .terminal-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #e2e8f0);
+  }
+
+  .terminal-field input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 9px;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    background: rgba(2, 6, 23, 0.5);
+    color: var(--text-primary, #f8fafc);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  }
+
+  [data-theme='light'] .terminal-field input {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+
+  .terminal-field input:focus {
+    border-color: var(--accent-color, #38bdf8);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  }
+
+  .terminal-password-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .terminal-password-wrap input {
+    padding-right: 40px;
+  }
+
+  .terminal-eye-btn {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+  }
+
+  .terminal-signin-error {
+    margin: 0 0 14px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.32);
+  }
+
+  .terminal-signin-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .terminal-btn-cancel {
+    padding: 9px 16px;
+    border-radius: 9px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--text-primary, #e2e8f0);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+
+  .terminal-btn-cancel:hover {
+    background: rgba(148, 163, 184, 0.18);
+  }
+
+  [data-theme='light'] .terminal-btn-cancel {
+    color: #334155;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+
+  .terminal-btn-submit {
+    padding: 9px 22px;
+    border-radius: 9px;
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    background: var(--accent-color, #0ea5e9);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(14, 165, 233, 0.3);
+    transition: all 0.16s ease;
+  }
+
+  .terminal-btn-submit:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  .terminal-btn-submit:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .terminal-return-row {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
+    text-align: center;
+  }
+
+  .terminal-return-row button {
+    background: none;
+    border: none;
+    color: var(--accent-color, #38bdf8);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+}
+</style>

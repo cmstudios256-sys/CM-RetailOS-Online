@@ -1786,12 +1786,14 @@ export async function guestApiRequest<T>(path: string, options: { method?: strin
   }
   if (url.pathname.endsWith('/auth/profile') && method === 'PUT') {
     const fullName = String(body.fullName ?? 'Shop Owner').trim() || 'Shop Owner'
+    const username = String(body.username ?? '').trim()
     if (!state.settings.preferences) state.settings.preferences = {}
     state.settings.preferences.ownerName = fullName
     state.settings.preferences.owner = fullName
+    if (username) state.settings.preferences.adminUsername = username
     record(state, 'Profile updated', fullName)
     writeState(state)
-    return { fullName } as T
+    return (username ? { fullName, username } : { fullName }) as T
   }
   if (url.pathname.endsWith('/auth/profile') && method === 'GET') {
     const fullName = String(state.settings.preferences?.ownerName || 'Shop Owner')

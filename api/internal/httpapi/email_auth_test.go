@@ -71,9 +71,9 @@ func TestUnverifiedEmailCannotSignIn(t *testing.T) {
 	mock.ExpectQuery(`(?s)SELECT u\.id::text.*u\.email_verified.*FROM users u`).
 		WithArgs("owner@example.com").
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "shop_id", "full_name", "email", "role", "password_hash", "email_verified",
+			"id", "shop_id", "full_name", "username", "email", "role", "password_hash", "email_verified",
 			"shop_name", "currency", "google_picture_url", "google_subject", "cloud_gmail",
-		}).AddRow("user-id", "shop-id", "Owner", "owner@example.com", "owner", passwordHash, false, "Corner Shop", "UGX", nil, nil, nil))
+		}).AddRow("user-id", "shop-id", "Owner", "", "owner@example.com", "owner", passwordHash, false, "Corner Shop", "UGX", nil, nil, nil))
 	server := New(db, Config{JWTSecret: []byte("01234567890123456789012345678901")})
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login",
 		strings.NewReader(`{"email":"owner@example.com","password":"correct-password"}`))
@@ -102,9 +102,9 @@ func TestGoogleOnlyAccountExplainsPasswordSignInOptions(t *testing.T) {
 	mock.ExpectQuery(`(?s)SELECT u\.id::text.*u\.email_verified.*FROM users u`).
 		WithArgs("owner@example.com").
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "shop_id", "full_name", "email", "role", "password_hash", "email_verified",
+			"id", "shop_id", "full_name", "username", "email", "role", "password_hash", "email_verified",
 			"shop_name", "currency", "google_picture_url", "google_subject", "cloud_gmail",
-		}).AddRow("user-id", "shop-id", "Owner", "owner@example.com", "owner", nil, true, "Corner Shop", "UGX", nil, "google-subject", nil))
+		}).AddRow("user-id", "shop-id", "Owner", "", "owner@example.com", "owner", nil, true, "Corner Shop", "UGX", nil, "google-subject", nil))
 	server := New(db, Config{JWTSecret: []byte("01234567890123456789012345678901")})
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login",
 		strings.NewReader(`{"email":"owner@example.com","password":"google-account-password"}`))
