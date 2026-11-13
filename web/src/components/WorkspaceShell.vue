@@ -214,6 +214,9 @@ function hasNavPermission(itemId: string): boolean {
   void prefsTick.value
   const role = props.user.role.toLowerCase()
   if (role === 'owner' || role === 'manager' || role === 'administrator') return true
+  if (isDesktopOnly.value && role === 'cashier' && (itemId === 'sales' || itemId === 'receipts')) {
+    return false
+  }
   const perms = readStaffPermissions(props.user.id, props.user.role)
   if (itemId === 'pos') return perms.includes('page_pos')
   if (itemId === 'products' || itemId === 'stock-levels') return perms.includes('page_inventory')
@@ -332,6 +335,15 @@ const staffLoginShowPassword = ref(false)
 const terminalLoginRole = ref<'Admin' | 'Manager' | 'Cashier'>('Cashier')
 const staffLoginLoading = ref(false)
 const staffLoginError = ref('')
+
+function openAdminTerminalLogin() {
+  profileOpen.value = false
+  terminalLoginRole.value = 'Admin'
+  staffLoginUsername.value = ''
+  staffLoginPassword.value = ''
+  staffLoginError.value = ''
+  staffLoginModalOpen.value = true
+}
 
 async function handleStaffLogin() {
   const uname = staffLoginUsername.value.trim()
@@ -651,8 +663,8 @@ onUnmounted(() => {
             v-if="isDesktopOnly && (user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager')"
             type="button"
             class="staff-signin-topbar-btn exit-admin-btn"
-            title="Exit terminal and return to Admin workspace"
-            @click="emit('sign-out')"
+            title="Sign in as Admin"
+            @click="openAdminTerminalLogin"
             style="background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.35); color: #f87171;"
           >
             <LogOut :size="14" />
@@ -726,7 +738,7 @@ onUnmounted(() => {
                 <button
                   v-if="isDesktopOnly && (user.role.toLowerCase() === 'cashier' || user.role.toLowerCase() === 'manager')"
                   type="button"
-                  @click="profileOpen = false; emit('sign-out')"
+                  @click="openAdminTerminalLogin"
                   style="color: #f87171;"
                 >
                   <LogOut :size="15" />
