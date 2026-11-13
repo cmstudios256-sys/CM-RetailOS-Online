@@ -1020,17 +1020,22 @@ tbody tr:hover {
 }
 
 .receipt-paper-wrapper {
-  padding: 1.5rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 1.5rem 1.5rem 2rem;
   overflow-y: auto;
   background-color: rgba(2, 6, 23, 0.35);
   display: flex;
   justify-content: center;
+  align-items: flex-start;
 }
 
 .receipt-paper {
   background-color: #ffffff;
   color: #0f172a;
   width: 100%;
+  height: auto;
+  flex-shrink: 0;
   max-width: 320px;
   padding: 1.5rem 1.25rem 2rem;
   font-family: 'Courier New', Courier, monospace;
