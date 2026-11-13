@@ -4082,6 +4082,6 @@ body:has(.workspace-shell) {
   .page-shell:has(.workspace-shell) .workspace-content {
     height: auto;
     flex: 1 1 0%;
-    padding: 0;
+    padding: 4px 6px 6px;
   }
 }
