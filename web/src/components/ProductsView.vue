@@ -303,8 +303,8 @@ const photoCameraVideo = ref<HTMLVideoElement | null>(null)
 let photoCameraStream: MediaStream | null = null
 
 function triggerGalleryUpload() {
-  showPhotoPicker.value = false
   imageInputRef.value?.click()
+  showPhotoPicker.value = false
 }
 
 function stopPhotoCameraStream() {
@@ -386,11 +386,12 @@ function triggerGalleryFromPhotoCamera() {
 }
 
 function triggerCameraCapture() {
-  showPhotoPicker.value = false
   if (isMobileOrTablet.value) {
     cameraInputRef.value?.click()
+    showPhotoPicker.value = false
     return
   }
+  showPhotoPicker.value = false
   void openPhotoCamera()
 }
 
@@ -1614,6 +1615,39 @@ onUnmounted(() => {
             <button type="button" class="barcode-camera-cancel" @click="closePhotoCamera">Cancel</button>
           </div>
         </section>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="showPhotoPicker" class="photo-picker-backdrop" @click.self="showPhotoPicker = false">
+        <div class="photo-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="photo-picker-title">
+          <div class="photo-picker-header">
+            <h3 id="photo-picker-title">Add Product Photo</h3>
+            <button type="button" class="photo-picker-close" aria-label="Close photo options" @click="showPhotoPicker = false">
+              <X :size="20" />
+            </button>
+          </div>
+          <div class="photo-picker-options">
+            <button type="button" class="photo-picker-option" @click="triggerCameraCapture">
+              <div class="option-icon camera-icon-wrap">
+                <Camera :size="22" />
+              </div>
+              <div class="option-details">
+                <strong>Take Photo</strong>
+                <small>Use your device camera to capture a product photo</small>
+              </div>
+            </button>
+            <button type="button" class="photo-picker-option" @click="triggerGalleryUpload">
+              <div class="option-icon gallery-icon-wrap">
+                <ImagePlus :size="22" />
+              </div>
+              <div class="option-details">
+                <strong>Choose from Gallery</strong>
+                <small>Select an existing photo from your library or files</small>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
     </Teleport>
   </section>
