@@ -1575,6 +1575,37 @@ onUnmounted(() => {
   .kpi-badge-hint {
     display: none;
   }
+
+  .kpi-card {
+    padding: 0.7rem 1rem;
+  }
+
+  .kpi-header {
+    margin-bottom: 0.35rem;
+  }
+
+  .kpi-title-row {
+    margin-bottom: 0.15rem;
+  }
+
+  .kpi-title {
+    font-size: 0.78rem;
+  }
+
+  .kpi-value {
+    font-size: 1.32rem;
+    line-height: 1.15;
+  }
+
+  .kpi-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .kpi-footer {
+    font-size: 0.72rem;
+  }
 }
 
 @media (max-width: 1080px) {
