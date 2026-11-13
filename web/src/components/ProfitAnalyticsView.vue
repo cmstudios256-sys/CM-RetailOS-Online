@@ -1571,6 +1571,12 @@ onUnmounted(() => {
 /* ==========================================================================
    Responsive Breakpoints
    ========================================================================== */
+@media (min-width: 1081px) {
+  .kpi-badge-hint {
+    display: none;
+  }
+}
+
 @media (max-width: 1080px) {
   .analytics-section {
     height: auto;
