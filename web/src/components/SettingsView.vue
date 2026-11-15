@@ -52,6 +52,12 @@ import CustomSelect from './CustomSelect.vue'
 const { isPhone } = usePhoneBreakpoint()
 const { isMobileOrTablet } = useMobileOrTabletBreakpoint()
 const isMobile = computed(() => isMobileOrTablet.value || isPhone.value)
+const webBluetoothSupported = computed(() => isWebBluetoothSupported())
+const isIosBrowser = computed(() => {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  return /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+})
 
 const props = defineProps<{
   shopName: string
@@ -1712,36 +1718,54 @@ onUnmounted(() => {
             <div class="mobile-bt-body">
               <!-- Empty State (No Printer Configured) -->
               <div v-if="displayedPrinters.length === 0" class="mobile-bt-empty-state">
-                <p class="mobile-bt-empty-hint">
-                  Turn on your wireless thermal printer to print receipts directly from your phone.
-                </p>
-
-                <button
-                  type="button"
-                  class="btn btn-primary mobile-bt-pair-btn"
-                  @click="handlePairBluetoothMobile"
-                  :disabled="isPairingBluetooth"
-                >
-                  <RefreshCw v-if="isPairingBluetooth" :size="18" class="spin-icon" />
-                  <Bluetooth v-else :size="18" />
-                  <span>{{ isPairingBluetooth ? 'Pairing Bluetooth...' : 'Scan & Pair Printer' }}</span>
-                </button>
-
-                <div class="mobile-bt-presets-section">
-                  <span class="presets-section-title">1-Tap Quick Connect:</span>
-                  <div class="mobile-bt-chips-grid">
-                    <button
-                      v-for="model in ['POS-58', 'MPT-II', 'MTP-2', 'RPP02N', 'ZJ-5802']"
-                      :key="model"
-                      type="button"
-                      class="mobile-preset-chip"
-                      @click="quickConnectPreset(model)"
-                    >
-                      <span class="chip-model">{{ model }}</span>
-                      <span class="chip-label">58mm</span>
-                    </button>
+                <template v-if="!webBluetoothSupported && isIosBrowser">
+                  <div
+                    style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.28); border-radius: 12px; padding: 14px; text-align: left; margin-bottom: 12px;"
+                  >
+                    <div style="font-weight: 700; font-size: 0.92rem; color: #38bdf8; margin-bottom: 6px;">
+                      iPhone &amp; iPad Printing Options
+                    </div>
+                    <p style="font-size: 0.83rem; line-height: 1.45; margin: 0 0 8px 0; opacity: 0.9;">
+                      Safari and Home Screen PWAs on iOS do not support Web Bluetooth. Use either of these options:
+                    </p>
+                    <ul style="font-size: 0.82rem; line-height: 1.5; margin: 0; padding-left: 18px; opacity: 0.92;">
+                      <li><strong>Bluefy Browser (App Store):</strong> Open CM RetailOS Online in Bluefy for direct 58mm/80mm Bluetooth thermal printing.</li>
+                      <li><strong>AirPrint / System Print:</strong> Tap <em>Print (AirPrint / PDF)</em> on any receipt to print to AirPrint/Wi-Fi printers or save a PDF.</li>
+                    </ul>
                   </div>
-                </div>
+                </template>
+                <template v-else>
+                  <p class="mobile-bt-empty-hint">
+                    Turn on your wireless thermal printer to print receipts directly from your phone.
+                  </p>
+
+                  <button
+                    type="button"
+                    class="btn btn-primary mobile-bt-pair-btn"
+                    @click="handlePairBluetoothMobile"
+                    :disabled="isPairingBluetooth"
+                  >
+                    <RefreshCw v-if="isPairingBluetooth" :size="18" class="spin-icon" />
+                    <Bluetooth v-else :size="18" />
+                    <span>{{ isPairingBluetooth ? 'Pairing Bluetooth...' : 'Scan & Pair Printer' }}</span>
+                  </button>
+
+                  <div class="mobile-bt-presets-section">
+                    <span class="presets-section-title">1-Tap Quick Connect:</span>
+                    <div class="mobile-bt-chips-grid">
+                      <button
+                        v-for="model in ['POS-58', 'MPT-II', 'MTP-2', 'RPP02N', 'ZJ-5802']"
+                        :key="model"
+                        type="button"
+                        class="mobile-preset-chip"
+                        @click="quickConnectPreset(model)"
+                      >
+                        <span class="chip-model">{{ model }}</span>
+                        <span class="chip-label">58mm</span>
+                      </button>
+                    </div>
+                  </div>
+                </template>
               </div>
 
               <!-- Connected State -->

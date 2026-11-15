@@ -2,10 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import { MessageCircle, Share2, X, Printer, Bluetooth } from '@lucide/vue'
 import { formatDate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
-import { receiptNumber } from '../utils/reporting'
+import { escapeHtml, openPrintDocument, receiptNumber } from '../utils/reporting'
 import {
   getDefaultBluetoothPrinter,
   buildEscPosReceipt,
+  isWebBluetoothSupported,
   sendToBluetoothPrinter,
 } from '../utils/bluetoothPrinter'
 
@@ -104,6 +105,56 @@ watch(() => props.sale, () => {
   error.value = ''
 })
 
+const canUseBluetoothPrint = computed(() => isWebBluetoothSupported())
+
+function printWithSystemSheet() {
+  if (!props.sale) return
+  const sale = props.sale
+  const prefs = readOnlinePrefs()
+  const showLogo = prefs.receiptsSettings?.showLogo !== false
+  const showCashier = prefs.receiptsSettings?.showCashier !== false
+  const headerText = prefs.receiptsSettings?.headerText ?? ''
+  const footerText = prefs.receiptsSettings?.footerText || 'Thank you for shopping with us!'
+  const receiptMaxWidth = prefs.receiptsSettings?.paperWidth === '58mm' ? '220px' : '300px'
+  const logoMaxWidth = prefs.receiptsSettings?.paperWidth === '58mm' ? '140px' : '180px'
+  const logoMaxHeight = prefs.receiptsSettings?.paperWidth === '58mm' ? '46px' : '56px'
+  const logoHtml = showLogo && prefs.logo
+    ? `<div style="display:flex;justify-content:center;margin-bottom:8px;"><img src="${escapeHtml(prefs.logo)}" style="width:auto;max-width:${logoMaxWidth};height:auto;max-height:${logoMaxHeight};object-fit:contain;filter:brightness(0);" /></div>`
+    : ''
+  const rows = sale.items.map(item => `
+    <div style="margin-bottom: 6px;">
+      <div style="font-weight: 700;">${escapeHtml(item.productName)}</div>
+      <div style="display: flex; justify-content: space-between; padding-left: 8px;">
+        <span>${escapeHtml(formatQuantity(item.quantity))} x ${escapeHtml(formatMoney(item.unitPrice, props.currency))}</span>
+        <span>${escapeHtml(formatMoney(item.lineTotal, props.currency))}</span>
+      </div>
+    </div>
+  `).join('')
+
+  openPrintDocument(
+    `Receipt ${receiptNumber(sale)}`,
+    `<div style="max-width: ${receiptMaxWidth}; margin: 0 auto; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #000; line-height: 1.4;">
+      <div style="text-align: center; margin-bottom: 10px;">
+        ${logoHtml}
+        <h2 style="margin: 0; font-size: 15px; font-weight: 700; text-transform: uppercase;">${escapeHtml(props.shopName)}</h2>
+        ${headerText ? `<div style="font-size: 11px; margin-top: 4px;">${escapeHtml(headerText)}</div>` : ''}
+      </div>
+      <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 6px 0; margin-bottom: 8px; font-size: 11px;">
+        <div style="display: flex; justify-content: space-between;"><span>Receipt:</span><span>#${escapeHtml(receiptNumber(sale))}</span></div>
+        <div style="display: flex; justify-content: space-between;"><span>Date:</span><span>${escapeHtml(formatDate(sale.completedAt))} ${escapeHtml(formatTime(sale.completedAt))}</span></div>
+        ${showCashier ? `<div style="display: flex; justify-content: space-between;"><span>Cashier:</span><span>${escapeHtml(sale.cashierName)}</span></div>` : ''}
+      </div>
+      <div style="margin-bottom: 8px;">${rows}</div>
+      <div style="border-top: 1px dashed #000; padding-top: 6px; font-size: 12px;">
+        <div style="display: flex; justify-content: space-between;"><span>Subtotal</span><span>${escapeHtml(formatMoney(sale.subtotal, props.currency))}</span></div>
+        ${sale.discount > 0 ? `<div style="display: flex; justify-content: space-between;"><span>Discount</span><span>-${escapeHtml(formatMoney(sale.discount, props.currency))}</span></div>` : ''}
+        <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; margin-top: 4px;"><span>TOTAL</span><span>${escapeHtml(formatMoney(sale.total, props.currency))}</span></div>
+      </div>
+      <div style="text-align: center; margin-top: 12px; font-size: 11px;">${escapeHtml(footerText)}</div>
+    </div>`,
+  )
+}
+
 async function printWithBluetooth() {
   if (!props.sale) return
   error.value = ''
@@ -201,6 +252,7 @@ async function shareWithDevice() {
       </p>
       <p v-if="error" class="mobile-share-error" role="alert">{{ error }}</p>
       <button
+        v-if="canUseBluetoothPrint"
         type="button"
         class="mobile-share-bluetooth"
         :disabled="isPrintingBt"
@@ -208,6 +260,14 @@ async function shareWithDevice() {
       >
         <Printer :size="18" />
         {{ isPrintingBt ? 'Printing via Bluetooth...' : 'Print (Bluetooth Thermal)' }}
+      </button>
+      <button
+        type="button"
+        class="mobile-share-bluetooth"
+        @click="printWithSystemSheet"
+      >
+        <Printer :size="18" />
+        Print (AirPrint / PDF)
       </button>
 
       <div class="mobile-share-divider">
