@@ -75,6 +75,7 @@ type ShopSettingsResponse = {
   receiptHeader: string
   receiptFooter: string
   receiptShowPhone: boolean
+  logo?: string
 }
 
 type TeamMember = {
@@ -461,10 +462,24 @@ const handleLogoUpload = (event: Event) => {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
         const supportsAlpha = ['image/png', 'image/webp', 'image/svg+xml', 'image/gif'].includes(file.type)
         const mimeType = supportsAlpha ? 'image/png' : 'image/jpeg'
+        const nextLogo = canvas.toDataURL(mimeType, 0.9)
         logoEditedLocally = true
-        appSettings.value.shopDetails.logo = canvas.toDataURL(mimeType, 0.9)
-        const synced = await persistLocalPrefs()
-        if (synced) {
+        appSettings.value.shopDetails.logo = nextLogo
+        let savedToShop = false
+        try {
+          const saved = await apiRequest<{ logo: string }>('/settings/logo', {
+            method: 'PUT',
+            body: { logo: nextLogo },
+          })
+          if (saved?.logo !== undefined) {
+            appSettings.value.shopDetails.logo = saved.logo
+          }
+          savedToShop = true
+        } catch {
+          savedToShop = false
+        }
+        const syncedPrefs = await persistLocalPrefs()
+        if (savedToShop || syncedPrefs) {
           showToast('success', 'Logo updated successfully.')
         } else {
           showToast('error', 'Logo saved locally, but cloud sync failed. Check your connection and try again.')
@@ -655,6 +670,20 @@ async function loadSettings() {
     appSettings.value.receiptsSettings.headerText = result.settings.receiptHeader || ''
     appSettings.value.receiptsSettings.footerText = result.settings.receiptFooter || 'Thank you for shopping with us!'
     appSettings.value.receiptsSettings.showPhone = result.settings.receiptShowPhone
+    if (!logoEditedLocally && result.settings.logo !== undefined) {
+      appSettings.value.shopDetails.logo = result.settings.logo
+      try {
+        const raw = localStorage.getItem(LOCAL_PREFS_KEY)
+        const parsed = raw ? JSON.parse(raw) : {}
+        if (parsed.logo !== result.settings.logo) {
+          parsed.logo = result.settings.logo
+          localStorage.setItem(LOCAL_PREFS_KEY, JSON.stringify(parsed))
+          window.dispatchEvent(new CustomEvent('online-prefs-updated'))
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
 
     const currentCountryCurrency = countryCurrencyMap[selectedCountry.value]
     if (!selectedCountry.value || currentCountryCurrency !== loadedCurrency) {
@@ -683,6 +712,7 @@ async function saveConfigurations() {
       receiptHeader: appSettings.value.receiptsSettings.headerText.trim(),
       receiptFooter: appSettings.value.receiptsSettings.footerText.trim(),
       receiptShowPhone: appSettings.value.receiptsSettings.showPhone,
+      logo: appSettings.value.shopDetails.logo,
     }
     const result = await apiRequest<{ settings: ShopSettingsResponse }>('/settings', {
       method: 'PUT',
@@ -1579,7 +1609,7 @@ onUnmounted(() => {
                       type="button"
                       class="btn btn-outline remove-logo-btn"
                       style="border-color: #ef4444; color: #ef4444;"
-                      @click="async () => { logoEditedLocally = true; appSettings.shopDetails.logo = ''; const synced = await persistLocalPrefs(); showToast(synced ? 'success' : 'error', synced ? 'Logo removed.' : 'Logo removed locally, but cloud sync failed.') }"
+                      @click="async () => { logoEditedLocally = true; appSettings.shopDetails.logo = ''; let saved = false; try { await apiRequest('/settings/logo', { method: 'PUT', body: { logo: '' } }); saved = true } catch { saved = false } const synced = await persistLocalPrefs(); showToast(saved || synced ? 'success' : 'error', saved || synced ? 'Logo removed.' : 'Logo removed locally, but cloud sync failed.') }"
                     >
                       <X :size="14" /> Remove
                     </button>

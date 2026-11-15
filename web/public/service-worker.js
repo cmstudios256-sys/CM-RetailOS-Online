@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cm-retailos-shell-v20'
+const CACHE_NAME = 'cm-retailos-shell-v21'
 const PRECACHE_ASSETS = []
 const APP_SHELL = [
   '/',

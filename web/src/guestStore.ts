@@ -1771,6 +1771,17 @@ export async function guestApiRequest<T>(path: string, options: { method?: strin
     writeState(state)
     return { settings: Object.fromEntries(Object.entries(state.settings).filter(([key]) => key !== 'preferences')) } as T
   }
+  if (url.pathname.endsWith('/settings/logo') && method === 'PUT') {
+    const logo = String(body.logo ?? '').trim()
+    ;(state.settings as GuestSettings & { logo?: string }).logo = logo
+    state.settings.preferences = {
+      ...(state.settings.preferences || {}),
+      logo,
+    }
+    record(state, 'Store logo updated', state.settings.shopName)
+    writeState(state)
+    return { logo } as T
+  }
   if (url.pathname.endsWith('/settings/preferences') && method === 'GET') {
     const raw = state.settings.preferences
     return { preferences: raw, permissions: [], staffPermissions: {} } as T

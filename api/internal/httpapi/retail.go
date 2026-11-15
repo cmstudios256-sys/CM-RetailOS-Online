@@ -732,6 +732,7 @@ type shopSettings struct {
 	ReceiptHeader    string `json:"receiptHeader"`
 	ReceiptFooter    string `json:"receiptFooter"`
 	ReceiptShowPhone bool   `json:"receiptShowPhone"`
+	Logo             string `json:"logo"`
 }
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
@@ -741,11 +742,12 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFrom(r)
 	var settings shopSettings
 	err := s.db.QueryRowContext(r.Context(), `
-		SELECT name, currency, address, phone, receipt_header, receipt_footer, receipt_show_phone
+		SELECT name, currency, address, phone, receipt_header, receipt_footer, receipt_show_phone,
+			COALESCE(NULLIF(logo, ''), preferences->>'logo', '')
 		FROM shops WHERE id = $1`,
 		claims.ShopID,
 	).Scan(&settings.ShopName, &settings.Currency, &settings.Address, &settings.Phone,
-		&settings.ReceiptHeader, &settings.ReceiptFooter, &settings.ReceiptShowPhone)
+		&settings.ReceiptHeader, &settings.ReceiptFooter, &settings.ReceiptShowPhone, &settings.Logo)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "shop_not_found", "The shop settings could not be found.")
 		return
@@ -773,6 +775,11 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 	settings.Phone = strings.TrimSpace(settings.Phone)
 	settings.ReceiptHeader = strings.TrimSpace(settings.ReceiptHeader)
 	settings.ReceiptFooter = strings.TrimSpace(settings.ReceiptFooter)
+	settings.Logo = strings.TrimSpace(settings.Logo)
+	if len(settings.Logo) > 2*1024*1024 {
+		writeError(w, http.StatusBadRequest, "invalid_settings", "Store logo must be 2MB or smaller.")
+		return
+	}
 	if !validLength(settings.ShopName, 1, 120) ||
 		!isValidCurrency(settings.Currency) ||
 		!validLength(settings.Address, 0, 200) ||
@@ -785,13 +792,14 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFrom(r)
 	err := s.db.QueryRowContext(r.Context(), `
 		UPDATE shops SET name = $1, currency = $2, address = $3, phone = $4,
-			receipt_header = $5, receipt_footer = $6, receipt_show_phone = $7
-		WHERE id = $8
-		RETURNING name, currency, address, phone, receipt_header, receipt_footer, receipt_show_phone`,
+			receipt_header = $5, receipt_footer = $6, receipt_show_phone = $7,
+			logo = $8
+		WHERE id = $9
+		RETURNING name, currency, address, phone, receipt_header, receipt_footer, receipt_show_phone, logo`,
 		settings.ShopName, settings.Currency, settings.Address, settings.Phone,
-		settings.ReceiptHeader, settings.ReceiptFooter, settings.ReceiptShowPhone, claims.ShopID,
+		settings.ReceiptHeader, settings.ReceiptFooter, settings.ReceiptShowPhone, settings.Logo, claims.ShopID,
 	).Scan(&settings.ShopName, &settings.Currency, &settings.Address, &settings.Phone,
-		&settings.ReceiptHeader, &settings.ReceiptFooter, &settings.ReceiptShowPhone)
+		&settings.ReceiptHeader, &settings.ReceiptFooter, &settings.ReceiptShowPhone, &settings.Logo)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "shop_not_found", "The shop settings could not be found.")
 		return
@@ -803,6 +811,43 @@ func (s *Server) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	settings.Currency = strings.TrimSpace(settings.Currency)
 	writeJSON(w, http.StatusOK, map[string]shopSettings{"settings": settings})
+}
+
+func (s *Server) updateSettingsLogo(w http.ResponseWriter, r *http.Request) {
+	if !requireOwnerOrManager(w, r) {
+		return
+	}
+	var input struct {
+		Logo string `json:"logo"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	input.Logo = strings.TrimSpace(input.Logo)
+	if len(input.Logo) > 2*1024*1024 {
+		writeError(w, http.StatusBadRequest, "invalid_shop_logo", "Store logo must be 2MB or smaller.")
+		return
+	}
+	claims := claimsFrom(r)
+	var savedLogo string
+	err := s.db.QueryRowContext(r.Context(), `
+		UPDATE shops
+		SET logo = $1,
+			preferences = jsonb_set(COALESCE(preferences, '{}'::jsonb), '{logo}', to_jsonb($1::text), true)
+		WHERE id = $2
+		RETURNING logo`,
+		input.Logo, claims.ShopID,
+	).Scan(&savedLogo)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "shop_not_found", "The shop settings could not be found.")
+		return
+	}
+	if err != nil {
+		log.Printf("update shop logo for shop %s: %v", claims.ShopID, err)
+		writeError(w, http.StatusInternalServerError, "request_failed", "Store logo could not be saved.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"logo": savedLogo})
 }
 
 var allowedStaffPermissions = map[string]bool{

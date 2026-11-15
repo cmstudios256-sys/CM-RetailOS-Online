@@ -122,6 +122,7 @@ func New(db *sql.DB, config Config) *Server {
 	s.mux.Handle("GET /api/v1/audit-logs", s.requireSession(http.HandlerFunc(s.auditLogs)))
 	s.mux.Handle("GET /api/v1/settings", s.requireSession(http.HandlerFunc(s.getSettings)))
 	s.mux.Handle("PUT /api/v1/settings", s.requireSession(http.HandlerFunc(s.updateSettings)))
+	s.mux.Handle("PUT /api/v1/settings/logo", s.requireSession(http.HandlerFunc(s.updateSettingsLogo)))
 	s.mux.Handle("GET /api/v1/settings/preferences", s.requireSession(http.HandlerFunc(s.getSettingsPreferences)))
 	s.mux.Handle("PUT /api/v1/settings/preferences", s.requireSession(http.HandlerFunc(s.updateSettingsPreferences)))
 	s.mux.Handle("GET /api/v1/team-members", s.requireSession(http.HandlerFunc(s.listTeamMembers)))

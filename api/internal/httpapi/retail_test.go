@@ -205,10 +205,10 @@ func TestGetShopSettingsScopesQueryToAuthenticatedShop(t *testing.T) {
 	config := Config{JWTSecret: []byte("01234567890123456789012345678901")}
 	server := New(db, config)
 	expectActiveSession(mock, shopID, "user-a")
-	mock.ExpectQuery(`SELECT name, currency, address, phone, receipt_header, receipt_footer, receipt_show_phone FROM shops WHERE id = \$1`).
+	mock.ExpectQuery(`(?s)SELECT name, currency, address, phone, receipt_header, receipt_footer, receipt_show_phone,\s+COALESCE\(NULLIF\(logo, ''\), preferences->>'logo', ''\)\s+FROM shops WHERE id = \$1`).
 		WithArgs(shopID).
-		WillReturnRows(sqlmock.NewRows([]string{"name", "currency", "address", "phone", "receipt_header", "receipt_footer", "receipt_show_phone"}).
-			AddRow("Corner Shop", "UGX", "Kampala", "+256700000000", "Welcome", "Thank you", true))
+		WillReturnRows(sqlmock.NewRows([]string{"name", "currency", "address", "phone", "receipt_header", "receipt_footer", "receipt_show_phone", "logo"}).
+			AddRow("Corner Shop", "UGX", "Kampala", "+256700000000", "Welcome", "Thank you", true, "data:image/png;base64,abc"))
 
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/settings", nil)
 	request.AddCookie(testSessionCookie(t, config, shopID, "user-a", "owner"))
@@ -246,10 +246,10 @@ func TestUpdateShopSettingsValidatesAndPersistsAllowedFields(t *testing.T) {
 	config := Config{JWTSecret: []byte("01234567890123456789012345678901")}
 	server := New(db, config)
 	expectActiveSession(mock, shopID, "user-a")
-	mock.ExpectQuery(`(?s)UPDATE shops SET name = \$1, currency = \$2, address = \$3, phone = \$4,.*WHERE id = \$8\s+RETURNING name, currency, address, phone, receipt_header, receipt_footer, receipt_show_phone`).
-		WithArgs("My Retail Shop", "USD", "Main Street", "+1234567890", "Welcome!", "Come again", false, shopID).
-		WillReturnRows(sqlmock.NewRows([]string{"name", "currency", "address", "phone", "receipt_header", "receipt_footer", "receipt_show_phone"}).
-			AddRow("My Retail Shop", "USD", "Main Street", "+1234567890", "Welcome!", "Come again", false))
+	mock.ExpectQuery(`(?s)UPDATE shops SET name = \$1, currency = \$2, address = \$3, phone = \$4,.*logo = \$8\s+WHERE id = \$9\s+RETURNING name, currency, address, phone, receipt_header, receipt_footer, receipt_show_phone, logo`).
+		WithArgs("My Retail Shop", "USD", "Main Street", "+1234567890", "Welcome!", "Come again", false, "", shopID).
+		WillReturnRows(sqlmock.NewRows([]string{"name", "currency", "address", "phone", "receipt_header", "receipt_footer", "receipt_show_phone", "logo"}).
+			AddRow("My Retail Shop", "USD", "Main Street", "+1234567890", "Welcome!", "Come again", false, ""))
 
 	body := `{"shopName":" My Retail Shop ","currency":" usd ","address":" Main Street ","phone":"+1234567890","receiptHeader":"Welcome!","receiptFooter":"Come again","receiptShowPhone":false}`
 	request := httptest.NewRequest(http.MethodPut, "/api/v1/settings", strings.NewReader(body))
