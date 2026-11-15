@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Calendar, Download, Eye, Printer, Search, Share2, X } from '@lucide/vue'
 import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readCachedGet, readOnlinePrefs, type Sale } from '../api'
@@ -306,10 +306,19 @@ async function loadSales() {
   }
 }
 
+function handleOnlinePrefsUpdated() {
+  void loadSales()
+}
+
 onMounted(() => {
   mobileTouch.value = isTouchDevice()
+  window.addEventListener('online-prefs-updated', handleOnlinePrefsUpdated)
   void loadSales()
   void autoConnectSavedBluetoothPrinter().catch(() => {})
+})
+
+onUnmounted(() => {
+  window.removeEventListener('online-prefs-updated', handleOnlinePrefsUpdated)
 })
 </script>
 

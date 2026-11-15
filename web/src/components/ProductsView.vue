@@ -462,7 +462,10 @@ const editedCategoryName = ref('')
 const productToDelete = ref<Product | null>(null)
 const deleting = ref(false)
 
-const canManage = computed(() => props.role === 'owner' || props.role === 'manager')
+const canManage = computed(() => {
+  const role = String(props.role || '').toLowerCase()
+  return role === 'owner' || role === 'manager' || role === 'administrator'
+})
 
 const categories = computed(() => {
   const names = new Set(
@@ -919,6 +922,10 @@ onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown)
 })
 onUnmounted(() => {
+  if (scanTimeout) {
+    window.clearTimeout(scanTimeout)
+    scanTimeout = null
+  }
   closeBarcodeCamera()
   closePhotoCamera()
   window.removeEventListener('click', closeDropdown)

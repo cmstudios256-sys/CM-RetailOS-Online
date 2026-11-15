@@ -114,10 +114,15 @@ async function printWithBluetooth() {
   }
   isPrintingBt.value = true
   try {
+    const prefs = readOnlinePrefs()
+    const paperWidth = ((printer.paperWidth || prefs.receiptsSettings?.paperWidth || '58mm') === '80mm' ? '80mm' : '58mm') as '58mm' | '80mm'
     const bytes = buildEscPosReceipt(props.sale, {
       shopName: props.shopName,
       currency: props.currency,
-      paperWidth: printer.paperWidth || '58mm',
+      paperWidth,
+      showCashier: prefs.receiptsSettings?.showCashier !== false,
+      headerText: prefs.receiptsSettings?.headerText ?? '',
+      footerText: prefs.receiptsSettings?.footerText || 'Thank you for shopping with us!',
     })
     await sendToBluetoothPrinter(printer, bytes)
     window.setTimeout(() => {

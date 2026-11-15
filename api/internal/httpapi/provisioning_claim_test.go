@@ -36,9 +36,9 @@ func TestFirstTimeGoogleProvisioningAndGuestClaim(t *testing.T) {
 		WithArgs("My Shop").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(shopID))
 	mock.ExpectQuery(`INSERT INTO users \(shop_id, full_name, email, google_subject, google_picture_url, role\)`).
-		WithArgs(shopID, "Shop Owner", "owner@example.com", sub, "").
+		WithArgs(shopID, "Google Profile", "owner@example.com", sub, "").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "shop_id", "full_name", "email", "role"}).
-			AddRow(userID, shopID, "Shop Owner", "owner@example.com", "owner"))
+			AddRow(userID, shopID, "Google Profile", "owner@example.com", "owner"))
 	mock.ExpectCommit()
 
 	user, err := server.findOrCreateGoogleUser(context.Background(), sub, googleIdentityClaims{
@@ -48,7 +48,7 @@ func TestFirstTimeGoogleProvisioningAndGuestClaim(t *testing.T) {
 		t.Fatalf("provision first Google account: %v", err)
 	}
 	if user.UserID != userID || user.ShopID != shopID || user.ShopName != "My Shop" ||
-		user.FullName != "Shop Owner" || user.Email != "owner@example.com" ||
+		user.FullName != "Google Profile" || user.Email != "owner@example.com" ||
 		user.Role != "owner" || user.Currency != "UGX" || !user.GoogleConnected {
 		t.Fatalf("unexpected first-time Google account and defaults: %+v", user)
 	}

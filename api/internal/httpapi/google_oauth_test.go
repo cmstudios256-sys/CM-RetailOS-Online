@@ -140,9 +140,9 @@ func TestFindOrCreateGoogleUserDefaultsShopNameWhenEmptyForNewAccount(t *testing
 	mock.ExpectQuery(`INSERT INTO shops \(name\) VALUES \(\$1\) RETURNING id::text`).
 		WithArgs("My Shop").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(shopID))
 	mock.ExpectQuery(`INSERT INTO users \(shop_id, full_name, email, google_subject, google_picture_url, role\)`).
-		WithArgs(shopID, "Shop Owner", "owner@example.com", "google-subject", "").
+		WithArgs(shopID, "Owner", "owner@example.com", "google-subject", "").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "shop_id", "full_name", "email", "role"}).
-			AddRow("user-id", shopID, "Shop Owner", "owner@example.com", "owner"))
+			AddRow("user-id", shopID, "Owner", "owner@example.com", "owner"))
 	mock.ExpectCommit()
 
 	server := New(db, Config{})
@@ -177,9 +177,9 @@ func TestFindOrCreateGoogleUserCreatesPasswordlessOwner(t *testing.T) {
 	mock.ExpectQuery(`INSERT INTO shops \(name\) VALUES \(\$1\) RETURNING id::text`).
 		WithArgs("New Shop").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(shopID))
 	mock.ExpectQuery(`INSERT INTO users \(shop_id, full_name, email, google_subject, google_picture_url, role\)`).
-		WithArgs(shopID, "Shop Owner", "owner@example.com", "google-subject", pictureURL).
+		WithArgs(shopID, "Owner", "owner@example.com", "google-subject", pictureURL).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "shop_id", "full_name", "email", "role"}).
-			AddRow("user-id", shopID, "Shop Owner", "owner@example.com", "owner"))
+			AddRow("user-id", shopID, "Owner", "owner@example.com", "owner"))
 	mock.ExpectCommit()
 
 	server := New(db, Config{})
@@ -190,7 +190,7 @@ func TestFindOrCreateGoogleUserCreatesPasswordlessOwner(t *testing.T) {
 		t.Fatalf("create Google owner: %v", err)
 	}
 	if user.UserID != "user-id" || user.ShopID != shopID || user.ShopName != "New Shop" ||
-		user.FullName != "Shop Owner" || user.Email != "owner@example.com" || user.Role != "owner" ||
+		user.FullName != "Owner" || user.Email != "owner@example.com" || user.Role != "owner" ||
 		user.Currency != "UGX" || user.GooglePictureURL != pictureURL {
 		t.Fatalf("unexpected Google owner: %+v", user)
 	}

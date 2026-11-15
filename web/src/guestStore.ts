@@ -1839,10 +1839,19 @@ export async function guestApiRequest<T>(path: string, options: { method?: strin
   if (memberMatch) {
     const member = state.members.find(item => item.id === decodeURIComponent(memberMatch[1]))
     if (!member) throw new Error('That team member could not be found.')
-    if (memberMatch[2] === 'permissions' && method === 'PUT') member.permissions = Array.isArray(body.permissions) ? body.permissions as string[] : []
-    if (memberMatch[2] === 'status' && method === 'PATCH') member.active = Boolean(body.active)
-    writeState(state)
-    return undefined as T
+    if (memberMatch[2] === 'permissions' && method === 'PUT') {
+      member.permissions = Array.isArray(body.permissions) ? body.permissions as string[] : []
+      if (typeof body.fullName === 'string' && body.fullName.trim()) {
+        member.fullName = body.fullName.trim()
+      }
+      writeState(state)
+      return { id: member.id, permissions: member.permissions } as T
+    }
+    if (memberMatch[2] === 'status' && method === 'PATCH') {
+      member.active = Boolean(body.active)
+      writeState(state)
+      return { member } as T
+    }
   }
   throw new Error(`Guest mode does not support ${method} ${url.pathname}.`)
 }

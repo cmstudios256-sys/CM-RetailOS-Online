@@ -717,8 +717,8 @@ async function saveConfigurations() {
     const result = await apiRequest<{ settings: ShopSettingsResponse }>('/settings', {
       method: 'PUT',
       body: payload,
-    }).catch(() => null)
-    
+    })
+
     if (result && result.settings) {
       appSettings.value.shopDetails.name = result.settings.shopName
       appSettings.value.shopDetails.currency = result.settings.currency

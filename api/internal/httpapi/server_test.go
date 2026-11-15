@@ -268,8 +268,6 @@ func TestOwnerManagerReadHandlersRejectCashier(t *testing.T) {
 	for _, path := range []string{
 		"/api/v1/business-intelligence",
 		"/api/v1/audit-logs",
-		"/api/v1/settings",
-		"/api/v1/settings/preferences",
 	} {
 		t.Run(path, func(t *testing.T) {
 			db, mock, err := sqlmock.New()

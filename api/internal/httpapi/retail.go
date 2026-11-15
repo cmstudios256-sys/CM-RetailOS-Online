@@ -736,9 +736,6 @@ type shopSettings struct {
 }
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
-	if !requireOwnerOrManager(w, r) {
-		return
-	}
 	claims := claimsFrom(r)
 	var settings shopSettings
 	err := s.db.QueryRowContext(r.Context(), `
@@ -860,9 +857,6 @@ var allowedStaffPermissions = map[string]bool{
 }
 
 func (s *Server) getSettingsPreferences(w http.ResponseWriter, r *http.Request) {
-	if !requireOwnerOrManager(w, r) {
-		return
-	}
 	claims := claimsFrom(r)
 	var rawPrefs []byte
 	var rawUserPerms []byte

@@ -150,7 +150,10 @@ function triggerSuccessToast(message: string) {
   }, 3500)
 }
 
-const canApplyDiscount = computed(() => props.role === 'owner' || props.role === 'manager')
+const canApplyDiscount = computed(() => {
+  const role = String(props.role || '').toLowerCase()
+  return role === 'owner' || role === 'manager' || role === 'administrator'
+})
 const prefsTick = ref(0)
 const onlinePrefs = computed(() => {
   void prefsTick.value
