@@ -56,6 +56,13 @@ body {
   color: var(--text-primary);
   transition: background-color 0.3s, color 0.3s;
 }
+*, *::before, *::after {
+  touch-action: manipulation;
+}
+html, body {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
 button, input, select { font: inherit; touch-action: manipulation; }
 button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 button, a, input, select, textarea, .stat-card, .product-card, .mobile-ui-card, .preset-chip {

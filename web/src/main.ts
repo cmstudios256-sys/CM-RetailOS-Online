@@ -6,6 +6,16 @@ import './style.css'
 
 applyOnlinePrefsToDom()
 
+if (typeof document !== 'undefined') {
+  document.addEventListener('dblclick', (event) => {
+    event.preventDefault()
+  }, { passive: false })
+
+  document.addEventListener('gesturestart', (event) => {
+    event.preventDefault()
+  }, { passive: false })
+}
+
 const app = createApp(App)
 app.directive('draggable', draggable)
 app.mount('#app')
