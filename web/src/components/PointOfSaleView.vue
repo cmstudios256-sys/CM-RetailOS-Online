@@ -22,7 +22,7 @@ import {
   X,
 } from '@lucide/vue'
 import type { IScannerControls } from '@zxing/browser'
-import { apiRequest, formatDate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Product, type Sale } from '../api'
+import { apiRequest, formatDate, formatMoney, formatQuantity, formatTime, readCachedGet, readOnlinePrefs, type Product, type Sale } from '../api'
 import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
 import { usePhoneBreakpoint, useTabletBreakpoint } from '../utils/breakpoints'
@@ -283,7 +283,17 @@ const tenderValid = computed(() => paymentMethod.value !== 'cash' || amountTende
 const cartUnits = computed(() => cart.value.reduce((sum, item) => sum + item.quantity, 0))
 
 async function loadProducts() {
-  loading.value = true
+  const cachedProducts = readCachedGet<{ products: Product[] }>('/products')
+  const cachedSettings = readCachedGet<{ settings: ShopReceiptSettings }>('/settings')
+  if (cachedProducts) {
+    products.value = cachedProducts.products
+  }
+  if (cachedSettings?.settings) {
+    shopSettings.value = cachedSettings.settings
+  }
+
+  const hasWarmData = Boolean(cachedProducts || products.value.length > 0)
+  loading.value = !hasWarmData
   error.value = ''
   try {
     const [result, settingsResult] = await Promise.all([
@@ -295,7 +305,9 @@ async function loadProducts() {
       shopSettings.value = settingsResult.settings
     }
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : 'Products could not be loaded.'
+    if (!hasWarmData) {
+      error.value = reason instanceof Error ? reason.message : 'Products could not be loaded.'
+    }
   } finally {
     loading.value = false
   }

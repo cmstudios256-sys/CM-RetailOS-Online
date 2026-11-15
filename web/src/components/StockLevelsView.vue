@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Download, LayoutGrid, List, Search } from '@lucide/vue'
-import { apiRequest, formatMoney, formatQuantity, type Product } from '../api'
+import { apiRequest, formatMoney, formatQuantity, readCachedGet, type Product } from '../api'
 import { downloadCsv } from '../utils/reporting'
 import { useMobileOrTabletBreakpoint, usePhoneBreakpoint } from '../utils/breakpoints'
 import { useDelayedSkeleton } from '../utils/useDelayedSkeleton'
@@ -156,13 +156,21 @@ function exportStockLevels() {
 }
 
 async function load() {
-  loading.value = true
+  const cachedProducts = readCachedGet<{ products: Product[] }>('/products')
+  if (cachedProducts) {
+    products.value = cachedProducts.products
+  }
+
+  const hasWarmData = Boolean(cachedProducts || products.value.length > 0)
+  loading.value = !hasWarmData
   error.value = ''
   try {
     const result = await apiRequest<{ products: Product[] }>('/products')
     products.value = result.products
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : 'Stock levels could not be loaded.'
+    if (!hasWarmData) {
+      error.value = reason instanceof Error ? reason.message : 'Stock levels could not be loaded.'
+    }
   } finally {
     loading.value = false
     nextTick(updateStockGridColumns)

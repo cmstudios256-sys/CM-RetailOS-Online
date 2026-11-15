@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Calendar, Download, Eye, Printer, Search, Share2, X } from '@lucide/vue'
-import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
+import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readCachedGet, readOnlinePrefs, type Sale } from '../api'
 import AppDatePicker from './AppDatePicker.vue'
 import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
@@ -271,7 +271,17 @@ function printSingleReceipt(sale: Sale) {
 }
 
 async function load() {
-  loading.value = true
+  const cachedSales = readCachedGet<{ sales: Sale[] }>('/sales')
+  const cachedSettings = readCachedGet<{ settings: ReceiptSettings }>('/settings')
+  if (cachedSales) {
+    sales.value = cachedSales.sales
+  }
+  if (cachedSettings?.settings) {
+    settings.value = cachedSettings.settings
+  }
+
+  const hasWarmData = Boolean(cachedSales || sales.value.length > 0)
+  loading.value = !hasWarmData
   error.value = ''
   try {
     const [salesResult, settingsResult] = await Promise.all([
@@ -283,7 +293,9 @@ async function load() {
       settings.value = settingsResult.settings
     }
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : 'Receipts could not be loaded.'
+    if (!hasWarmData) {
+      error.value = reason instanceof Error ? reason.message : 'Receipts could not be loaded.'
+    }
   } finally {
     loading.value = false
   }

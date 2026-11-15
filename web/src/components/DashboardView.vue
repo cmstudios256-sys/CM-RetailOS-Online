@@ -8,7 +8,7 @@ import {
   Wallet,
   X,
 } from '@lucide/vue'
-import { apiRequest, formatAxisValue, formatQuantity, type Product } from '../api'
+import { apiRequest, formatAxisValue, formatQuantity, readCachedGet, type Product } from '../api'
 import { getThemeColors, hexToRgba } from '../utils/chartColors'
 import AppDatePicker from './AppDatePicker.vue'
 import DashboardSalesChart from './DashboardSalesChart.vue'
@@ -347,20 +347,34 @@ async function handleRestock() {
 }
 
 async function load() {
-  loading.value = true
+  const query = new URLSearchParams({ period: selectedPeriod.value })
+  if (reportDate.value) query.set('reportDate', reportDate.value)
+  if (topSellingDate.value) query.set('date', topSellingDate.value)
+  const dashboardPath = `/dashboard?${query.toString()}`
+
+  const cachedDashboard = readCachedGet<DashboardResponse>(dashboardPath)
+  const cachedProducts = readCachedGet<{ products: DashboardProduct[] }>('/products')
+  if (cachedDashboard) {
+    dashboard.value = cachedDashboard
+  }
+  if (cachedProducts) {
+    products.value = cachedProducts.products
+  }
+
+  const hasWarmData = Boolean(dashboard.value && products.value.length >= 0 && (cachedDashboard || cachedProducts))
+  loading.value = !hasWarmData
   error.value = ''
   try {
-    const query = new URLSearchParams({ period: selectedPeriod.value })
-    if (reportDate.value) query.set('reportDate', reportDate.value)
-    if (topSellingDate.value) query.set('date', topSellingDate.value)
     const [dashboardData, productResponse] = await Promise.all([
-      apiRequest<DashboardResponse>(`/dashboard?${query.toString()}`),
+      apiRequest<DashboardResponse>(dashboardPath),
       apiRequest<{ products: DashboardProduct[] }>('/products'),
     ])
     dashboard.value = dashboardData
     products.value = productResponse.products
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : 'Dashboard could not be loaded.'
+    if (!dashboard.value) {
+      error.value = reason instanceof Error ? reason.message : 'Dashboard could not be loaded.'
+    }
   } finally {
     loading.value = false
   }

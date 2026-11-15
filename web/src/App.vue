@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { ArrowRight, Eye, EyeOff, Lock, MapPin, Phone, Store, UserCheck } from '@lucide/vue'
-import { ApiError, apiRequest, applyOnlinePrefsToDom, clearSignedInUserLocalData, setApiMode, syncOnlinePrefsFromServer, type User } from './api'
+import { ApiError, apiRequest, applyOnlinePrefsToDom, clearApiSwrCache, clearSignedInUserLocalData, setApiMode, syncOnlinePrefsFromServer, type User } from './api'
 import { clearGuestDataAfterClaim } from './guestStore'
 import WorkspaceShell from './components/WorkspaceShell.vue'
 import { autoConnectSavedBluetoothPrinter } from './utils/bluetoothPrinter'
@@ -281,9 +281,13 @@ async function openWorkspace(): Promise<void> {
     setApiMode('cloud')
     const result = await apiRequest<{ user: User | null }>('/auth/session')
     if (!result.user) {
+      clearApiSwrCache()
       if (typeof localStorage !== 'undefined') localStorage.removeItem(PERSISTED_AUTH_USER_KEY)
       await openGuestWorkspace()
       return
+    }
+    if (cachedUser && cachedUser.id !== result.user.id) {
+      clearApiSwrCache()
     }
     guestMode.value = false
     demoMode.value = false
@@ -336,6 +340,7 @@ async function signOut(): Promise<void> {
     // ignore
   } finally {
     if (typeof localStorage !== 'undefined') localStorage.removeItem(PERSISTED_AUTH_USER_KEY)
+    clearApiSwrCache()
     clearSignedInUserLocalData()
     claimNotice.value = ''
     await openGuestWorkspace()

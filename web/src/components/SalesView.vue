@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { Calendar, Download, Eye, Printer, Search, Share2, X } from '@lucide/vue'
-import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
+import { apiRequest, formatDate, formatISODate, formatMoney, formatQuantity, formatTime, readCachedGet, readOnlinePrefs, type Sale } from '../api'
 import AppDatePicker from './AppDatePicker.vue'
 import MobileReceiptShare from './MobileReceiptShare.vue'
 import { isTouchDevice } from '../utils/device'
@@ -274,7 +274,17 @@ function printReceipt(sale: Sale) {
 }
 
 async function loadSales() {
-  loading.value = true
+  const cachedSales = readCachedGet<{ sales: Sale[] }>('/sales')
+  const cachedSettings = readCachedGet<{ settings: ShopReceiptSettings }>('/settings')
+  if (cachedSales) {
+    sales.value = cachedSales.sales
+  }
+  if (cachedSettings?.settings) {
+    shopSettings.value = cachedSettings.settings
+  }
+
+  const hasWarmData = Boolean(cachedSales || sales.value.length > 0)
+  loading.value = !hasWarmData
   error.value = ''
   try {
     const [result, settingsResult] = await Promise.all([
@@ -286,7 +296,9 @@ async function loadSales() {
       shopSettings.value = settingsResult.settings
     }
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : 'Sales history could not be loaded.'
+    if (!hasWarmData) {
+      error.value = reason instanceof Error ? reason.message : 'Sales history could not be loaded.'
+    }
   } finally {
     loading.value = false
   }

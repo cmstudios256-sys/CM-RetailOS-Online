@@ -12,6 +12,71 @@ export function setApiMode(mode: 'cloud' | 'guest'): void {
   apiMode = mode
 }
 
+const SWR_CACHE_PREFIX = 'cm_retailos_swr_v1:'
+const AUTH_USER_KEY = 'cm_retailos_auth_user_v1'
+const SWR_CACHEABLE_PREFIXES = ['/dashboard', '/products', '/categories', '/sales', '/settings', '/reports', '/audit-logs']
+
+function currentSwrScope(): string | null {
+  if (apiMode !== 'cloud' || typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(AUTH_USER_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { id?: string; shopId?: string }
+    if (!parsed?.id || parsed.id === 'guest') return null
+    return `${parsed.id}:${parsed.shopId || 'default'}`
+  } catch {
+    return null
+  }
+}
+
+function isSwrCacheablePath(path: string): boolean {
+  return SWR_CACHEABLE_PREFIXES.some(prefix => path === prefix || path.startsWith(`${prefix}?`) || path.startsWith(`${prefix}/`))
+}
+
+export function clearApiSwrCache(): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith(SWR_CACHE_PREFIX)) keys.push(k)
+    }
+    keys.forEach(k => localStorage.removeItem(k))
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function readCachedGet<T>(path: string): T | null {
+  const scope = currentSwrScope()
+  if (!scope || !isSwrCacheablePath(path)) return null
+  try {
+    const raw = localStorage.getItem(`${SWR_CACHE_PREFIX}${scope}:${path}`)
+    if (!raw) return null
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
+function writeCachedGet(path: string, data: unknown): void {
+  const scope = currentSwrScope()
+  if (!scope || !isSwrCacheablePath(path)) return
+  try {
+    const serialized = JSON.stringify(data)
+    if (serialized.length > 1_500_000) return
+    const key = `${SWR_CACHE_PREFIX}${scope}:${path}`
+    try {
+      localStorage.setItem(key, serialized)
+    } catch {
+      clearApiSwrCache()
+      localStorage.setItem(key, serialized)
+    }
+  } catch {
+    // ignore quota or serialization errors
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
   options: { method?: string; body?: unknown } = {},
@@ -28,10 +93,12 @@ export async function apiRequest<T>(
     }
   }
 
+  const method = (options.method ?? (options.body === undefined ? 'GET' : 'POST')).toUpperCase()
+
   let response: Response
   try {
     response = await fetch(`/api/v1${path}`, {
-      method: options.method ?? (options.body === undefined ? 'GET' : 'POST'),
+      method,
       credentials: 'same-origin',
       headers: options.body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
@@ -55,6 +122,11 @@ export async function apiRequest<T>(
         ? 'CM RetailOS Online is temporarily unavailable. You can keep working locally and retry when the connection is restored.'
         : 'The request could not be completed.')
     throw new ApiError(message, response.status, payload?.error?.code ?? 'request_failed')
+  }
+  if (method === 'GET' && payload !== null) {
+    writeCachedGet(path, payload)
+  } else if (method !== 'GET') {
+    clearApiSwrCache()
   }
   return payload as T
 }

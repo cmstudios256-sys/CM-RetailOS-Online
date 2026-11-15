@@ -29,6 +29,7 @@ import {
   apiRequest,
   formatMoney,
   formatQuantity,
+  readCachedGet,
   type Product,
   type ProductInput,
 } from '../api'
@@ -612,7 +613,17 @@ function closeDropdown(event: MouseEvent) {
 }
 
 async function loadProducts() {
-  loading.value = true
+  const cachedProducts = readCachedGet<{ products: Product[] }>('/products')
+  const cachedCategories = readCachedGet<{ categories: string[] }>('/categories')
+  if (cachedProducts) {
+    products.value = cachedProducts.products
+  }
+  if (cachedCategories) {
+    categoryNames.value = cachedCategories.categories
+  }
+
+  const hasWarmData = Boolean(cachedProducts || products.value.length > 0)
+  loading.value = !hasWarmData
   error.value = ''
   try {
     const [productResponse, categoryResponse] = await Promise.all([
@@ -623,7 +634,9 @@ async function loadProducts() {
     categoryNames.value = categoryResponse.categories
     checkTargetStockProduct()
   } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : 'Products could not be loaded.'
+    if (!hasWarmData) {
+      error.value = reason instanceof Error ? reason.message : 'Products could not be loaded.'
+    }
   } finally {
     loading.value = false
   }

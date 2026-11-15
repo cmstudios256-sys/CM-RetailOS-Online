@@ -767,6 +767,7 @@ onUnmounted(() => {
 
       <main class="workspace-content">
         <Transition name="view-fade" mode="out-in">
+          <KeepAlive :max="6">
           <section v-if="isMobileLockedStockLevels" key="mobile-stock-locked" class="desktop-only-state" role="status" aria-live="polite">
             <div class="desktop-only-icon"><Boxes :size="30" /></div>
             <h2>Stock Levels</h2>
@@ -798,6 +799,7 @@ onUnmounted(() => {
           <BusinessIntelligenceView v-else-if="activePage === 'business-intelligence'" :key="`business-intelligence-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" />
           <AuditLogsView v-else-if="activePage === 'audit-logs'" :key="`audit-logs-${reconnectRefreshKey}`" />
           <SettingsView v-else-if="activePage === 'settings'" :key="`settings-${reconnectRefreshKey}`" :shop-name="user.shopName" :currency="user.currency" :role="user.role" :user-id="user.id" :user-name="user.fullName" :user-email="user.email" :user-username="user.username" @user-updated="emit('user-updated', $event)" />
+          </KeepAlive>
         </Transition>
       </main>
 
