@@ -1081,6 +1081,11 @@ func (s *Server) listTeamMembers(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "request_failed", "Team accounts could not be loaded.")
 			return
 		}
+		if strings.HasSuffix(member.Email, "@staff.cmretailos.local") {
+			if plusIdx := strings.Index(member.Email, "+"); plusIdx > 0 {
+				member.Email = member.Email[:plusIdx]
+			}
+		}
 		members = append(members, member)
 	}
 	if err := rows.Err(); err != nil {
@@ -1153,14 +1158,30 @@ func (s *Server) createTeamMember(w http.ResponseWriter, r *http.Request) {
 	}
 	claims := claimsFrom(r)
 	var member teamMember
-	err := s.db.QueryRowContext(r.Context(), `
-		INSERT INTO users (shop_id, full_name, email, password_hash, role)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id::text, full_name, email, role, active, created_at`,
-		claims.ShopID, input.FullName, input.Email, passwordHash, input.Role,
-	).Scan(&member.ID, &member.FullName, &member.Email, &member.Role, &member.Active, &member.CreatedAt)
+	isUsernameOnly := !strings.Contains(input.Email, "@")
+	var err error
+	if isUsernameOnly {
+		internalEmail := input.Email + "+" + claims.ShopID + "@staff.cmretailos.local"
+		err = s.db.QueryRowContext(r.Context(), `
+			INSERT INTO users (shop_id, full_name, username, email, password_hash, role)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id::text, full_name, COALESCE(NULLIF(username, ''), email), role, active, created_at`,
+			claims.ShopID, input.FullName, input.Email, internalEmail, passwordHash, input.Role,
+		).Scan(&member.ID, &member.FullName, &member.Email, &member.Role, &member.Active, &member.CreatedAt)
+	} else {
+		err = s.db.QueryRowContext(r.Context(), `
+			INSERT INTO users (shop_id, full_name, email, password_hash, role)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id::text, full_name, email, role, active, created_at`,
+			claims.ShopID, input.FullName, input.Email, passwordHash, input.Role,
+		).Scan(&member.ID, &member.FullName, &member.Email, &member.Role, &member.Active, &member.CreatedAt)
+	}
 	if err != nil {
 		if isUniqueViolation(err) {
+			if isUsernameOnly {
+				writeError(w, http.StatusConflict, "username_in_use", "A staff account with that username already exists in this shop.")
+				return
+			}
 			writeError(w, http.StatusConflict, "email_in_use", "An account with that email already exists.")
 			return
 		}

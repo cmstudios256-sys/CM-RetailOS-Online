@@ -333,6 +333,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	ShopID   string `json:"shopId,omitempty"`
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
@@ -341,27 +342,79 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
+	input.ShopID = strings.TrimSpace(input.ShopID)
 	var user identity
 	var passwordHash []byte
 	var emailVerified bool
 	var googleSubject sql.NullString
 	var googlePictureURL sql.NullString
 	var cloudGmail sql.NullString
-	err := s.db.QueryRowContext(r.Context(), `
-		SELECT u.id::text, u.shop_id::text, u.full_name, COALESCE(u.username, ''), u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
-		       u.google_picture_url,
-		       u.google_subject, sh.preferences->>'cloud_gmail'
-		FROM users u
-		JOIN shops sh ON sh.id = u.shop_id
-		WHERE (
-			lower(u.email) = lower($1)
-			OR lower(COALESCE(u.username, '')) = lower($1)
-			OR lower(split_part(u.email, '@', 1)) = lower($1)
-		) AND u.active = TRUE`,
-		input.Email,
-	).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Username, &user.Email, &user.Role, &passwordHash, &emailVerified, &user.ShopName, &user.Currency, &googlePictureURL, &googleSubject, &cloudGmail)
+	var err error
+	if input.ShopID != "" {
+		err = s.db.QueryRowContext(r.Context(), `
+			SELECT u.id::text, u.shop_id::text, u.full_name, COALESCE(u.username, ''), u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
+			       u.google_picture_url,
+			       u.google_subject, sh.preferences->>'cloud_gmail'
+			FROM users u
+			JOIN shops sh ON sh.id = u.shop_id
+			WHERE u.shop_id = $2
+			  AND (
+				lower(u.email) = lower($1)
+				OR lower(COALESCE(u.username, '')) = lower($1)
+				OR lower(split_part(u.email, '@', 1)) = lower($1)
+			  ) AND u.active = TRUE
+			LIMIT 1`,
+			input.Email, input.ShopID,
+		).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Username, &user.Email, &user.Role, &passwordHash, &emailVerified, &user.ShopName, &user.Currency, &googlePictureURL, &googleSubject, &cloudGmail)
+	} else {
+		err = s.db.QueryRowContext(r.Context(), `
+			SELECT u.id::text, u.shop_id::text, u.full_name, COALESCE(u.username, ''), u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
+			       u.google_picture_url,
+			       u.google_subject, sh.preferences->>'cloud_gmail'
+			FROM users u
+			JOIN shops sh ON sh.id = u.shop_id
+			WHERE (
+				lower(u.email) = lower($1)
+				OR lower(COALESCE(u.username, '')) = lower($1)
+				OR lower(split_part(u.email, '@', 1)) = lower($1)
+			) AND u.active = TRUE`,
+			input.Email,
+		).Scan(&user.UserID, &user.ShopID, &user.FullName, &user.Username, &user.Email, &user.Role, &passwordHash, &emailVerified, &user.ShopName, &user.Currency, &googlePictureURL, &googleSubject, &cloudGmail)
+	}
 	if err != nil {
-		if input.Email == "admin" || input.Email == "owner" {
+		if input.ShopID != "" {
+			if input.Email == "admin" || input.Email == "owner" {
+				var ownerUser identity
+				var oHash []byte
+				var oVerified bool
+				var oShopName, oCurrency string
+				var oGooglePic, oGoogleSub, oCloudGmail sql.NullString
+				oErr := s.db.QueryRowContext(r.Context(), `
+					SELECT u.id::text, u.shop_id::text, u.full_name, COALESCE(u.username, ''), u.email, u.role, u.password_hash, u.email_verified, sh.name, sh.currency,
+					       u.google_picture_url, u.google_subject, sh.preferences->>'cloud_gmail'
+					FROM users u
+					JOIN shops sh ON sh.id = u.shop_id
+					WHERE u.shop_id = $1 AND u.role = 'owner' AND u.active = TRUE
+					ORDER BY u.created_at ASC LIMIT 1`,
+					input.ShopID,
+				).Scan(&ownerUser.UserID, &ownerUser.ShopID, &ownerUser.FullName, &ownerUser.Username, &ownerUser.Email, &ownerUser.Role, &oHash, &oVerified, &oShopName, &oCurrency, &oGooglePic, &oGoogleSub, &oCloudGmail)
+				if oErr == nil {
+					user = ownerUser
+					user.ShopName = oShopName
+					user.Currency = oCurrency
+					passwordHash = oHash
+					emailVerified = oVerified
+					googlePictureURL = oGooglePic
+					googleSubject = oGoogleSub
+					cloudGmail = oCloudGmail
+					err = nil
+				}
+			}
+			if err != nil {
+				writeError(w, http.StatusUnauthorized, "invalid_credentials", "No active staff account with that username exists in this shop.")
+				return
+			}
+		} else if input.Email == "admin" || input.Email == "owner" {
 			var ownerUser identity
 			var oHash []byte
 			var oVerified bool

@@ -351,11 +351,18 @@ async function signOut(): Promise<void> {
 }
 
 async function handleStaffLoginSuccess(signedInUser: any): Promise<void> {
+  const prevShopId = user.value?.shopId
   guestMode.value = false
   demoMode.value = false
   user.value = signedInUser
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(PERSISTED_AUTH_USER_KEY, JSON.stringify(signedInUser))
+    if (signedInUser?.shopId && signedInUser.shopId !== 'guest') {
+      localStorage.setItem('cm_retailos_terminal_shop_id_v1', signedInUser.shopId)
+    }
+  }
+  if (prevShopId && prevShopId !== signedInUser?.shopId) {
+    clearApiSwrCache()
   }
   clearSignedInUserLocalData()
   await syncOnlinePrefsFromServer(signedInUser.id).catch(() => {})

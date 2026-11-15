@@ -359,11 +359,19 @@ async function handleStaffLogin() {
   staffLoginError.value = ''
   try {
     setApiMode('cloud')
+    const currentShopId =
+      props.user?.shopId && props.user.shopId !== 'guest'
+        ? props.user.shopId
+        : (typeof localStorage !== 'undefined' ? localStorage.getItem('cm_retailos_terminal_shop_id_v1') || '' : '')
+    if (currentShopId && typeof localStorage !== 'undefined') {
+      localStorage.setItem('cm_retailos_terminal_shop_id_v1', currentShopId)
+    }
     const result = await apiRequest<{ user: User }>('/auth/login', {
       method: 'POST',
       body: {
         email: uname,
         password: terminalLoginRole.value === 'Admin' ? staffLoginPassword.value : '',
+        ...(currentShopId ? { shopId: currentShopId } : {}),
       },
     })
     staffLoginModalOpen.value = false
