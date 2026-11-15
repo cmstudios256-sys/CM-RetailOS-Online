@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { MessageCircle, Share2, X, Printer, Bluetooth } from '@lucide/vue'
-import { formatDate, formatMoney, formatQuantity, formatTime, type Sale } from '../api'
+import { formatDate, formatMoney, formatQuantity, formatTime, readOnlinePrefs, type Sale } from '../api'
 import { receiptNumber } from '../utils/reporting'
 import {
   getDefaultBluetoothPrinter,
@@ -45,11 +45,54 @@ const receiptText = computed(() => {
   ].join('\n')
 })
 
-const normalizedPhone = computed(() => phone.value.replace(/\D/g, ''))
-const validPhone = computed(() => normalizedPhone.value.length >= 8 && normalizedPhone.value.length <= 15)
+const DIAL_CODE_BY_COUNTRY: Record<string, string> = {
+  uganda: '256',
+  kenya: '254',
+  tanzania: '255',
+  rwanda: '250',
+  nigeria: '234',
+  ghana: '233',
+  'south africa': '27',
+  'united kingdom': '44',
+  'united states': '1',
+}
+
+const DIAL_CODE_BY_CURRENCY: Record<string, string> = {
+  UGX: '256',
+  KES: '254',
+  TZS: '255',
+  RWF: '250',
+  NGN: '234',
+  GHS: '233',
+  ZAR: '27',
+  GBP: '44',
+  USD: '1',
+}
+
+const defaultDialCode = computed(() => {
+  const country = String(readOnlinePrefs().country || '').trim().toLowerCase()
+  if (country && DIAL_CODE_BY_COUNTRY[country]) return DIAL_CODE_BY_COUNTRY[country]
+  const cur = String(props.currency || '').trim().toUpperCase()
+  return DIAL_CODE_BY_CURRENCY[cur] || '256'
+})
+
+const normalizedPhone = computed(() => {
+  let digits = phone.value.replace(/\D/g, '')
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2)
+  } else if (digits.startsWith('0') && digits.length >= 9 && digits.length <= 11) {
+    digits = `${defaultDialCode.value}${digits.slice(1)}`
+  }
+  return digits
+})
+const validPhone = computed(() =>
+  !normalizedPhone.value.startsWith('0') &&
+  normalizedPhone.value.length >= 9 &&
+  normalizedPhone.value.length <= 15,
+)
 const whatsappUrl = computed(() =>
   validPhone.value
-    ? `https://wa.me/${normalizedPhone.value}?text=${encodeURIComponent(receiptText.value)}`
+    ? `https://api.whatsapp.com/send?phone=${normalizedPhone.value}&text=${encodeURIComponent(receiptText.value)}`
     : '',
 )
 const canUseNativeShare = computed(() =>
@@ -89,12 +132,20 @@ async function printWithBluetooth() {
 
 function openWhatsApp() {
   if (!validPhone.value || !whatsappUrl.value) {
-    error.value = 'Enter a valid phone number with its country code.'
+    error.value = 'Enter a valid phone number with its country code (e.g. 256700000000).'
     return
   }
-  const shareWindow = window.open(whatsappUrl.value, '_blank')
-  if (shareWindow) shareWindow.opener = null
-  else window.location.assign(whatsappUrl.value)
+  const isStandalonePwa =
+    typeof window !== 'undefined' &&
+    ((window.navigator as Navigator & { standalone?: boolean }).standalone === true ||
+      window.matchMedia?.('(display-mode: standalone)').matches)
+  if (isStandalonePwa) {
+    window.location.assign(whatsappUrl.value)
+  } else {
+    const shareWindow = window.open(whatsappUrl.value, '_blank')
+    if (shareWindow) shareWindow.opener = null
+    else window.location.assign(whatsappUrl.value)
+  }
   emit('close')
 }
 
