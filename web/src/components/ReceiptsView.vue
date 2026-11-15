@@ -216,8 +216,10 @@ function printSingleReceipt(sale: Sale) {
   const headerText = prefs.receiptsSettings?.headerText ?? settings.value?.receiptHeader ?? ''
   const footerText = prefs.receiptsSettings?.footerText || settings.value?.receiptFooter || 'Thank you for shopping with us!'
   const receiptMaxWidth = prefs.receiptsSettings?.paperWidth === '58mm' ? '220px' : '300px'
+  const logoMaxWidth = prefs.receiptsSettings?.paperWidth === '58mm' ? '140px' : '180px'
+  const logoMaxHeight = prefs.receiptsSettings?.paperWidth === '58mm' ? '46px' : '56px'
   const logoHtml = showLogo && prefs.logo
-    ? `<div style="display:flex;justify-content:center;margin-bottom:8px;"><img src="${escapeHtml(prefs.logo)}" style="width:48px;height:48px;object-fit:contain;filter:brightness(0);" /></div>`
+    ? `<div style="display:flex;justify-content:center;margin-bottom:8px;"><img src="${escapeHtml(prefs.logo)}" style="width:auto;max-width:${logoMaxWidth};height:auto;max-height:${logoMaxHeight};object-fit:contain;filter:brightness(0);" /></div>`
     : ''
   const rows = sale.items.map(item => `
     <div style="margin-bottom: 6px;">
@@ -558,7 +560,18 @@ onUnmounted(() => {
                 v-if="onlinePrefs.receiptsSettings?.showLogo !== false && onlinePrefs.logo"
                 style="display: flex; justify-content: center; margin-bottom: 8px;"
               >
-                <img :src="onlinePrefs.logo" alt="" style="width: 48px; height: 48px; object-fit: contain; filter: brightness(0);" />
+                <img
+                  :src="onlinePrefs.logo"
+                  alt=""
+                  :style="{
+                    width: 'auto',
+                    maxWidth: onlinePrefs.receiptsSettings?.paperWidth === '58mm' ? '140px' : '180px',
+                    height: 'auto',
+                    maxHeight: onlinePrefs.receiptsSettings?.paperWidth === '58mm' ? '46px' : '56px',
+                    objectFit: 'contain',
+                    filter: 'brightness(0)',
+                  }"
+                />
               </div>
               <h2 class="store-name">{{ settings?.shopName || shopName }}</h2>
               <p v-if="settings?.address" class="store-info">{{ settings.address }}</p>

@@ -296,9 +296,12 @@ async function openWorkspace(): Promise<void> {
       localStorage.setItem(PERSISTED_AUTH_USER_KEY, JSON.stringify(result.user))
     }
 
-    // Clear out local guest data so the signed-in user receives a completely fresh workspace
+    // Clear out local guest/prior-user data only when switching accounts or signing in fresh,
+    // so reloading the same signed-in user keeps cached prefs (including store logo) intact.
     clearGuestDataAfterClaim()
-    clearSignedInUserLocalData()
+    if (!cachedUser || cachedUser.id !== result.user.id) {
+      clearSignedInUserLocalData()
+    }
     await syncOnlinePrefsFromServer(result.user.id).catch(() => {})
 
     // Clean up any residual OAuth query params

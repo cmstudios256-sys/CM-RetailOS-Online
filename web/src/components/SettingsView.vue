@@ -423,6 +423,7 @@ watch(isMobile, (mobile) => {
 }, { immediate: true })
 
 const logoInput = ref<HTMLInputElement | null>(null)
+let logoEditedLocally = false
 
 const handleLogoUpload = (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -435,9 +436,9 @@ const handleLogoUpload = (event: Event) => {
     if (!dataUrl) return
 
     const img = new Image()
-    img.onload = () => {
+    img.onload = async () => {
       const canvas = document.createElement('canvas')
-      const maxSize = 300
+      const maxSize = 400
       let width = img.width
       let height = img.height
 
@@ -453,15 +454,21 @@ const handleLogoUpload = (event: Event) => {
         }
       }
 
-      canvas.width = width
-      canvas.height = height
+      canvas.width = Math.max(1, width)
+      canvas.height = Math.max(1, height)
       const ctx = canvas.getContext('2d')
       if (ctx) {
-        ctx.drawImage(img, 0, 0, width, height)
-        const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const supportsAlpha = ['image/png', 'image/webp', 'image/svg+xml', 'image/gif'].includes(file.type)
+        const mimeType = supportsAlpha ? 'image/png' : 'image/jpeg'
+        logoEditedLocally = true
         appSettings.value.shopDetails.logo = canvas.toDataURL(mimeType, 0.9)
-        persistLocalPrefs()
-        showToast('success', 'Logo updated successfully.')
+        const synced = await persistLocalPrefs()
+        if (synced) {
+          showToast('success', 'Logo updated successfully.')
+        } else {
+          showToast('error', 'Logo saved locally, but cloud sync failed. Check your connection and try again.')
+        }
       }
       if (target) target.value = ''
     }
@@ -568,7 +575,7 @@ function loadLocalPrefs() {
   }
 }
 
-async function persistLocalPrefs(): Promise<void> {
+async function persistLocalPrefs(): Promise<boolean> {
   const prefsPayload = {
     owner: appSettings.value.shopDetails.owner,
     country: selectedCountry.value,
@@ -593,12 +600,19 @@ async function persistLocalPrefs(): Promise<void> {
   } catch {
     // ignore quota errors
   }
-  if (props.role === 'owner' || props.role === 'manager') {
-    await apiRequest('/settings/preferences', {
-      method: 'PUT',
-      body: { preferences: prefsPayload },
-    }).catch(() => undefined)
+  const normalizedRole = String(props.role || '').toLowerCase()
+  if (normalizedRole === 'owner' || normalizedRole === 'manager' || normalizedRole === 'administrator') {
+    try {
+      await apiRequest('/settings/preferences', {
+        method: 'PUT',
+        body: { preferences: prefsPayload },
+      })
+      return true
+    } catch {
+      return false
+    }
   }
+  return true
 }
 
 watch(selectedCountry, (country) => {
@@ -623,9 +637,12 @@ watch(() => props.currency, (newCur) => {
 
 async function loadSettings() {
   settingsLoading.value = true
+  logoEditedLocally = false
   loadLocalPrefs()
   await syncOnlinePrefsFromServer(props.userId)
-  loadLocalPrefs()
+  if (!logoEditedLocally) {
+    loadLocalPrefs()
+  }
   appSettings.value.shopDetails.owner = props.userName || appSettings.value.shopDetails.owner
   loadStaffPermsMap()
   try {
@@ -1426,6 +1443,9 @@ async function handleToggleUserStatus(id: string, name: string, currentStatus: b
 
 function handleExternalPrefsUpdate() {
   const currentPrefs = readOnlinePrefs()
+  if (!logoEditedLocally && currentPrefs.logo !== undefined) {
+    appSettings.value.shopDetails.logo = currentPrefs.logo
+  }
   if (currentPrefs.applicationSettings?.themeMode) {
     appSettings.value.applicationSettings.themeMode = currentPrefs.applicationSettings.themeMode
   } else if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light') {
@@ -1559,7 +1579,7 @@ onUnmounted(() => {
                       type="button"
                       class="btn btn-outline remove-logo-btn"
                       style="border-color: #ef4444; color: #ef4444;"
-                      @click="appSettings.shopDetails.logo = ''; persistLocalPrefs(); showToast('success', 'Logo removed.')"
+                      @click="async () => { logoEditedLocally = true; appSettings.shopDetails.logo = ''; const synced = await persistLocalPrefs(); showToast(synced ? 'success' : 'error', synced ? 'Logo removed.' : 'Logo removed locally, but cloud sync failed.') }"
                     >
                       <X :size="14" /> Remove
                     </button>
@@ -2030,12 +2050,14 @@ onUnmounted(() => {
                       <div
                         class="r-logo"
                         v-if="appSettings.receiptsSettings.showLogo"
-                        :style="`display: flex; align-items: center; justify-content: center; font-weight: 700; color: #1e293b; font-size: 0.9rem; letter-spacing: 0.05em; background-color: ${appSettings.shopDetails.logo ? 'transparent' : '#e2e8f0'}; width: 48px; height: 48px; border-radius: 8px; margin: 0 auto 12px auto; overflow: hidden;`"
+                        :style="appSettings.shopDetails.logo
+                          ? `display: flex; align-items: center; justify-content: center; width: auto; max-width: ${selectedPaperWidth === '58mm' ? '140px' : '180px'}; height: auto; max-height: ${selectedPaperWidth === '58mm' ? '46px' : '56px'}; margin: 0 auto 12px auto; overflow: hidden;`
+                          : 'display: flex; align-items: center; justify-content: center; font-weight: 700; color: #1e293b; font-size: 0.9rem; letter-spacing: 0.05em; background-color: #e2e8f0; width: 48px; height: 48px; border-radius: 8px; margin: 0 auto 12px auto; overflow: hidden;'"
                       >
                         <img
                           v-if="appSettings.shopDetails.logo"
                           :src="appSettings.shopDetails.logo"
-                          style="width: 100%; height: 100%; object-fit: contain; filter: brightness(0);"
+                          :style="`width: auto; max-width: 100%; height: auto; max-height: ${selectedPaperWidth === '58mm' ? '46px' : '56px'}; object-fit: contain; filter: brightness(0);`"
                         />
                         <span v-else>LOGO</span>
                       </div>
