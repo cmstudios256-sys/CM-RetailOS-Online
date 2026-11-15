@@ -31,6 +31,7 @@ const (
 	initialMigrationVersion  = 1
 	demoFlagMigrationVersion = 2
 	usernameMigrationVersion = 3
+	shopLogoMigrationVersion = 4
 )
 
 //go:embed migrations/001_initial.sql
@@ -41,6 +42,9 @@ var demoFlagMigration string
 
 //go:embed migrations/003_user_username.sql
 var usernameMigration string
+
+//go:embed migrations/004_shop_logo.sql
+var shopLogoMigration string
 
 type Config struct {
 	JWTSecret          []byte
@@ -287,6 +291,7 @@ func (s *Server) Migrate(ctx context.Context) error {
 		{initialMigrationVersion, "initial", initialMigration},
 		{demoFlagMigrationVersion, "demo-shop", demoFlagMigration},
 		{usernameMigrationVersion, "user-username", usernameMigration},
+		{shopLogoMigrationVersion, "shop-logo", shopLogoMigration},
 	}
 	for _, m := range migrations {
 		var applied bool
