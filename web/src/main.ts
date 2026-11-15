@@ -7,13 +7,23 @@ import './style.css'
 applyOnlinePrefsToDom()
 
 if (typeof document !== 'undefined') {
-  document.addEventListener('dblclick', (event) => {
+  const preventEvent = (event: Event) => {
     event.preventDefault()
-  }, { passive: false })
+  }
 
-  document.addEventListener('gesturestart', (event) => {
-    event.preventDefault()
-  }, { passive: false })
+  document.addEventListener('dblclick', preventEvent, { passive: false })
+  document.addEventListener('gesturestart', preventEvent, { passive: false })
+  document.addEventListener('gesturechange', preventEvent, { passive: false })
+  document.addEventListener('gestureend', preventEvent, { passive: false })
+
+  // Prevent multi-touch pinch zoom on iPadOS/Android tablets and phones
+  const preventPinchZoom = (event: TouchEvent) => {
+    if (event.touches.length > 1) {
+      event.preventDefault()
+    }
+  }
+  document.addEventListener('touchstart', preventPinchZoom, { passive: false })
+  document.addEventListener('touchmove', preventPinchZoom, { passive: false })
 }
 
 const app = createApp(App)
